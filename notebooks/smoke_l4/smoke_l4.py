@@ -134,26 +134,53 @@ def model_path():
     return dest
 
 
-def start_server(tp, gpus, port, tag):
-    env = dict(os.environ, CUDA_VISIBLE_DEVICES=gpus, VLLM_NO_USAGE_STATS='1',
-               VLLM_WORKER_MULTIPROC_METHOD='spawn', TRANSFORMERS_OFFLINE='1',
-               PYTORCH_CUDA_ALLOC_CONF='expandable_segments:True')
-    log = open(f'/kaggle/working/vllm_{tag}.log', 'w')
-    cmd = [sys.executable, '-m', 'vllm.entrypoints.openai.api_server', '--model', str(MODEL),
-           '--host', '127.0.0.1', '--port', str(port), '--tensor-parallel-size', str(tp),
-           *OFFICIAL_FLAGS]
-    proc = subprocess.Popen(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
+SERVED = {}   # port -> served model id
+
+
+def start_server(tp, gpus, port, tag, extra=()):
+    """Official adk_submission.VllmServer with the getting-started notebook's VllmConfig."""
+    os.environ.update(CUDA_VISIBLE_DEVICES=gpus, VLLM_NO_USAGE_STATS='1',
+                      VLLM_WORKER_MULTIPROC_METHOD='spawn', TRANSFORMERS_OFFLINE='1',
+                      VLLM_ENGINE_READY_TIMEOUT_S='1200',
+                      VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS='1', NCCL_DEBUG='WARN',
+                      PYTORCH_CUDA_ALLOC_CONF='expandable_segments:True')
+    from adk_submission import VllmConfig, VllmServer
+    cfg = VllmConfig(model=str(MODEL), port=port, host='127.0.0.1', tool_call_parser='gemma4',
+                     reasoning_parser='gemma4', max_model_len=32768, dtype='bfloat16',
+                     gpu_memory_utilization=0.90, enable_auto_tool_choice=True,
+                     enable_lora=False, scheduler_reserve_full_isl=False,
+                     tensor_parallel_size=tp, startup_timeout=60 * 20, extra_args=tuple(extra))
     t0 = time.time()
-    while time.time() - t0 < 1500:
-        if proc.poll() is not None:
-            raise RuntimeError(f'vLLM exited: see vllm_{tag}.log\n' +
-                               Path(f'/kaggle/working/vllm_{tag}.log').read_text()[-3000:])
+    srv = VllmServer(cfg)
+    box = {}
+
+    def run():
         try:
-            urllib.request.urlopen(f'http://127.0.0.1:{port}/v1/models', timeout=5)
-            return proc, round(time.time() - t0, 1), cmd
-        except Exception:
-            time.sleep(5)
-    raise TimeoutError('vLLM did not become ready')
+            srv.start()
+            box['ok'] = True
+        except Exception as e:
+            box['err'] = e
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
+    dead = ('EngineCore failed to start', 'CUDA out of memory')
+    while th.is_alive():
+        th.join(10)
+        log = getattr(srv, 'log_path', None)
+        if log and Path(log).exists():
+            shutil.copyfile(log, f'/kaggle/working/vllm_{tag}.log')
+            text = Path(log).read_text(errors='replace')
+            if any(d in text for d in dead):
+                try:
+                    srv.stop()
+                except Exception:
+                    pass
+                time.sleep(15)
+                raise RuntimeError('engine failed: ' + text[-1500:])
+    if 'err' in box:
+        raise box['err']
+    with urllib.request.urlopen(f'http://127.0.0.1:{port}/v1/models', timeout=10) as r:
+        SERVED[port] = json.loads(r.read())['data'][0]['id']
+    return srv, round(time.time() - t0, 1), list(extra)
 
 
 def kv_info(tag):
@@ -165,7 +192,7 @@ def kv_info(tag):
 
 def chat(port, body, timeout=900):
     req = urllib.request.Request(f'http://127.0.0.1:{port}/v1/chat/completions',
-                                 data=json.dumps({'model': 'gemma', **body}).encode(),
+                                 data=json.dumps({'model': SERVED.get(port, 'gemma'), **body}).encode(),
                                  headers={'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -281,7 +308,7 @@ def episode(port):
     ws_dir = render(t, 'N', base / 'ws')
     ws = Workspace(ws_dir, base / 'tmp')
     ws.init_baseline()
-    client = OpenAICompatClient(f'http://127.0.0.1:{port}/v1', 'gemma', timeout=900)
+    client = OpenAICompatClient(f'http://127.0.0.1:{port}/v1', SERVED[port], timeout=900)
     s = run_episode(task_for(meta), ws, client, C.Budget(tool_calls=30, time_minutes=15),
                     base / 'episode_log.jsonl',
                     {**SAMPLING, 'seed': 11, 'enable_thinking': True})
@@ -297,7 +324,7 @@ def wp7(port):
     sys.path.insert(0, str(code))
     from bank import manipulation_check as mc
     from harness.loop import OpenAICompatClient
-    client = OpenAICompatClient(f'http://127.0.0.1:{port}/v1', 'gemma', timeout=900)
+    client = OpenAICompatClient(f'http://127.0.0.1:{port}/v1', SERVED[port], timeout=900)
     log = Path('/kaggle/working/wp7_provisional.jsonl')
     out = []
     for t in sorted((code / 'bank' / 'templates').iterdir()):
@@ -338,13 +365,12 @@ def model_hashes():
 
 def stop(procs):
     for p in procs:
-        p.terminate()
-    for p in procs:
         try:
-            p.wait(60)
+            p.stop()
         except Exception:
-            p.kill()
-    time.sleep(10)
+            pass
+    SERVED.clear()
+    time.sleep(15)
 
 
 def run_config(tag, layout):
@@ -356,21 +382,24 @@ def run_config(tag, layout):
         loads = []
         threads, errs = [], []
 
-        def one(tp, gpus, port):
-            try:
-                p, secs, cmd = start_server(tp, gpus, port, f'{tag}_{port}')
-                procs.append(p); loads.append(secs)
-            except Exception as e:
-                errs.append(str(e))
-        for args in layout:
-            th = threading.Thread(target=one, args=args); th.start(); threads.append(th)
-        for th in threads:
-            th.join()
-        if errs:
-            raise RuntimeError(errs[0][-3000:])
-        return {'load_seconds': loads, 'nvidia_smi': sh('nvidia-smi --query-gpu=memory.used --format=csv'),
-                'kv': {port: kv_info(f'{tag}_{port}') for _, _, port in layout},
-                'flags': OFFICIAL_FLAGS}
+        used_extra = {}
+        for tp, gpus, port in layout:   # sequential: os.environ carries CUDA_VISIBLE_DEVICES
+            last = None
+            for extra in ((), ('--max-num-seqs', '32')):
+                try:
+                    p, secs, ex = start_server(tp, gpus, port, f'{tag}_{port}', extra)
+                    procs.append(p); loads.append(secs); used_extra[port] = ex
+                    break
+                except Exception as e:
+                    last = f'{type(e).__name__}: {e}'
+                    errs.append({'port': port, 'extra': list(extra), 'error': last[-1500:],
+                                 'log_tail': kv_info(f'{tag}_{port}')})
+            else:
+                raise RuntimeError(json.dumps(errs)[-4000:])
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+        return {'load_seconds': loads, 'extra_args': used_extra, 'failed_attempts': errs,
+                'served': SERVED, 'nvidia_smi': sh('nvidia-smi --query-gpu=memory.used --format=csv'),
+                'kv': {port: kv_info(f'{tag}_{port}') for _, _, port in layout}}
     if not up()['ok']:
         stop(procs)
         return
