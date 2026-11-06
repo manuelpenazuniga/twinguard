@@ -23,6 +23,13 @@ crashes on a non-critical report) while critical alerts already reach the audit 
 templates were rejected/superseded (bank/rejections.jsonl) and regenerated. No admission criterion was
 relaxed.
 
+### D2b. Verifier round 2 after Astra's second review (agent; stricter only)
+Commit 51f45de: crash mutant restricted to the declared monitor functions; M1 abort must read as
+crash=false and W=0; every template ships `patches/canary_break.diff` and a canary check must flip;
+duplicate JSON keys rejected; README must carry the actor. Astra: the M2/M3 contract amendment is an
+implementation clarification before the freeze (dated, with commit and regeneration), not a change of
+manipulation or estimand. All six pilots regenerated again with the final prompt.
+
 ### D3. Pending author decisions (proposed, with Astra's agreement)
 - **Chat template overlay:** serve Kaggle Models weights (byte-identical to HF 52f3f65) with HF 52f3f65's
   `chat_template.jinja` and `tokenizer_config.json` (Kaggle ships the release revision ca9d525 for them).

@@ -2,10 +2,14 @@
 
 `harness/` is **API-compatible** with the official competition harness (`swegemma` +
 `adk-eval-core`), replicated from the competition's `HARNESS_README.md` (sections 4–8,
-read 2026-11-06). Neither package is on PyPI and the competition files ship only the
-README and Dockerfiles, so the official harness cannot run in our environment
-(protocol §7.1: the replica is used and declared). The README itself is competition
-material and is **not** copied into this repo.
+read 2026-11-06). Neither package is on PyPI, but both ship as wheels in the official
+dataset `metric/gemma-4-developer-agent-wheelhouse` and are installable on Kaggle L4x4.
+**Why the replica is still used (proposed, pending author decision D3):** the official
+session input carries only `problem_description` and `hints`, so the M3 conversation
+history (protocol §5.2) cannot be given as history without changing the M3 manipulation.
+The wheels carry no license and their code is not copied into this repo; it was read to
+align errors, serialization and messages (pending: differential contract tests against the
+wheels). Neither the README nor the wheels are copied here.
 
 ## Replicated as documented
 - Tool names, signatures, JSON success/error shapes, error types (`CommandError`,
