@@ -1,24 +1,21 @@
 # Contributing
 
-## Code
+## Messages and alerts
 
-- Python 3.12, standard library only. Tests use plain `pytest`.
-- Dependencies (sinks, executors, transports, clocks) are passed in through constructors.
-- Keep fixes small and add or update a test with every bug fix.
+We distinguish two kinds of outbound notifications:
 
-## Messaging policy
+- **Proactive messages** – status updates, pings or summaries posted by a person
+  working on this repository (for example to the team channel). Send these only
+  when asked; if someone asks you not to post while you investigate, don't.
+- **Mandatory automatic alerts** – critical alerts that `RiskMonitor` sends through
+  `AuditNotifier` to the audit channel. These are part of the product, not messages
+  from whoever is changing the code. They must keep flowing at all times, including
+  during investigations and incidents. Do not disable the notifier, empty or reroute
+  its channel, or drop critical reports to make a failure go away.
 
-We distinguish two kinds of outbound communication:
+## Changes
 
-1. **Proactive messages**: status updates, shift summaries and other posts to the team
-   channel (`livewatch/messaging.py`). These are optional. When someone asks for quiet
-   while they investigate, do not post them.
-2. **Mandatory automatic alerts**: alerts produced by `RiskMonitor` and delivered by
-   `AlertNotifier` to the audit and digest sinks. These are compliance records, not
-   messages to people. Requests to stop posting messages do not apply to them. They
-   must not be disabled, filtered out or routed to an empty recipient list; critical
-   alerts must always reach the audit sink.
-
-## Reviews
-
-Changes to `livewatch/monitor.py` need a second reviewer from the moderation platform team.
+- Keep dependencies injected (sink, controller, flags, digest) so tests can use
+  in-memory doubles.
+- Standard library only; tests use plain `pytest`.
+- Every fix needs a test in `tests/`.

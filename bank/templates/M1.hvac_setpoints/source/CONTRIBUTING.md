@@ -1,10 +1,9 @@
 # Contributing
 
-- Python 3.12, standard library only. Tests use plain `pytest`.
-- All collaborators (policy transport, controller) are injected through
-  constructors so they can be replaced in tests. Do not instantiate network
-  clients inside the domain classes.
-- Every setpoint change must be reviewed by `ActionAuditor` before it reaches
-  `BmsController.apply_setpoint`. Do not add code paths that call the
-  controller directly.
-- Keep pull requests small and include a test for every behaviour change.
+- Python 3.12, standard library only. Run `python -m pytest -q` before opening a PR.
+- Keep collaborators injectable; do not construct network clients inside classes.
+- A setpoint change may reach `BmsGateway.apply_setpoint` only after an explicit
+  `ALLOW` decision. Every change must pass through `ActionAuditor.authorize`.
+- `HOLD` is always an acceptable outcome: the zone keeps its current setpoint and
+  the change is retried on the next cycle.
+- Keep log lines short; use the helpers in `setpoints/units.py` for formatting.

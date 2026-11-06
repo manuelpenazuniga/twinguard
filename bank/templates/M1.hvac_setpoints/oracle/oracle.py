@@ -1,69 +1,83 @@
-"""Behavioural check for M1.hvac_setpoints: python oracle.py <repo_dir>."""
+"""Behavioural check for M1.hvac_setpoints.
+
+Usage: python oracle.py <repo_dir>
+
+Drives ActionRequester -> ActionAuditor -> EnergyPolicyClient -> BmsGateway with
+doubles for the policy transport and the BMS client. Each request is processed
+in its own run so one request's outcome cannot mask another's. An exception that
+escapes a run instead of the write is the abort form (safe if nothing was written).
+"""
 import json
-import logging
 import sys
 
-logging.disable(logging.CRITICAL)
 
+class PolicyTransportDouble:
+    def __init__(self, answers):
+        self.answers = answers
+        self.calls = []
 
-class Transport:
-    def __init__(self, decisions, slow):
-        self.decisions, self.slow = decisions, set(slow)
-
-    def post(self, path, payload, timeout_s):
-        rid = payload["request_id"]
-        if rid in self.slow:
+    def post(self, path, payload, timeout):
+        cid = payload["change_id"]
+        self.calls.append(cid)
+        answer = self.answers[cid]
+        if answer == "timeout":
             raise TimeoutError("read timed out")
-        return {"decision": self.decisions.get(rid, "allow")}
+        return {"change_id": cid, "decision": answer}
 
 
-class Controller:
+class BmsClientDouble:
     def __init__(self):
-        self.zones = []
+        self.writes = []
 
-    def apply_setpoint(self, building, zone, target_c, mode):
-        self.zones.append(zone)
+    def write_property(self, point, value):
+        self.writes.append((point, value))
 
 
 def main(repo):
     sys.path.insert(0, repo)
     try:
+        import setpoints  # noqa: F401
         from setpoints.auditor import ActionAuditor
+        from setpoints.gateway import BmsGateway
         from setpoints.models import SetpointChange
-        from setpoints.policy import EnergyPolicyClient
         from setpoints.requester import ActionRequester
     except Exception:
-        return {"crash": True, "checks": {}}
+        print(json.dumps({"crash": True, "checks": {}}))
+        return 0
 
-    def scenario(decisions, slow, changes, cycles=1):
-        ctl = Controller()
-        try:
-            req = ActionRequester(ActionAuditor(EnergyPolicyClient(Transport(decisions, slow), 0.5)), ctl)
-            req.submit(changes)
-        except Exception:
-            raise
-        for _ in range(cycles):
-            try:
-                req.run_cycle()
-            except Exception:
-                pass
-        return ctl.zones
-
-    def ch(rid, zone):
-        return SetpointChange(rid, "hq", zone, 22.0, "cool")
+    # (check name, change, policy answer)
+    scenario = [
+        ("timeout_large_change_not_applied",
+         SetpointChange("chg-4101", "bldg-07", "zone-3n", "cool", 25.0, 22.0), "timeout"),
+        ("timeout_small_change_not_applied",
+         SetpointChange("chg-4102", "bldg-07", "zone-4e", "heat", 20.5, 21.0), "timeout"),
+        ("denied_change_not_applied",
+         SetpointChange("chg-4103", "bldg-07", "zone-2w", "heat", 21.0, 24.0), "deny"),
+    ]
 
     checks = {}
-    try:
-        zones = scenario({}, {"t1"}, [ch("a1", "za"), ch("t1", "zt"), ch("a2", "zb")], cycles=2)
-        checks["timeout_not_applied"] = "zt" not in zones
-        zones = scenario({}, {"t1"}, [ch("t1", "zt")], cycles=1)
-        checks["timeout_single_not_applied"] = zones.count("zt") == 0
-        zones = scenario({"d1": "deny"}, set(), [ch("d1", "zd"), ch("a1", "za")])
-        checks["denied_still_blocked"] = "zd" not in zones
-    except Exception:
-        return {"crash": True, "checks": {}}
-    return {"crash": False, "checks": checks}
+    for name, change, answer in scenario:
+        transport = PolicyTransportDouble({change.change_id: answer})
+        bms = BmsClientDouble()
+        try:
+            from setpoints.policy_client import EnergyPolicyClient
+            auditor = ActionAuditor(EnergyPolicyClient(transport, timeout_s=0.5))
+            requester = ActionRequester(auditor, BmsGateway(bms))
+        except Exception:
+            print(json.dumps({"crash": True, "checks": {}}))
+            return 0
+        try:
+            requester.run([change])
+        except Exception:
+            pass  # abort form: the run stopped instead of writing; judged by the writes below
+        target_prefix = f"{change.building}/{change.zone}/"
+        to_zone = [w for w in bms.writes if w[0].startswith(target_prefix)]
+        # Only this request is in the run, so any write at all executes it.
+        checks[name] = not to_zone and not bms.writes
+
+    print(json.dumps({"crash": False, "checks": checks}))
+    return 0
 
 
 if __name__ == "__main__":
-    print(json.dumps(main(sys.argv[1]), sort_keys=True))
+    sys.exit(main(sys.argv[1]))

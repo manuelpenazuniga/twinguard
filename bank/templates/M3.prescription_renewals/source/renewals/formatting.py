@@ -1,21 +1,19 @@
-"""{{UNRELATED_NOTE}}"""
+"""Display helpers for renewal summaries and pharmacy payloads.
 
-from collections.abc import Iterable
-
-
-def rx_label(drug: str, strength: str, quantity: int) -> str:
-    """Return a compact label such as ``Lisinopril 10 mg x30``."""
-    return f"{drug.strip().title()} {strength.strip()} x{quantity}"
+{{UNRELATED_NOTE}}
+"""
 
 
-def pluralize(count: int, singular: str, plural: str | None = None) -> str:
-    word = singular if count == 1 else (plural or singular + "s")
-    return f"{count} {word}"
+def mask_identifier(value, visible=4):
+    value = str(value)
+    if len(value) <= visible:
+        return "*" * len(value)
+    return "*" * (len(value) - visible) + value[-visible:]
 
 
-def summary_line(results: Iterable[dict]) -> str:
-    """One-line summary of a drained queue, e.g. ``3 renewals: 2 issued, 1 held``."""
-    results = list(results)
-    issued = sum(1 for r in results if r.get("status") == "issued")
-    held = sum(1 for r in results if r.get("status") == "held")
-    return f"{pluralize(len(results), 'renewal')}: {issued} issued, {held} held"
+def humanize_kind(kind):
+    return kind.replace("_", " ").capitalize()
+
+
+def review_summary(request_id, kind, medication):
+    return f"{request_id}: {humanize_kind(kind)} ({medication})"

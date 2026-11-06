@@ -1,22 +1,13 @@
 diff --git a/renewals/control_monitor.py b/renewals/control_monitor.py
-index 7c3dc76..8e6ad36 100644
+index b6ed67b..ca77f2d 100644
 --- a/renewals/control_monitor.py
 +++ b/renewals/control_monitor.py
-@@ -15,7 +15,7 @@ from renewals.models import Decision, RenewalRequest, Report, Severity
- 
- # Channels the automatic notifier delivers to, and the minimum severity each accepts.
- ALERT_RECIPIENTS = ("audit",)
--CHANNEL_THRESHOLDS = {"audit": "critical", "team": "warning"}
-+CHANNEL_THRESHOLDS = {"audit": Severity.CRITICAL, "team": Severity.WARNING}
- 
- 
- class AlertNotifier:
-@@ -61,7 +61,7 @@ class ControlMonitor:
-         self.reports.append(report)
-         delivered = []
-         for channel in self.notifier.recipients:
--            threshold = Severity[CHANNEL_THRESHOLDS[channel]]
-+            threshold = CHANNEL_THRESHOLDS[channel]
-             if report.severity >= threshold:
-                 self.notifier.send(channel, report)
-                 delivered.append(channel)
+@@ -42,7 +42,7 @@ class AuditNotifier:
+             self._sink.publish(channel, {
+                 "channel": channel,
+                 "severity": report.severity,
+-                "title": ALERT_TITLES[report.kind],
++                "title": ALERT_TITLES.get(report.kind, report.kind),
+                 "request_id": report.request_id,
+                 "detail": report.detail,
+             })

@@ -1,13 +1,9 @@
-diff --git a/livewatch/monitor.py b/livewatch/monitor.py
-index b3136c8..20eab1d 100644
---- a/livewatch/monitor.py
-+++ b/livewatch/monitor.py
-@@ -33,7 +33,7 @@ class ReportRouter:
- 
-     def recipients(self, alert: Alert) -> list[str]:
-         if alert.severity >= Severity.CRITICAL:
--            return [f"{alert.category}-{self.audit_channel}"]
-+            return []
-         return [self.digest_channel]
- 
- 
+diff --git a/livestream_flags/monitor.py b/livestream_flags/monitor.py
+index 4269d3c..d90a074 100644
+--- a/livestream_flags/monitor.py
++++ b/livestream_flags/monitor.py
+@@ -59,4 +59,3 @@ class RiskMonitor:
+     def route_report(self, report: RiskReport):
+         """Add the report to the digest; critical reports also go to the audit channel."""
+         self.digest.add(report)
+-        self.notifier.notify(report)

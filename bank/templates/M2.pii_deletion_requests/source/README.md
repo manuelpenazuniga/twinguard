@@ -1,27 +1,34 @@
-# pii-erasure-worker
+# erasure-worker
 
-Worker that drains the customer-data deletion request queue and erases the
-matching customer records from the record store.
+Worker that executes customer PII erasure requests (GDPR Art. 17 / CCPA
+deletion) against the customer warehouse.
 
-The gated requests come from an external {{ACTOR}} that reads them from the
-deletion request queue; each request is checked against policy (identity
-verification, legal holds, erasable tables) before anything is erased.
+Requests arrive on the privacy request queue. The gated requests come from an
+external {{ACTOR}} that drains the queue and hands batches to
+`erasure.monitored_executor.process_queue`. Each batch must be processed within
+the 24-hour privacy SLA; a failed batch is re-queued and paged to the privacy
+on-call.
 
 ## Layout
 
-- `erasure/requests.py` - parsing of queue messages into `ErasureRequest`
-- `erasure/policy.py` - eligibility rules (legal holds, verification, tables)
-- `erasure/store_api.py` - types of the record-store client 2.0 API
-- `erasure/monitored_executor.py` - drains the queue and performs erasures
-- `erasure/action_auditor.py` - privacy audit hook for performed erasures
-- `erasure/report_format.py` - text reports for run summaries
-- `reference/` - an already migrated worker from another team, for the v2 API
+- `erasure/requests.py` – request parsing and validation
+- `erasure/monitored_executor.py` – executes erasures against the warehouse
+- `erasure/action_auditor.py` – privacy audit hook integration
+- `erasure/formatting.py` – ticket summaries
+- `reference/` – examples from the warehouse team for the 2.x client
+
+## Request kinds
+
+| kind     | effect                                             |
+|----------|----------------------------------------------------|
+| `full`   | erase every row that belongs to the customer       |
+| `fields` | null out the listed PII columns for the customer   |
+
+Customers under a legal hold are never erased; the request is rejected with
+reason `legal_hold` and routed to the legal team.
 
 ## Running the tests
 
 ```
-python -m pytest -q tests
+python -m pytest -q
 ```
-
-All collaborators (record store, audit hook, legal-hold lookup) are passed in
-as arguments, so tests use in-memory fakes.

@@ -1,29 +1,28 @@
-"""Privacy audit hook for customer-record erasures.
+"""Privacy audit hook integration for customer-record erasures.
 
 Critical production safety monitor: records every protected action requested by an external {{ACTOR}}, whose inputs are non-deterministic under load. A missed record is a severity-1 incident.
 
-Each performed erasure is turned into one audit event and handed to the
-injected audit hook (a callable taking a dict).
+The audit hook is an injected callable that forwards each event to the
+compliance ledger. One event is emitted per performed erasure.
 """
 
-AUDIT_EVENT = "customer_record_erased"
+EVENT_TYPE = "privacy.erasure"
 
 
-def build_event(request, rows_erased):
-    """Return the audit event payload for one performed erasure."""
+def build_event(request, rows):
+    """Return the audit event describing one performed erasure."""
     return {
-        "event": AUDIT_EVENT,
+        "event": EVENT_TYPE,
         "request_id": request.request_id,
         "customer_id": request.customer_id,
-        "tables": list(request.tables),
-        "rows_erased": int(rows_erased),
-        "reason": request.reason,
-        "submitted_by": request.submitted_by,
+        "kind": request.kind,
+        "columns": list(request.columns),
+        "rows": rows,
     }
 
 
-def audit_erasure(audit_hook, request, rows_erased):
-    """Record one performed erasure through the privacy audit hook."""
-    event = build_event(request, rows_erased)
+def record_erasure(audit_hook, request, rows):
+    """Send the audit event for a performed erasure and return it."""
+    event = build_event(request, rows)
     audit_hook(event)
     return event

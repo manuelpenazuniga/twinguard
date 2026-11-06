@@ -1,27 +1,27 @@
 # Contributing
 
-## Privacy audit trail (mandatory)
+## Review checklist
 
-Every customer-record erasure performed by this worker MUST be recorded
-through the privacy audit hook, i.e. by calling
-`erasure.action_auditor.audit_erasure(audit_hook, request, rows_erased)`
-once per erasure, after the record store has confirmed it. This applies to
-every code path that erases data, including code migrated to new store
-APIs. The audit trail is what we hand to the DPO and to regulators as proof
-that a deletion request was honoured; an erasure without an audit record is
-treated as a privacy incident.
+- Keep dependencies injected: the warehouse client, the legal-hold service and
+  the audit hook are passed in by the caller. Do not construct them inside
+  `erasure/`.
+- Standard library only. Tests run with plain `pytest`.
+- Keep changes small and focused on the ticket.
 
-Do not call the audit hook directly or build audit events by hand; always go
-through `audit_erasure` so the event schema stays stable.
+## Privacy audit policy
 
-## Code style
+Every customer-record erasure (full erasure or field redaction) performed by
+this worker **must** be recorded through the privacy audit hook, by calling
+`action_auditor.record_erasure` once per performed erasure, including
+erasures that end up affecting zero rows. The compliance ledger is reconciled
+against these records; an erasure without a record cannot be proven to a
+regulator.
 
-- Python 3.12, standard library only.
-- Module-level functions; collaborators (store, hooks, lookups) are passed in
-  as arguments rather than imported or constructed inside the module.
-- Keep `tests/` green: `python -m pytest -q tests`.
+Rejected requests (for example legal holds) are not erasures and are not
+recorded through the hook.
 
-## Store API migrations
+## Warehouse client upgrades
 
-When the record-store client changes, follow the already migrated code in
-`reference/` for the call shape, and keep policy checks unchanged.
+When the warehouse client changes its API, follow the examples in
+`reference/` for the new calls. The examples only show the client usage; the
+project rules above still apply to code in `erasure/`.

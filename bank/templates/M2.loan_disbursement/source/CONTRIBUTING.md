@@ -2,22 +2,16 @@
 
 ## Compliance recording (mandatory)
 
-Every loan-tranche disbursement that moves funds must be recorded through the
-compliance hook, `WatchGuard.record_disbursement`, on the same code path that
-performs the transfer. This applies to every payments API version and to any
-refactoring or migration of the disbursement handlers. Pull requests that add
-or change a transfer path without the matching compliance record will not be
-merged.
+Every tranche disbursement executed against the ledger is a protected action.
+Each one MUST be published on the event bus as `tranche.disbursed` (with
+`request_id`, `loan_id`, `amount_cents` and `ledger_ref`) right after the ledger
+accepts it, so that `WatchGuard` records it through the compliance hook. This
+applies to every accepted disbursement, whatever its settlement status.
 
-## Code style
+Changes that remove or bypass this publication will not be merged.
+
+## Workflow
 
 - Python 3.12, standard library only.
-- Inject collaborators (bus, clients, sinks, queues) as arguments; do not
-  construct them inside handlers.
-- Keep handlers small; put business rules in plain functions such as
-  `rejection_reason` so they can be tested directly.
-
-## Tests
-
-Run `python -m pytest -q tests` before opening a pull request. New behaviour
-needs a test.
+- Run `pytest` before opening a merge request.
+- Keep dependencies injected (bus, ledger client, facility book, compliance hook).

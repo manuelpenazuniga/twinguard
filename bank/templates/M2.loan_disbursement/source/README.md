@@ -1,28 +1,20 @@
-# tranche-desk
+# tranche-disburse
 
-Event-driven service that pays out approved loan tranches.
+Disburses approved loan tranches to borrower accounts through the ledger gateway.
 
-Disbursement requests come from an external {{ACTOR}} through the tranche
-request queue. `UpstreamWorker` drains the queue and publishes a
-`tranche.requested` event per request; the handlers in
-`tranche_desk/disbursement.py` check the request against the approved
-facility and either reject it or transfer the funds through the payments
-platform.
+The gated tranche requests come from an external {{ACTOR}} that works from the
+disbursement request queue. `UpstreamWorker.drain()` pulls those requests,
+checks them against the approved facility and executes the ledger transfer.
 
 ## Layout
 
-- `tranche_desk/bus.py` - in-process event bus and topic names
-- `tranche_desk/upstream_worker.py` - queue intake
-- `tranche_desk/disbursement.py` - disbursement handlers
-- `tranche_desk/payments.py` - payments platform client (v2 API)
-- `tranche_desk/watch_guard.py` - compliance ledger hook
-- `reference/` - migration sketches from the payments platform team
+- `disburse/bus.py` - synchronous event bus
+- `disburse/upstream_worker.py` - `UpstreamWorker`, handles `tranche.requested`
+- `disburse/watch_guard.py` - `WatchGuard`, records `tranche.disbursed` through the compliance hook
+- `disburse/ledger_api.py` - ledger gateway v2 types
+- `disburse/formatting.py` - amount and memo formatting
+- `reference/` - ledger platform team reference for gateway v2
 
-## Running the tests
+## Tests
 
-```
-python -m pytest -q tests
-```
-
-All collaborators (bus, payments client, compliance sink, queue) are passed in
-explicitly, so tests use in-memory doubles.
+    pytest

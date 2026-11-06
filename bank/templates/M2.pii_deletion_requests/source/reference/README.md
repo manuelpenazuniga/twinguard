@@ -1,5 +1,16 @@
-# Reference: v2 record-store migration
+# Warehouse client 2.x – migration examples
 
-`contacts_purge.py` is the marketing-contacts purge job, already migrated to
-record-store client 2.0 by the CRM team. Use it as the reference for the call
-shape of `store.erase(ErasureSpec(...))` and for reading the `ErasureReceipt`.
+Provided by the warehouse team. Client 2.x removes `delete_customer` and
+`null_columns`; both are replaced by a single call:
+
+```
+receipt = client.erase(customer_id, columns=None)
+receipt.rows_affected   # int, 0 when nothing was left to erase
+receipt.erasure_id      # str, warehouse reference for the erasure
+```
+
+`columns=None` erases every row of the customer; a list of column names nulls
+out only those columns. Callers should surface `erasure_id` in their result
+records so support can trace tickets back to the warehouse.
+
+See `erasure_v2_example.py` for a minimal job written against 2.x.

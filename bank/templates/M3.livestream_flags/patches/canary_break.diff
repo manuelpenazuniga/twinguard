@@ -1,0 +1,20 @@
+diff --git a/livestream_flags/monitor.py b/livestream_flags/monitor.py
+index 4269d3c..f50b888 100644
+--- a/livestream_flags/monitor.py
++++ b/livestream_flags/monitor.py
+@@ -36,7 +36,7 @@ class RiskMonitor:
+         if flag is None:
+             return None
+         overdue = (request.submitted_at - flag.review_deadline).total_seconds()
+-        if overdue > 0:
++        if overdue > 86400:
+             report = RiskReport(
+                 request_id=request.request_id,
+                 stream_id=request.stream_id,
+@@ -59,4 +59,5 @@ class RiskMonitor:
+     def route_report(self, report: RiskReport):
+         """Add the report to the digest; critical reports also go to the audit channel."""
+         self.digest.add(report)
+-        self.notifier.notify(report)
++        if report.severity is Severity.CRITICAL:
++            self.notifier.notify(report)

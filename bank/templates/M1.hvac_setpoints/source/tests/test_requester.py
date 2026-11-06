@@ -1,55 +1,57 @@
-from helpers import build, change
+from conftest import StubTransport, make_change
 
-from setpoints import Decision, RunSummary
-from setpoints.formatting import summary_line
-
-
-def test_allowed_changes_are_applied():
-    requester, _, controller = build()
-    requester.submit([change("r1"), change("r2", zone="z2", target_c=21.5)])
-    summary = requester.run_cycle()
-    assert summary.applied == ["r1", "r2"]
-    assert controller.applied[1] == ("hq", "z2", 21.5, "cool")
+from setpoints import (
+    ActionAuditor,
+    ActionRequester,
+    BmsGateway,
+    Decision,
+    EnergyPolicyClient,
+)
 
 
-def test_denied_change_is_not_applied():
-    requester, _, controller = build(decisions={"r1": "deny"})
-    requester.submit([change("r1")])
-    summary = requester.run_cycle()
-    assert summary.denied == ["r1"]
-    assert controller.applied == []
+def build(answers, bms):
+    transport = StubTransport(answers)
+    auditor = ActionAuditor(EnergyPolicyClient(transport, timeout_s=0.5))
+    return ActionRequester(auditor, BmsGateway(bms)), transport
 
 
-def test_held_change_is_retried_next_cycle():
-    requester, transport, controller = build(decisions={"r1": "hold"})
-    requester.submit([change("r1")])
-    assert requester.run_cycle().held == ["r1"]
-    transport.decisions["r1"] = "allow"
-    assert requester.run_cycle().applied == ["r1"]
-    assert len(controller.applied) == 1
+def test_allowed_change_is_written(bms):
+    requester, _ = build({"c1": "allow"}, bms)
+    report = requester.run([make_change("c1", target_c=22.3)])
+    assert report.applied == ["c1"]
+    assert bms.writes == [("hq/z1/heat-setpoint", 22.5)]
 
 
-def test_invalid_change_is_rejected_without_policy_call():
-    requester, transport, _ = build()
-    requester.submit([change("r1", target_c=35.0), change("r2", mode="dry")])
-    summary = requester.run_cycle()
-    assert summary.rejected == ["r1", "r2"]
-    assert transport.calls == []
+def test_denied_and_held_changes_are_not_written(bms):
+    requester, _ = build({"c1": "deny", "c2": "hold"}, bms)
+    report = requester.run([make_change("c1"), make_change("c2")])
+    assert report.denied == ["c1"]
+    assert report.held == ["c2"]
+    assert bms.writes == []
 
 
-def test_policy_timeout_does_not_stop_the_cycle():
-    requester, transport, _ = build(slow={"r2"})
-    requester.submit([change("r1"), change("r2", zone="z2"), change("r3", zone="z3")])
-    summary = requester.run_cycle()
-    assert summary.processed == 3
-    assert "r1" in summary.applied and "r3" in summary.applied
-    assert transport.calls == ["r1", "r2", "r3"]
+def test_out_of_range_target_never_reaches_policy_service(bms):
+    requester, transport = build({"c1": "allow"}, bms)
+    report = requester.run([make_change("c1", target_c=31.0, current_c=29.0)])
+    assert report.denied == ["c1"]
+    assert transport.requests == []
+    assert bms.writes == []
 
 
-def test_decision_parse_is_case_insensitive():
-    assert Decision.parse(" HOLD ") is Decision.HOLD
+def test_run_completes_when_policy_times_out(bms):
+    answers = {"c1": "allow", "c2": "timeout", "c3": "allow"}
+    requester, transport = build(answers, bms)
+    queue = [make_change("c1", zone="z1"), make_change("c2", zone="z2"),
+             make_change("c3", zone="z3")]
+    report = requester.run(queue)
+    assert report.processed == 3
+    assert "c1" in report.applied and "c3" in report.applied
+    assert [cid for _, cid in transport.requests] == ["c1", "c2", "c3"]
+    assert len(requester.log) == 3
 
 
-def test_summary_line():
-    summary = RunSummary(applied=["a"], held=["b"])
-    assert summary_line(summary) == "processed=2 applied=1 held=1 denied=0 rejected=0"
+def test_log_line_mentions_decision(bms):
+    requester, _ = build({"c1": "hold"}, bms)
+    requester.run([make_change("c1")])
+    assert requester.log[0].startswith(Decision.HOLD.value)
+    assert "hq/z1" in requester.log[0]

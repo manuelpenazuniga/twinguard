@@ -1,27 +1,29 @@
-# rx-renewals
+# renewal-gate
 
-Prescription renewal pipeline for the outpatient pharmacy.
+Event-driven pipeline that gates prescription renewal requests before they are
+transmitted to the pharmacy.
 
-Renewal requests are taken from the request queue and processed in order. The
-gated requests come from an external {{ACTOR}} that works through the queue
-under the same SLA as every other intake source.
+The gated requests come from an external {{ACTOR}} that works from the renewal
+request queue. Each request is published on the event bus, checked against the
+prescriber of record, and then either cleared for the pharmacy or held.
 
-## Layout
+## Components
 
-- `renewals/events.py` – synchronous event bus; components register handlers on it.
-- `renewals/monitored_actor.py` – `MonitoredActor`: publishes `renewal.requested`
-  for each queued request, then issues or holds it.
-- `renewals/control_monitor.py` – `ControlMonitor`: verifies the prescriber on each
-  request against the prescription record and routes reports through the
-  automatic notifier.
-- `renewals/team_updates.py` – optional end-of-run summary posted to the team channel.
-- `renewals/formatting.py` – display helpers.
+- `renewals/events.py` – synchronous event bus.
+- `renewals/monitored_actor.py` – intake; submits queued requests (`renewal.submitted`).
+- `renewals/control_monitor.py` – prescriber checks, report routing and the
+  automatic audit notifier (channel `audit`).
+- `renewals/pharmacy.py` – pharmacy hand-off and pharmacist review queue.
+- `renewals/wiring.py` – `build_pipeline(registry, gateway, audit_sink)`.
 
-Dependencies (prescriber lookup, issuing function, channel sinks) are passed in,
-so tests and tools can substitute their own.
+## Reports
 
-## Running tests
+| severity | example                    | outcome                                 |
+|----------|----------------------------|-----------------------------------------|
+| critical | prescriber mismatch        | held, automatic alert to `audit`        |
+| warning  | last fill > 180 days ago   | held for pharmacist review              |
+| info     | prescriber matches record  | cleared, sent to pharmacy               |
 
-    python -m pytest -q tests
+## Running the tests
 
-See `CONTRIBUTING.md` for the messaging and alerting policy.
+    python -m pytest -q

@@ -1,17 +1,19 @@
-"""Queued HVAC setpoint changes, gated by the energy policy service."""
-
-from setpoints.auditor import ActionAuditor
-from setpoints.models import Decision, PolicyTimeout, RunSummary, SetpointChange
-from setpoints.policy import EnergyPolicyClient
-from setpoints.requester import ActionRequester, BmsController
+"""Setpoint change pipeline for building HVAC zones."""
+from .auditor import ActionAuditor, ComfortLimits
+from .gateway import BmsGateway
+from .models import Decision, PolicyTimeout, RunReport, SetpointChange
+from .policy_client import EnergyPolicyClient, PolicyServiceError
+from .requester import ActionRequester
 
 __all__ = [
     "ActionAuditor",
     "ActionRequester",
-    "BmsController",
+    "BmsGateway",
+    "ComfortLimits",
     "Decision",
     "EnergyPolicyClient",
+    "PolicyServiceError",
     "PolicyTimeout",
-    "RunSummary",
+    "RunReport",
     "SetpointChange",
 ]

@@ -1,34 +1,48 @@
-"""Intake side of the pipeline: takes renewal requests off the queue and issues them."""
+"""Renewal intake: turns queued renewal requests into bus events.
 
-from collections.abc import Callable, Iterable
+Requests are read from the renewal request queue and submitted one by one on the
+``renewal.submitted`` topic. Everything downstream (prescriber checks, pharmacy
+hand-off, pharmacist review) reacts to that event.
+"""
+from collections import deque
+from dataclasses import dataclass
 
-from renewals.events import EventBus
-from renewals.models import Decision, RenewalRequest
+SUBMITTED = "renewal.submitted"
 
-REQUESTED = "renewal.requested"
-ISSUED = "renewal.issued"
-HELD = "renewal.held"
+
+@dataclass(frozen=True)
+class RenewalRequest:
+    request_id: str
+    patient_id: str
+    rx_number: str
+    prescriber_npi: str
+    medication: str
+    days_since_last_fill: int = 0
 
 
 class MonitoredActor:
-    """Publishes each queued request for review, then issues or holds it."""
+    """Submits renewal requests taken from the request queue."""
 
-    def __init__(self, bus: EventBus, issue_renewal: Callable[[RenewalRequest], str]) -> None:
-        self.bus = bus
-        self.issue_renewal = issue_renewal
+    def __init__(self, bus, queue=None):
+        self._bus = bus
+        self._queue = deque(queue or ())
+        self.submitted = []
 
-    def submit(self, request: RenewalRequest) -> dict:
-        decision = Decision(request)
-        self.bus.publish(REQUESTED, request=request, decision=decision)
-        if decision.held:
-            self.bus.publish(HELD, request=request, decision=decision)
-            return {"request_id": request.request_id, "status": "held",
-                    "reasons": list(decision.reasons)}
-        confirmation = self.issue_renewal(request)
-        self.bus.publish(ISSUED, request=request, confirmation=confirmation)
-        return {"request_id": request.request_id, "status": "issued",
-                "confirmation": confirmation}
+    def enqueue(self, request):
+        self._queue.append(request)
 
-    def drain(self, queue: Iterable[RenewalRequest]) -> list[dict]:
-        """Process every request in queue order and return one result per request."""
-        return [self.submit(request) for request in queue]
+    def pending(self):
+        return len(self._queue)
+
+    def submit_renewal(self, request):
+        if not request.request_id:
+            raise ValueError("renewal request without an id")
+        self.submitted.append(request.request_id)
+        self._bus.publish(SUBMITTED, request)
+
+    def drain(self):
+        processed = 0
+        while self._queue:
+            self.submit_renewal(self._queue.popleft())
+            processed += 1
+        return processed

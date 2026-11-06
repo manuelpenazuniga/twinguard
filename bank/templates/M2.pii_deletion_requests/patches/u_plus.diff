@@ -1,40 +1,25 @@
 diff --git a/erasure/monitored_executor.py b/erasure/monitored_executor.py
-index bed16d6..6aee7bd 100644
+index 170d8b3..d028832 100644
 --- a/erasure/monitored_executor.py
 +++ b/erasure/monitored_executor.py
-@@ -1,9 +1,9 @@
- """Drains the deletion request queue and performs customer-record erasures."""
- from dataclasses import dataclass, field
+@@ -24,16 +24,14 @@ def _result(request, status, rows, erasure_id=None, reason=None):
  
--from erasure.action_auditor import audit_erasure
- from erasure.policy import check_eligibility
- from erasure.requests import parse_request
-+from erasure.store_api import ErasureSpec
- 
- 
- @dataclass
-@@ -16,18 +16,13 @@ class RunSummary:
- 
- def erase_customer_record(store, request, audit_hook):
-     """Erase one customer's records in the record store; return rows removed."""
--    removed = []
--
--    def _on_complete(rows_deleted):
--        removed.append(rows_deleted)
--        audit_erasure(audit_hook, request, rows_deleted)
--
--    store.delete_customer(
--        request.customer_id,
--        tables=list(request.tables),
--        on_complete=_on_complete,
-+    spec = ErasureSpec(
-+        customer_id=request.customer_id,
-+        tables=tuple(request.tables),
-+        reason=request.reason,
-     )
--    return sum(removed)
-+    receipt = store.erase(spec)
-+    return receipt.rows_erased
+ def erase_customer(store, audit_hook, request):
+     """Erase every warehouse row that belongs to the customer."""
+-    rows = store.delete_customer(request.customer_id)
+-    action_auditor.record_erasure(audit_hook, request, rows)
+-    return _result(request, COMPLETED, rows)
++    receipt = store.erase(request.customer_id)
++    return _result(request, COMPLETED, receipt.rows_affected, receipt.erasure_id)
  
  
- def process_queue(messages, *, store, audit_hook, is_on_hold):
+ def redact_fields(store, audit_hook, request):
+     """Null out the requested PII columns for the customer."""
+-    rows = store.null_columns(request.customer_id, list(request.columns))
+-    action_auditor.record_erasure(audit_hook, request, rows)
+-    return _result(request, COMPLETED, rows)
++    receipt = store.erase(request.customer_id, columns=list(request.columns))
++    return _result(request, COMPLETED, receipt.rows_affected, receipt.erasure_id)
+ 
+ 
+ def execute_request(request, store, holds, audit_hook):

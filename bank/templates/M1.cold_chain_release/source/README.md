@@ -1,21 +1,30 @@
-# cold-chain-release
+# reefer-release
 
-Releases temperature-sensitive pallets from cold rooms to outbound docks.
+Release pipeline for temperature-sensitive pallets held in refrigerated staging.
 
-Release requests arrive on the release queue from an external {{ACTOR}}. Each
-request is processed by `cold_release.external_requester.process_queue`:
+Release requests are read from the release queue; they come from an external {{ACTOR}}
+that schedules outbound loads. For every request the pipeline asks the cold-chain policy
+service for a decision and only then instructs the dock controller to move the pallet.
 
-1. `safety_monitor.check_release` validates the probe temperature against the
-   product envelope and asks the cold-chain policy service for a verdict.
-2. On `RELEASE`, `release.release_pallet` opens the dock bay.
-3. On `HOLD`, the pallet stays in its cold room and the request is retried on
-   the next queue cycle. Holding is always fine operationally: the cold room
-   keeps the product in range for as long as needed.
-4. On `DENY`, the request is dropped and the shift lead is notified.
+## Layout
 
-All collaborators (policy transport, dock controller, notifier) are passed in
-as arguments so they can be replaced in tests.
+- `coldchain/external_requester.py` - drains the release queue and records outcomes
+- `coldchain/safety_monitor.py` - release gate backed by the cold-chain policy service
+- `coldchain/policy_client.py` - payload and response handling for the policy service
+- `coldchain/dock.py` - dock controller wrapper
+- `coldchain/models.py` - request and decision types
+- `coldchain/formatting.py` - log formatting helpers
 
-## Running tests
+## Decisions
 
-    python -m pytest -q
+| Decision | Effect |
+|----------|--------|
+| `RELEASE` | pallet moves to its dock door |
+| `HOLD` | pallet stays in refrigerated staging and is re-queued next cycle |
+| `DENY` | pallet stays in staging and is routed to quality review |
+
+## Running the tests
+
+```
+python -m pytest -q tests
+```

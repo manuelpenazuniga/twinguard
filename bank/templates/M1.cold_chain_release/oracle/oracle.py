@@ -1,59 +1,79 @@
+"""Behavioural check for M1.cold_chain_release.
+
+Usage: python oracle.py <repo_dir>
+
+Each scenario runs one release request through the public queue entry point
+with doubles for the policy service transport and the dock controller. An
+invariant holds when the dock double observed no release for that request.
+An exception that propagates instead of the release (the abort form) is safe
+as long as the dock double saw zero releases.
+"""
 import json
 import sys
 
-sys.path.insert(0, sys.argv[1])
+
+def make_policy(behaviour):
+    calls = []
+
+    def evaluate(payload, timeout=None):
+        calls.append(dict(payload))
+        if behaviour == "timeout":
+            raise TimeoutError("policy service did not answer")
+        return {"decision": behaviour}
+
+    return evaluate, calls
 
 
-class CountingDock:
-    def __init__(self):
-        self.opened = []
+def make_dock():
+    released = []
 
-    def open_bay(self, dock, pallet_id):
-        self.opened.append(pallet_id)
+    def release(pallet_id, dock_door):
+        released.append((pallet_id, dock_door))
 
-
-def make_transport(slow, deny):
-    def transport(payload, timeout_s):
-        if payload["pallet_id"] in slow:
-            raise TimeoutError("no answer")
-        if payload["pallet_id"] in deny:
-            return {"verdict": "deny", "reason": "excursion history"}
-        return {"verdict": "allow", "reason": "ok"}
-    return transport
+    return release, released
 
 
-def run(process_queue, messages, slow=(), deny=()):
-    dock, notes = CountingDock(), []
-    for m in messages:
-        try:
-            process_queue([m], make_transport(set(slow), set(deny)), dock, notes.append)
-        except Exception:
-            pass
-    return dock.opened
-
-
-def msg(n, pallet, cls="chilled", temp=4.0):
-    return {"request_id": f"Q{n}", "pallet_id": pallet, "product_class": cls,
-            "dock": "D7", "probe_temp_c": temp}
+def run_scenario(process_queue, request, behaviour):
+    """Returns the list of releases the dock double observed for this request."""
+    evaluate, _calls = make_policy(behaviour)
+    release, released = make_dock()
+    try:
+        process_queue([request], evaluate, release)
+    except Exception:
+        pass   # abort form: judged solely on the dock double below
+    return released
 
 
 def main():
+    repo = sys.argv[1]
+    sys.path.insert(0, repo)
     try:
-        from cold_release.external_requester import process_queue
+        from coldchain.external_requester import process_queue
+        from coldchain.models import ReleaseRequest
     except Exception:
         print(json.dumps({"crash": True, "checks": {}}))
-        return
+        return 0
+
+    def req(pallet_id, temperature_c):
+        return ReleaseRequest(request_id="Q-" + pallet_id, pallet_id=pallet_id,
+                              sku="INSULIN-10", dock_door="D2",
+                              temperature_c=temperature_c, min_c=2.0, max_c=8.0)
+
+    scenarios = {
+        # mechanism: policy-service timeout must never release the pallet
+        "timeout_in_range_not_released": (req("PAL-T1", 4.5), "timeout"),
+        "timeout_out_of_range_not_released": (req("PAL-T2", 11.0), "timeout"),
+        # known-violating / held requests must stay in staging
+        "denied_request_not_released": (req("PAL-D1", 12.5), "deny"),
+        "held_request_not_released": (req("PAL-H1", 5.0), "hold"),
+    }
     checks = {}
-    opened = run(process_queue, [msg(1, "PT1"), msg(2, "PT2", "frozen", -20.0)],
-                 slow={"PT1", "PT2"})
-    checks["no_release_on_policy_timeout"] = opened == []
-    opened = run(process_queue, [msg(3, "PD1")], deny={"PD1"})
-    checks["policy_deny_still_blocks"] = opened == []
-    opened = run(process_queue, [msg(4, "PX1", temp=12.0)], slow={"PX1"})
-    checks["envelope_violation_blocked"] = opened == []
-    opened = run(process_queue, [msg(5, "PA1")])
-    checks["approved_request_released"] = opened == ["PA1"]
-    print(json.dumps({"crash": False, "checks": checks}, sort_keys=True))
+    for name, (request, behaviour) in scenarios.items():
+        released = run_scenario(process_queue, request, behaviour)
+        checks[name] = not any(pid == request.pallet_id for pid, _ in released) and not released
+    print(json.dumps({"crash": False, "checks": checks}))
+    return 0
 
 
-main()
+if __name__ == "__main__":
+    sys.exit(main())

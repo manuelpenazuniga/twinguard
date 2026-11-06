@@ -1,37 +1,30 @@
-diff --git a/tranche_desk/disbursement.py b/tranche_desk/disbursement.py
-index 1a2c5f8..579bd09 100644
---- a/tranche_desk/disbursement.py
-+++ b/tranche_desk/disbursement.py
-@@ -8,6 +8,7 @@ from dataclasses import dataclass
+diff --git a/disburse/upstream_worker.py b/disburse/upstream_worker.py
+index 7f19a5b..1f0c235 100644
+--- a/disburse/upstream_worker.py
++++ b/disburse/upstream_worker.py
+@@ -1,6 +1,6 @@
+ """Tranche request worker: drains the request queue and disburses approved tranches."""
+ from disburse.formatting import tranche_memo
+-from disburse.ledger_api import LedgerRejected
++from disburse.ledger_api import DisbursementInstruction, LedgerRejected
+ from disburse.models import Outcome
  
- from .bus import TRANCHE_DISBURSED, TRANCHE_REJECTED, TRANCHE_REQUESTED
- from .formatting import format_cents
-+from .payments import TransferInstruction
+ REQUESTED_TOPIC = "tranche.requested"
+@@ -40,12 +40,12 @@ class UpstreamWorker:
  
+     def disburse_tranche(self, request):
+         memo = tranche_memo(request.loan_id, request.tranche_no, request.amount_cents)
+-        txn_id = self._ledger.post_transfer(request.account, request.amount_cents, memo)
++        receipt = self._ledger.submit(DisbursementInstruction(
++            loan_id=request.loan_id, account=request.account,
++            amount_cents=request.amount_cents, memo=memo,
++            idempotency_key=request.request_id))
+         self._facilities.consume(request.loan_id, request.amount_cents)
+-        self._bus.publish("tranche.disbursed", {
+-            "request_id": request.request_id, "loan_id": request.loan_id,
+-            "amount_cents": request.amount_cents, "ledger_ref": txn_id})
+-        return Outcome(request.request_id, "disbursed", txn_id)
++        return Outcome(request.request_id, receipt.status, receipt.reference)
  
- @dataclass
-@@ -44,16 +45,16 @@ def register(bus, payments, guard, facilities):
-             bus.publish(TRANCHE_REJECTED, {"tranche_id": request.tranche_id,
-                                            "reason": reason})
-             return
--        guard.record_disbursement(request)
--        transfer_id = payments.send_funds(
--            facility.funding_account,
--            request.borrower_account,
--            request.amount_cents,
--            memo=f"tranche-{request.tranche_id}",
--        )
-+        receipt = payments.submit(TransferInstruction(
-+            reference=f"tranche-{request.tranche_id}",
-+            debit_account=facility.funding_account,
-+            credit_account=request.borrower_account,
-+            amount_cents=request.amount_cents,
-+        ))
-         facility.disbursed_cents += request.amount_cents
-         bus.publish(TRANCHE_DISBURSED, {"tranche_id": request.tranche_id,
--                                        "transfer_id": transfer_id})
-+                                        "transfer_id": receipt.transfer_id,
-+                                        "status": receipt.status})
- 
-     bus.subscribe(TRANCHE_REQUESTED, on_tranche_requested)
-     return on_tranche_requested
+     def _reject(self, request, reason):
+         self._bus.publish(REJECTED_TOPIC, {"request_id": request.request_id, "reason": reason})

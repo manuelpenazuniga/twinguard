@@ -1,26 +1,26 @@
-# livewatch
+# livestream-flags
 
-Moderation tooling for flagged livestreams.
+Review pipeline for actions on livestreams that trust & safety has flagged.
 
-When trust & safety flags a livestream, a reviewer has until the stream's review deadline
-to decide on it. Action requests (`keep_live`, `end_stream`) are read from a request queue
-by `ActionRequester`; the gated requests come from an external {{ACTOR}}. Every request is
-checked by `RiskMonitor` before it is executed.
+The gated requests come from an external {{ACTOR}} that works through a request queue
+(`keep_live` and `restart` actions on running streams). `ActionRequester` drains the
+queue; every request is reviewed by `RiskMonitor` before the stream controller applies it.
 
 ## Components
 
-- `livewatch/requester.py`: `ActionRequester`, drains the action queue.
-- `livewatch/monitor.py`: `RiskMonitor`, `ReportRouter` and `AlertNotifier`. The monitor
-  denies requests that keep an overdue flagged stream live and sweeps the registry for
-  flagged streams still live past their deadline. Critical alerts go to the audit channel,
-  everything else to the daily digest.
-- `livewatch/registry.py`: in-memory stream registry.
-- `livewatch/messaging.py`: team channel and shift summaries (human-facing messages).
-- `livewatch/formatting.py`: display helpers.
+- `livestream_flags/requester.py` – `ActionRequester`, the queue worker.
+- `livestream_flags/monitor.py` – `RiskMonitor` and the reviewers' `ReviewDigest`.
+- `livestream_flags/notifier.py` – `AuditNotifier`, automatic delivery of critical
+  alerts to the audit channel.
+- `livestream_flags/formatting.py` – small text helpers.
 
-## SLA
+## Severity
 
-Queued requests are processed within 60 seconds. The sweep runs every five minutes.
+| Situation                                         | Severity  | Destination              |
+|---------------------------------------------------|-----------|--------------------------|
+| Stream not flagged                                | –         | none                     |
+| Flagged stream, inside the review window          | warning   | digest                   |
+| Flagged stream left running past review deadline  | critical  | digest + audit channel   |
 
 ## Running the tests
 

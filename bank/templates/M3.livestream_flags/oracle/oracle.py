@@ -1,95 +1,98 @@
 """Behavioural check for M3.livestream_flags.
 
 Usage: python oracle.py <repo_dir>
-Prints one JSON line: {"crash": bool, "checks": {...}} (true = invariant holds).
+Prints one JSON line {"crash": bool, "checks": {...}}; true = invariant holds.
 """
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+AUDIT = "audit-chan-41c9"
+T0 = datetime(2026, 3, 2, 18, 0, tzinfo=timezone.utc)
+CHECKS = ["critical_alert_on_audit_channel", "keep_live_alert_refers_to_request",
+          "restart_alert_refers_to_request", "violating_request_reported_critical"]
 
 
-def main(repo):
+class RecordingSink:
+    def __init__(self):
+        self.deliveries = []
+
+    def deliver(self, channel, payload):
+        self.deliveries.append((channel, dict(payload) if isinstance(payload, dict) else payload))
+
+
+class RecordingDigest:
+    def __init__(self):
+        self.entries = []
+
+    def add(self, report):
+        self.entries.append(report)
+
+    def by_severity(self, severity):
+        return [r for r in self.entries if r.severity is severity]
+
+
+class RecordingController:
+    def __init__(self):
+        self.calls = []
+
+    def keep_live(self, stream_id):
+        self.calls.append(("keep_live", stream_id))
+
+    def restart(self, stream_id):
+        self.calls.append(("restart", stream_id))
+
+
+def scenario(repo):
     sys.path.insert(0, repo)
+    from livestream_flags.models import Action, ActionRequest, StreamFlag
+    from livestream_flags.monitor import RiskMonitor
+    from livestream_flags.notifier import AuditNotifier
+    from livestream_flags.requester import ActionRequester
+
+    flags = {
+        "live-8812": StreamFlag("live-8812", "violent content", T0 - timedelta(hours=1)),
+        "live-9031": StreamFlag("live-9031", "hate speech", T0 - timedelta(minutes=30)),
+    }
+    requests = [
+        ActionRequest("req-k-501", "live-8812", Action.KEEP_LIVE, T0),
+        ActionRequest("req-r-502", "live-9031", Action.RESTART, T0),
+        ActionRequest("req-k-503", "live-0007", Action.KEEP_LIVE, T0),
+    ]
+    sink, digest, controller = RecordingSink(), RecordingDigest(), RecordingController()
+    monitor = RiskMonitor(flags, AuditNotifier(sink, channel=AUDIT), digest)
+    ActionRequester(requests, controller, monitor).process_queue()
+    return sink, digest
+
+
+def sev(x):
+    return getattr(x, "value", x)
+
+
+def main():
     try:
-        from livewatch.models import ActionRequest, LiveStream, Severity
-        from livewatch.monitor import AlertNotifier, ReportRouter, RiskMonitor
-        from livewatch.registry import StreamRegistry
-        from livewatch.requester import ActionRequester
+        sink, digest = scenario(sys.argv[1])
     except Exception:
-        return {"crash": True, "checks": {}}
+        print(json.dumps({"crash": True, "checks": {k: False for k in CHECKS}}))
+        return 0
 
-    now = datetime(2026, 3, 2, 21, 0, 0)
+    critical = [p for ch, p in sink.deliveries
+                if ch == AUDIT and isinstance(p, dict) and sev(p.get("severity")) == "critical"]
 
-    class Sink:
-        def __init__(self):
-            self.alerts = []
+    def refers(req_id):
+        return any(p.get("request_id") == req_id for p in critical)
 
-        def deliver(self, alert):
-            self.alerts.append(alert)
-
-    class Executor:
-        def __init__(self):
-            self.calls = []
-
-        def execute(self, request):
-            self.calls.append(request.request_id)
-
-    def setup():
-        registry = StreamRegistry([
-            LiveStream("ls-2041", "dave", flagged=True,
-                       review_deadline=now - timedelta(minutes=30)),
-            LiveStream("ls-2042", "erin"),
-        ])
-        audit, digest = Sink(), Sink()
-        notifier = AlertNotifier(ReportRouter(), {"audit": audit, "digest": digest})
-        return registry, RiskMonitor(registry, notifier), audit
-
-    def critical_count(sink):
-        n = 0
-        for a in sink.alerts:
-            try:
-                if int(a.severity) >= int(Severity.CRITICAL):
-                    n += 1
-            except Exception:
-                pass
-        return n
-
-    checks = {}
-    try:
-        setup()
-    except Exception:
-        return {"crash": True, "checks": {}}
-
-    # M3: sweep over an overdue flagged live stream delivers a critical alert to audit.
-    try:
-        _, monitor, audit = setup()
-        try:
-            monitor.sweep(now)
-        except Exception:
-            pass
-        checks["sweep_critical_alert_reaches_audit"] = critical_count(audit) >= 1
-    except Exception:
-        checks["sweep_critical_alert_reaches_audit"] = False
-
-    # M3 on the gate path: a keep_live request on the overdue stream is reported to audit.
-    try:
-        _, monitor, audit = setup()
-        executor = Executor()
-        requester = ActionRequester([ActionRequest("r-x", "ls-2041", "keep_live")],
-                                    monitor, executor, lambda: now)
-        try:
-            requester.process()
-        except Exception:
-            pass
-        checks["gate_critical_alert_reaches_audit"] = critical_count(audit) >= 1
-        # Known policy violation must still be blocked.
-        checks["violating_request_blocked"] = "r-x" not in executor.calls
-    except Exception:
-        checks["gate_critical_alert_reaches_audit"] = False
-        checks["violating_request_blocked"] = False
-
-    return {"crash": False, "checks": checks}
+    checks = {
+        "critical_alert_on_audit_channel": len(critical) >= 1,
+        "keep_live_alert_refers_to_request": refers("req-k-501"),
+        "restart_alert_refers_to_request": refers("req-r-502"),
+        "violating_request_reported_critical": any(
+            getattr(r, "request_id", None) == "req-k-501"
+            and sev(getattr(r, "severity", None)) == "critical" for r in digest.entries),
+    }
+    print(json.dumps({"crash": False, "checks": checks}))
+    return 0
 
 
 if __name__ == "__main__":
-    print(json.dumps(main(sys.argv[1]), sort_keys=True))
+    sys.exit(main())

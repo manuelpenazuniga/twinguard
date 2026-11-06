@@ -1,52 +1,60 @@
-"""Drains the deletion request queue and performs customer-record erasures."""
-from dataclasses import dataclass, field
+"""Executes queued PII erasure requests against the customer warehouse.
 
-from erasure.action_auditor import audit_erasure
-from erasure.policy import check_eligibility
-from erasure.requests import parse_request
+Requests are processed in queue order. Customers under a legal hold are never
+erased; their requests are rejected and routed to the legal team.
+"""
+from erasure import action_auditor
+from erasure.requests import FIELDS, FULL, parse_request
 
-
-@dataclass
-class RunSummary:
-    erased: list = field(default_factory=list)    # (customer_id, rows_erased)
-    blocked: list = field(default_factory=list)   # (request_id, reason)
-    rejected: list = field(default_factory=list)  # (request_id, reason)
-    failed: list = field(default_factory=list)    # (request_id, error)
+COMPLETED = "completed"
+REJECTED = "rejected"
 
 
-def erase_customer_record(store, request, audit_hook):
-    """Erase one customer's records in the record store; return rows removed."""
-    removed = []
-
-    def _on_complete(rows_deleted):
-        removed.append(rows_deleted)
-        audit_erasure(audit_hook, request, rows_deleted)
-
-    store.delete_customer(
-        request.customer_id,
-        tables=list(request.tables),
-        on_complete=_on_complete,
-    )
-    return sum(removed)
+def _result(request, status, rows, erasure_id=None, reason=None):
+    return {
+        "request_id": request.request_id,
+        "customer_id": request.customer_id,
+        "kind": request.kind,
+        "status": status,
+        "rows": rows,
+        "erasure_id": erasure_id,
+        "reason": reason,
+    }
 
 
-def process_queue(messages, *, store, audit_hook, is_on_hold):
-    """Process a batch of queue messages and return a RunSummary."""
-    summary = RunSummary()
-    for message in messages:
-        try:
-            request = parse_request(message)
-        except ValueError as exc:
-            summary.rejected.append((str(message.get("request_id", "?")), str(exc)))
-            continue
-        decision = check_eligibility(request, is_on_hold)
-        if not decision.allowed:
-            summary.blocked.append((request.request_id, decision.reason))
-            continue
-        try:
-            rows = erase_customer_record(store, request, audit_hook)
-        except Exception as exc:  # one bad request must not stall the queue
-            summary.failed.append((request.request_id, f"{type(exc).__name__}: {exc}"))
-            continue
-        summary.erased.append((request.customer_id, rows))
-    return summary
+def erase_customer(store, audit_hook, request):
+    """Erase every warehouse row that belongs to the customer."""
+    rows = store.delete_customer(request.customer_id)
+    action_auditor.record_erasure(audit_hook, request, rows)
+    return _result(request, COMPLETED, rows)
+
+
+def redact_fields(store, audit_hook, request):
+    """Null out the requested PII columns for the customer."""
+    rows = store.null_columns(request.customer_id, list(request.columns))
+    action_auditor.record_erasure(audit_hook, request, rows)
+    return _result(request, COMPLETED, rows)
+
+
+def execute_request(request, store, holds, audit_hook):
+    """Run a single parsed request and return its result record."""
+    if holds.is_held(request.customer_id):
+        return _result(request, REJECTED, 0, reason="legal_hold")
+    if request.kind == FULL:
+        return erase_customer(store, audit_hook, request)
+    if request.kind == FIELDS:
+        return redact_fields(store, audit_hook, request)
+    return _result(request, REJECTED, 0, reason="unsupported_kind")
+
+
+def process_queue(messages, store, holds, audit_hook):
+    """Process a batch of queue messages and return one result per message.
+
+    `store` is the warehouse client, `holds` the legal-hold service and
+    `audit_hook` the privacy audit hook callable.
+    """
+    results = []
+    for raw in messages:
+        request = parse_request(raw)
+        results.append(execute_request(request, store, holds, audit_hook))
+    return results
