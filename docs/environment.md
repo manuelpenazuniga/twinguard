@@ -59,6 +59,29 @@ Consequences: every kernel must start with a guard cell that aborts if the GPU i
 attaching a notebook to a competition is `competition_sources` in `kernel-metadata.json`; the exact L4x4 shape string must be read
 from a notebook where the L4x4 accelerator was selected in the UI (`kaggle kernels pull <id> -m`).
 
+## Offline serving on Kaggle L4x4 (found 2026-11-06)
+
+- **Weights from Kaggle Models**, no upload: `google/gemma-4/Other/gemma-4-31b-it-qat-w4a16-ct/2`
+  (mounted at `/kaggle/input/models/google/gemma-4/other/gemma-4-31b-it-qat-w4a16-ct/2`).
+  Smoke v1 hashed it against HF `52f3f65`: `model.safetensors` (sha256 1b9b1d62…), `tokenizer.json`,
+  `config.json`, `generation_config.json` **identical**; `chat_template.jinja` (git f62ca843) and
+  `tokenizer_config.json` (git af7f2586) are those of the HF **release revision `ca9d525`**, before
+  "Update to canonical Gemma 4 chat template (#6)" and "Add response_template (#8)".
+  Proposed serving: overlay dir = Kaggle weights + the two `52f3f65` files
+  (`notebooks/model_overlay/`), so the served model is byte-identical to the preregistered revision.
+  **Pending: author decision (and Astra's second opinion).**
+- **Packages from the official wheelhouse** dataset `metric/gemma-4-developer-agent-wheelhouse`:
+  vllm 0.19.1, transformers 5.13.1, flashinfer 0.6.6, google-adk 1.36.1, swegemma 0.2.11,
+  adk-eval-core 0.1.0, adk-submission 0.2.13. Wheels are cp312: the kernel must use the official
+  notebook's pinned image `gcr.io/kaggle-private-byod/python@sha256:37c64f7d…` (the default image is
+  Python 3.13 and pip fails; smoke v1).
+- **Official vLLM config** (HARNESS_README §3.1, getting-started notebook): TP=4,
+  `--gpu-memory-utilization 0.90 --max-model-len 32768 --enable-auto-tool-choice
+  --tool-call-parser gemma4 --reasoning-parser gemma4`, dtype bfloat16.
+- Code reaches the kernel bundled inside the script from a git commit (`notebooks/build_kernel.py`);
+  private dataset creation through the CLI failed silently on 2026-11-06.
+- Reasoning: `chat_template_kwargs.enable_thinking` + `thinking_token_budget` (HARNESS_README §2.4).
+
 ## GPU environment (to fill from the smoke test)
 
 | Field | Value |
