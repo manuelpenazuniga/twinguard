@@ -1,0 +1,24 @@
+# Environments and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+
+# Delivery bundles received by mail/chat (contents are committed unpacked)
+/files3.6listo.zip
+/readme_paper.zip
+
+# Competition data must NEVER enter the repo (CLAUDE.md rule 7)
+data/competition/
+**/tasks.jsonl
+**/*embeddings*
+
+# Secrets
+.env
+*.token
+kaggle.json
+
+# Local model weights / large runtime artifacts
+models/
+*.safetensors

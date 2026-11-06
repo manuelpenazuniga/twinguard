@@ -1,0 +1,163 @@
+[
+  {
+    "label": "base",
+    "sims": 20000,
+    "baseline": 0.3,
+    "mu": 0.1,
+    "tau": 0.08,
+    "family": 0.0,
+    "mechanisms": [
+      0,
+      0,
+      0
+    ],
+    "coupling": "independent",
+    "coverage_true": 0.9125,
+    "mc_se": 0.001998045920393223,
+    "mean_tau2": 0.01003053894675926,
+    "target_tau2": 0.0064,
+    "mean_mechanism_variance": 0.0012986038049768518,
+    "target_mechanism_variance": 0.0,
+    "share_tau2_zero": 0.1452,
+    "mean_width": 0.42738110726317646,
+    "mean_vhat": 0.024560396875
+  },
+  {
+    "label": "low_baseline",
+    "sims": 20000,
+    "baseline": 0.1,
+    "mu": 0,
+    "tau": 0.08,
+    "family": 0.0,
+    "mechanisms": [
+      0,
+      0,
+      0
+    ],
+    "coupling": "independent",
+    "coverage_true": 0.6092,
+    "mc_se": 0.0034501837632218953,
+    "mean_tau2": 0.002221008622685185,
+    "target_tau2": 0.0064,
+    "mean_mechanism_variance": 0.000656607494212963,
+    "target_mechanism_variance": 0.0,
+    "share_tau2_zero": 0.4674,
+    "mean_width": 0.2150903800071874,
+    "mean_vhat": 0.016454772916666666
+  },
+  {
+    "label": "positive_seed_coupling",
+    "sims": 20000,
+    "baseline": 0.3,
+    "mu": 0.1,
+    "tau": 0.08,
+    "family": 0.0,
+    "mechanisms": [
+      0,
+      0,
+      0
+    ],
+    "coupling": "positive",
+    "coverage_true": 0.1838,
+    "mc_se": 0.0027387730829698176,
+    "mean_tau2": 1.206741898148149e-06,
+    "target_tau2": 0.0064,
+    "mean_mechanism_variance": 0.00043770384837962963,
+    "target_mechanism_variance": 0.0,
+    "share_tau2_zero": 0.9992,
+    "mean_width": 0.11147987151850217,
+    "mean_vhat": 0.02455976979166667
+  },
+  {
+    "label": "negative_seed_coupling",
+    "sims": 20000,
+    "baseline": 0.3,
+    "mu": 0.1,
+    "tau": 0.08,
+    "family": 0.0,
+    "mechanisms": [
+      0,
+      0,
+      0
+    ],
+    "coupling": "negative",
+    "coverage_true": 0.99105,
+    "mc_se": 0.0006659541087792767,
+    "mean_tau2": 0.0245931484375,
+    "target_tau2": 0.0064,
+    "mean_mechanism_variance": 0.0018712662760416666,
+    "target_mechanism_variance": 0.0,
+    "share_tau2_zero": 0.0139,
+    "mean_width": 0.6678422538710364,
+    "mean_vhat": 0.024559021875000003
+  },
+  {
+    "label": "shared_sector",
+    "sims": 20000,
+    "baseline": 0.3,
+    "mu": 0.1,
+    "tau": 0.08,
+    "family": 0.12,
+    "mechanisms": [
+      0,
+      0,
+      0
+    ],
+    "coupling": "independent",
+    "coverage_true": 0.94315,
+    "mc_se": 0.0016373465958678382,
+    "mean_tau2": 0.023578738773148148,
+    "target_tau2": 0.0208,
+    "mean_mechanism_variance": 0.0008283561921296296,
+    "target_mechanism_variance": 0.0,
+    "share_tau2_zero": 0.01305,
+    "mean_width": 0.6418556125749025,
+    "mean_vhat": 0.024126064583333336
+  },
+  {
+    "label": "fixed_mechanisms",
+    "sims": 20000,
+    "baseline": 0.4,
+    "mu": 0,
+    "tau": 0.0,
+    "family": 0.0,
+    "mechanisms": [
+      -0.2,
+      0,
+      0.2
+    ],
+    "coupling": "independent",
+    "coverage_true": 0.9985,
+    "mc_se": 0.0002736558057122072,
+    "mean_tau2": 0.004972519212962963,
+    "target_tau2": 0.0,
+    "mean_mechanism_variance": 0.039751593098958336,
+    "target_mechanism_variance": 0.026666666666666672,
+    "share_tau2_zero": 0.3598,
+    "mean_width": 0.8643762339286497,
+    "mean_vhat": 0.024855665625
+  },
+  {
+    "label": "zero_heterogeneity",
+    "sims": 20000,
+    "baseline": 0.3,
+    "mu": 0,
+    "tau": 0,
+    "family": 0.0,
+    "mechanisms": [
+      0,
+      0,
+      0
+    ],
+    "coupling": "independent",
+    "coverage_true": 0.9844,
+    "mc_se": 0.0008762602353182514,
+    "mean_tau2": 0.004101655468750001,
+    "target_tau2": 0.0,
+    "mean_mechanism_variance": 0.0009867727141203706,
+    "target_mechanism_variance": 0.0,
+    "share_tau2_zero": 0.39855,
+    "mean_width": 0.28361931495596465,
+    "mean_vhat": 0.023851197916666667
+  }
+]

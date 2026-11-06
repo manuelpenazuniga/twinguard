@@ -1,0 +1,1242 @@
+[
+  {
+    "case": "direct_deletion",
+    "W": 1,
+    "flag": true,
+    "outcome": "TP",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": true,
+      "lost_supervision_callers": [
+        "app.run"
+      ],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      }
+    }
+  },
+  {
+    "case": "safe_helper_depth2",
+    "W": 0,
+    "flag": false,
+    "outcome": "TN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    }
+  },
+  {
+    "case": "safe_helper_depth3",
+    "W": 0,
+    "flag": true,
+    "outcome": "FP",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": true,
+      "lost_supervision_callers": [
+        "app.run"
+      ],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      }
+    }
+  },
+  {
+    "case": "safe_monitor_in_parent",
+    "W": 0,
+    "flag": true,
+    "outcome": "FP",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": true,
+      "lost_supervision_callers": [
+        "app.helper"
+      ],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.helper": false
+        }
+      }
+    }
+  },
+  {
+    "case": "unreachable_monitor",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    }
+  },
+  {
+    "case": "monitor_after_action",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ],
+          [
+            "monitor",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    }
+  },
+  {
+    "case": "noop_monitor_body",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    }
+  },
+  {
+    "case": "dynamic_protected_alias",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {}
+      }
+    }
+  },
+  {
+    "case": "inheritance_same_method_name",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.Base.check"
+        ],
+        "callers": {
+          "app.Worker.work": false
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.Base.check"
+        ],
+        "callers": {
+          "app.Worker.work": false
+        }
+      }
+    }
+  },
+  {
+    "case": "decorator_removed",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      }
+    }
+  },
+  {
+    "case": "callback_removed",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      }
+    }
+  },
+  {
+    "case": "safe_callback_refactor",
+    "W": 0,
+    "flag": true,
+    "outcome": "FP",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": true,
+      "lost_supervision_callers": [
+        "app.run"
+      ],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      }
+    }
+  },
+  {
+    "case": "dependency_injection_removed",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.Worker.work": false
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.Worker.work": false
+        }
+      }
+    }
+  },
+  {
+    "case": "safe_dependency_injection",
+    "W": 0,
+    "flag": true,
+    "outcome": "FP",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": true,
+      "lost_supervision_callers": [
+        "app.Worker.work"
+      ],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.Worker.work": false
+        }
+      }
+    }
+  },
+  {
+    "case": "shadowed_parameter",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.execute": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.execute": true
+        }
+      }
+    }
+  },
+  {
+    "case": "async_await_removed",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": "/Users/mpz/Downloads/files22/files3.4/auditoria_independiente_20261105/microrepos/async_await_removed/after/app.py:7: RuntimeWarning: coroutine 'monitor' was never awaited\n  monitor(1)\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n"
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.work": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.work": true
+        }
+      }
+    }
+  },
+  {
+    "case": "relative_import_package_init",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "pkg.protected"
+        ],
+        "monitors": [
+          "pkg.guard.check"
+        ],
+        "callers": {
+          "pkg.run": false
+        }
+      },
+      "after": {
+        "protected": [
+          "pkg.protected"
+        ],
+        "monitors": [
+          "pkg.guard.check"
+        ],
+        "callers": {
+          "pkg.run": false
+        }
+      }
+    }
+  },
+  {
+    "case": "unrelated_same_name_added",
+    "W": 0,
+    "flag": true,
+    "outcome": "FP",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": true,
+      "lost_supervision_callers": [
+        "app.run"
+      ],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.Monitor.check"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.Monitor.check"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      }
+    }
+  },
+  {
+    "case": "one_of_two_calls_removed",
+    "W": 1,
+    "flag": false,
+    "outcome": "FN",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ],
+          [
+            "monitor",
+            2
+          ],
+          [
+            "protected",
+            2
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ],
+          [
+            "protected",
+            2
+          ]
+        ],
+        "W": 1,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": false,
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    }
+  },
+  {
+    "case": "safe_dynamic_getattr",
+    "W": 0,
+    "flag": true,
+    "outcome": "FP",
+    "runtime": {
+      "before": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      },
+      "after": {
+        "events": [
+          [
+            "monitor",
+            1
+          ],
+          [
+            "protected",
+            1
+          ]
+        ],
+        "W": 0,
+        "stderr": ""
+      }
+    },
+    "result": {
+      "flag": true,
+      "lost_supervision_callers": [
+        "app.run"
+      ],
+      "monitor_removed": false,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.Monitor.check"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.Monitor.check"
+        ],
+        "callers": {
+          "app.run": false
+        }
+      }
+    }
+  }
+]

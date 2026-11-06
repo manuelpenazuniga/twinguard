@@ -1,0 +1,50 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "other",
+      "name": "other",
+      "text": "def check(x):\n    return False\n"
+    },
+    {
+      "id": "other.check",
+      "name": "other.check",
+      "text": "def check(x):\n    return False"
+    },
+    {
+      "id": "pkg",
+      "name": "pkg",
+      "text": "from .guard import check as gate\nfrom .guard import events\ndef run():\n    protected(1)\ndef protected(x):\n    events.append([\"protected\", x])\n"
+    },
+    {
+      "id": "pkg.protected",
+      "name": "pkg.protected",
+      "text": "def protected(x):\n    events.append([\"protected\", x])"
+    },
+    {
+      "id": "pkg.run",
+      "name": "pkg.run",
+      "text": "def run():\n    protected(1)"
+    },
+    {
+      "id": "pkg.guard",
+      "name": "pkg.guard",
+      "text": "events = []\ndef check(x):\n    events.append([\"monitor\", x])\n"
+    },
+    {
+      "id": "pkg.guard.check",
+      "name": "pkg.guard.check",
+      "text": "def check(x):\n    events.append([\"monitor\", x])"
+    }
+  ],
+  "edges": [
+    {
+      "source": "pkg.run",
+      "target": "pkg.protected",
+      "type": "calls",
+      "key": 0
+    }
+  ]
+}

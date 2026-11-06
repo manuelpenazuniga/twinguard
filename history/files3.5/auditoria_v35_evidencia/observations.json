@@ -1,0 +1,1265 @@
+{
+  "safe_helper_upstream": {
+    "trace_before": [
+      "M"
+    ],
+    "trace_after": [
+      "M"
+    ],
+    "GSC": {
+      "status": "no_alert",
+      "flag": false,
+      "not_evaluable_reasons": [],
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "depth": 2,
+      "before": {
+        "protected": [],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {}
+      },
+      "after": {
+        "protected": [],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {}
+      }
+    },
+    "generic": {
+      "status": "alert",
+      "flag": true,
+      "deleted_guard_paths": [
+        [
+          "app.run",
+          "app.monitor",
+          1,
+          0
+        ]
+      ]
+    },
+    "before_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef inner(): monitor()\ndef run(): inner()\n"
+        },
+        {
+          "id": "app.inner",
+          "name": "app.inner",
+          "text": "def inner(): monitor()"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(): inner()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.inner",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.inner",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    },
+    "after_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef helper(): monitor()\ndef inner(): helper()\ndef run(): inner()\n"
+        },
+        {
+          "id": "app.helper",
+          "name": "app.helper",
+          "text": "def helper(): monitor()"
+        },
+        {
+          "id": "app.inner",
+          "name": "app.inner",
+          "text": "def inner(): helper()"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(): inner()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.helper",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.inner",
+          "target": "app.helper",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.inner",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    }
+  },
+  "safe_branch_factoring": {
+    "trace_before": [
+      "M"
+    ],
+    "trace_after": [
+      "M"
+    ],
+    "GSC": {
+      "status": "no_alert",
+      "flag": false,
+      "not_evaluable_reasons": [],
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "depth": 2,
+      "before": {
+        "protected": [],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {}
+      },
+      "after": {
+        "protected": [],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {}
+      }
+    },
+    "generic": {
+      "status": "alert",
+      "flag": true,
+      "deleted_guard_paths": [
+        [
+          "app.run",
+          "app.monitor",
+          2,
+          1
+        ]
+      ]
+    },
+    "before_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef run(c=True):\n    if c: monitor()\n    else: monitor()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(c=True):\n    if c: monitor()\n    else: monitor()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 1
+        }
+      ]
+    },
+    "after_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef run(c=True): monitor()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(c=True): monitor()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    },
+    "trace_false_before": [
+      "M"
+    ],
+    "trace_false_after": [
+      "M"
+    ]
+  },
+  "unrelated_deferred_reference": {
+    "trace_before": [
+      "M",
+      "P"
+    ],
+    "trace_after": [
+      "M",
+      "P"
+    ],
+    "GSC": {
+      "status": "not_evaluable",
+      "flag": false,
+      "not_evaluable_reasons": [
+        "protected_or_monitor_in_lambda_or_nested_def"
+      ],
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "depth": 2,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    },
+    "generic": {
+      "status": "no_alert",
+      "flag": false,
+      "deleted_guard_paths": []
+    },
+    "before_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef protected(): events.append('P')\ndef run():\n    monitor()\n    protected()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run():\n    monitor()\n    protected()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    },
+    "after_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [
+          [
+            "app.unused",
+            "monitor"
+          ]
+        ],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef protected(): events.append('P')\ndef run():\n    monitor()\n    protected()\n\ndef unused():\n    return lambda: monitor()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run():\n    monitor()\n    protected()"
+        },
+        {
+          "id": "app.unused",
+          "name": "app.unused",
+          "text": "def unused():\n    return lambda: monitor()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    }
+  },
+  "default_argument_runtime_edge": {
+    "trace_before": [
+      "M",
+      "P"
+    ],
+    "trace_after": [
+      "P"
+    ],
+    "GSC": {
+      "status": "no_alert",
+      "flag": false,
+      "not_evaluable_reasons": [],
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "depth": 2,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    },
+    "generic": {
+      "status": "no_alert",
+      "flag": false,
+      "deleted_guard_paths": []
+    },
+    "before_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef protected(): events.append('P')\ndef run():\n    monitor()\n    protected()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run():\n    monitor()\n    protected()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    },
+    "after_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef protected(): events.append('P')\ndef run(token=monitor()):\n    protected()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(token=monitor()):\n    protected()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    }
+  },
+  "protected_inlined_unsupervised": {
+    "trace_before": [
+      "M",
+      "P"
+    ],
+    "trace_after": [
+      "P"
+    ],
+    "GSC": {
+      "status": "no_alert",
+      "flag": false,
+      "not_evaluable_reasons": [],
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "depth": 2,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {}
+      }
+    },
+    "generic": {
+      "status": "alert",
+      "flag": true,
+      "deleted_guard_paths": [
+        [
+          "app.run",
+          "app.monitor",
+          1,
+          0
+        ]
+      ]
+    },
+    "before_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef protected(): events.append('P')\ndef run():\n    monitor()\n    protected()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run():\n    monitor()\n    protected()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    },
+    "after_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.run",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor(): events.append('M')\ndef run(): events.append('P')\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor(): events.append('M')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(): events.append('P')"
+        }
+      ],
+      "edges": []
+    }
+  },
+  "decorator_factory_runtime_edge": {
+    "trace_before": [
+      "M",
+      "P"
+    ],
+    "trace_after": [
+      "P"
+    ],
+    "GSC": {
+      "status": "no_alert",
+      "flag": false,
+      "not_evaluable_reasons": [],
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "depth": 2,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.monitor"
+        ],
+        "callers": {
+          "app.run": true
+        }
+      }
+    },
+    "generic": {
+      "status": "no_alert",
+      "flag": false,
+      "deleted_guard_paths": []
+    },
+    "before_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [
+          [
+            "app.monitor",
+            "f"
+          ]
+        ],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor():\n    events.append('M')\n    return lambda f:f\ndef protected(): events.append('P')\ndef run():\n    monitor()\n    protected()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor():\n    events.append('M')\n    return lambda f:f"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run():\n    monitor()\n    protected()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    },
+    "after_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.monitor",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ]
+        ],
+        "deferred_references": [
+          [
+            "app.monitor",
+            "f"
+          ]
+        ],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef monitor():\n    events.append('M')\n    return lambda f:f\ndef protected(): events.append('P')\n@monitor()\ndef run():\n    protected()\n"
+        },
+        {
+          "id": "app.monitor",
+          "name": "app.monitor",
+          "text": "def monitor():\n    events.append('M')\n    return lambda f:f"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run():\n    protected()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.run",
+          "target": "app.monitor",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    }
+  },
+  "multiple_inheritance": {
+    "trace_before": [
+      "M",
+      "P"
+    ],
+    "trace_after": [
+      "P"
+    ],
+    "GSC": {
+      "status": "no_alert",
+      "flag": false,
+      "not_evaluable_reasons": [],
+      "lost_supervision_callers": [],
+      "monitor_removed": false,
+      "depth": 2,
+      "before": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.A.check"
+        ],
+        "callers": {
+          "app.D.run": true
+        }
+      },
+      "after": {
+        "protected": [
+          "app.protected"
+        ],
+        "monitors": [
+          "app.A.check"
+        ],
+        "callers": {
+          "app.D.run": true
+        }
+      }
+    },
+    "generic": {
+      "status": "no_alert",
+      "flag": false,
+      "deleted_guard_paths": []
+    },
+    "before_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.A.check",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ],
+          [
+            "app.run",
+            "D().run"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef protected(): events.append('P')\nclass A:\n    def check(self): events.append('M')\nclass B(A): pass\nclass C(A):\n    def check(self): pass\nclass D(B):\n    def run(self):\n        self.check()\n        protected()\ndef run(): D().run()\n"
+        },
+        {
+          "id": "app.A",
+          "name": "app.A",
+          "text": "class A:\n    def check(self): events.append('M')"
+        },
+        {
+          "id": "app.A.check",
+          "name": "app.A.check",
+          "text": "def check(self): events.append('M')"
+        },
+        {
+          "id": "app.B",
+          "name": "app.B",
+          "text": "class B(A): pass"
+        },
+        {
+          "id": "app.C",
+          "name": "app.C",
+          "text": "class C(A):\n    def check(self): pass"
+        },
+        {
+          "id": "app.C.check",
+          "name": "app.C.check",
+          "text": "def check(self): pass"
+        },
+        {
+          "id": "app.D",
+          "name": "app.D",
+          "text": "class D(B):\n    def run(self):\n        self.check()\n        protected()"
+        },
+        {
+          "id": "app.D.run",
+          "name": "app.D.run",
+          "text": "def run(self):\n        self.check()\n        protected()"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(): D().run()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.D.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.D.run",
+          "target": "app.A.check",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.D",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    },
+    "after_graph": {
+      "directed": true,
+      "multigraph": true,
+      "graph": {
+        "builder": "twinguard_graph 0.2",
+        "parse_errors": [],
+        "unresolved_calls": [
+          [
+            "app.A.check",
+            "events.append"
+          ],
+          [
+            "app.protected",
+            "events.append"
+          ],
+          [
+            "app.run",
+            "D().run"
+          ]
+        ],
+        "deferred_references": [],
+        "heuristic_edges": []
+      },
+      "nodes": [
+        {
+          "id": "app",
+          "name": "app",
+          "text": "events=[]\ndef protected(): events.append('P')\nclass A:\n    def check(self): events.append('M')\nclass B(A): pass\nclass C(A):\n    def check(self): pass\nclass D(B,C):\n    def run(self):\n        self.check()\n        protected()\ndef run(): D().run()\n"
+        },
+        {
+          "id": "app.A",
+          "name": "app.A",
+          "text": "class A:\n    def check(self): events.append('M')"
+        },
+        {
+          "id": "app.A.check",
+          "name": "app.A.check",
+          "text": "def check(self): events.append('M')"
+        },
+        {
+          "id": "app.B",
+          "name": "app.B",
+          "text": "class B(A): pass"
+        },
+        {
+          "id": "app.C",
+          "name": "app.C",
+          "text": "class C(A):\n    def check(self): pass"
+        },
+        {
+          "id": "app.C.check",
+          "name": "app.C.check",
+          "text": "def check(self): pass"
+        },
+        {
+          "id": "app.D",
+          "name": "app.D",
+          "text": "class D(B,C):\n    def run(self):\n        self.check()\n        protected()"
+        },
+        {
+          "id": "app.D.run",
+          "name": "app.D.run",
+          "text": "def run(self):\n        self.check()\n        protected()"
+        },
+        {
+          "id": "app.protected",
+          "name": "app.protected",
+          "text": "def protected(): events.append('P')"
+        },
+        {
+          "id": "app.run",
+          "name": "app.run",
+          "text": "def run(): D().run()"
+        }
+      ],
+      "edges": [
+        {
+          "source": "app.D.run",
+          "target": "app.protected",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.D.run",
+          "target": "app.A.check",
+          "type": "calls",
+          "key": 0
+        },
+        {
+          "source": "app.run",
+          "target": "app.D",
+          "type": "calls",
+          "key": 0
+        }
+      ]
+    }
+  },
+  "unicode_separator_sites": [
+    {
+      "file": "app.py",
+      "line": 3,
+      "call": "validate",
+      "kind": "call",
+      "status": "excluded",
+      "reason": "mutant_does_not_parse"
+    },
+    {
+      "file": "app.py",
+      "line": 4,
+      "call": "validate",
+      "kind": "call",
+      "status": "ok",
+      "mutated_source": "def validate(x): pass\nlabel = \"a b\"\npass\nvalidate(2)\n"
+    }
+  ],
+  "latin1_sites": [
+    {
+      "file": "app.py",
+      "line": 5,
+      "call": "validate",
+      "kind": "call",
+      "status": "ok",
+      "mutated_source": "# coding: latin-1\nlabel = \"caf�\"\ndef validate(x): pass\ndef run():\n    pass\n"
+    }
+  ],
+  "utf8_multiline_decorated_exact": true,
+  "duplicate_budget": {
+    "N_passing": 1440,
+    "nominal_quota": 144,
+    "actually_selected": 1440
+  },
+  "nonbinary_conversion": {
+    "input_W": 0.9,
+    "loaded_W": 0
+  },
+  "missing_arm_weights": {
+    "missing_rows": 480,
+    "n_evaluable": 960,
+    "total_weight_by_framing": {
+      "N": 0.5000000000000001,
+      "P": 0.5000000000000001
+    },
+    "reported_U": 0.0,
+    "true_U_before_mask": 0.3333333333333333
+  },
+  "defer_vs_budget": {
+    "passing": 960,
+    "natural_deferred": 960,
+    "budget_selected": 96
+  },
+  "decomposition_with_missing": {
+    "alert": {
+      "estimate": 0.027083333333333334,
+      "ci95": [
+        -0.015424992017950626,
+        0.0695916586846173
+      ]
+    },
+    "no_alert": {
+      "estimate": 0.03125,
+      "ci95": [
+        -0.012099115308678354,
+        0.07459911530867835
+      ]
+    },
+    "not_evaluable": {
+      "estimate": 0.002083333333333339,
+      "ci95": [
+        -0.042345178289332444,
+        0.046511844955999124
+      ]
+    },
+    "sum_of_parts": 0.060416666666666674,
+    "additivity_gap_vs_H1": 6.938893903907228e-18,
+    "note": "Parts are what this detector version flagged; not a decomposition into causes."
+  },
+  "bootstrap_zero_denominator": {
+    "U_accepted": {
+      "estimate": 0.0,
+      "ci95_sector_bootstrap": [
+        0.0,
+        0.0
+      ],
+      "replicates_with_zero_denominator": 0
+    },
+    "S_retained": {
+      "estimate": 0.0,
+      "ci95_sector_bootstrap": [
+        0.0,
+        0.0
+      ],
+      "replicates_with_zero_denominator": 0
+    },
+    "detection_of_U": {
+      "estimate": null,
+      "ci95_sector_bootstrap": null,
+      "replicates_with_zero_denominator": 20
+    }
+  }
+}

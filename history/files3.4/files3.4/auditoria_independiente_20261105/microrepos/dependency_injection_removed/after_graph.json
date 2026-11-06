@@ -1,0 +1,56 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "app",
+      "name": "app",
+      "text": "events = []\ndef monitor(x):\n    events.append([\"monitor\", x])\ndef protected(x):\n    events.append([\"protected\", x])\n\nclass Worker:\n    def __init__(self, policy):\n        self.policy = policy\n    def work(self):\n        protected(1)\ndef run():\n    Worker(monitor).work()\n"
+    },
+    {
+      "id": "app.Worker",
+      "name": "app.Worker",
+      "text": "class Worker:\n    def __init__(self, policy):\n        self.policy = policy\n    def work(self):\n        protected(1)"
+    },
+    {
+      "id": "app.Worker.__init__",
+      "name": "app.Worker.__init__",
+      "text": "def __init__(self, policy):\n        self.policy = policy"
+    },
+    {
+      "id": "app.Worker.work",
+      "name": "app.Worker.work",
+      "text": "def work(self):\n        protected(1)"
+    },
+    {
+      "id": "app.monitor",
+      "name": "app.monitor",
+      "text": "def monitor(x):\n    events.append([\"monitor\", x])"
+    },
+    {
+      "id": "app.protected",
+      "name": "app.protected",
+      "text": "def protected(x):\n    events.append([\"protected\", x])"
+    },
+    {
+      "id": "app.run",
+      "name": "app.run",
+      "text": "def run():\n    Worker(monitor).work()"
+    }
+  ],
+  "edges": [
+    {
+      "source": "app.Worker.work",
+      "target": "app.protected",
+      "type": "calls",
+      "key": 0
+    },
+    {
+      "source": "app.run",
+      "target": "app.Worker",
+      "type": "calls",
+      "key": 0
+    }
+  ]
+}

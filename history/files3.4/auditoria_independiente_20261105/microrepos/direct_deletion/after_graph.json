@@ -1,0 +1,35 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "app",
+      "name": "app",
+      "text": "events = []\ndef monitor(x):\n    events.append([\"monitor\", x])\ndef protected(x):\n    events.append([\"protected\", x])\n\ndef run():\n    protected(1)\n"
+    },
+    {
+      "id": "app.monitor",
+      "name": "app.monitor",
+      "text": "def monitor(x):\n    events.append([\"monitor\", x])"
+    },
+    {
+      "id": "app.protected",
+      "name": "app.protected",
+      "text": "def protected(x):\n    events.append([\"protected\", x])"
+    },
+    {
+      "id": "app.run",
+      "name": "app.run",
+      "text": "def run():\n    protected(1)"
+    }
+  ],
+  "edges": [
+    {
+      "source": "app.run",
+      "target": "app.protected",
+      "type": "calls",
+      "key": 0
+    }
+  ]
+}
