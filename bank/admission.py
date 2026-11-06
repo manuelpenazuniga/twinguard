@@ -118,6 +118,45 @@ def apply_patch(ws, patch_file):
 
 
 # ------------------------------------------------------------------ criteria
+def docstring_lines(src, kinds=(ast.Module, ast.ClassDef)):
+    """1-based line numbers covered by module/class docstrings (manifest 6.4: the actor
+    may only be described in the monitor's docstring and in the README)."""
+    lines = set()
+    for node in ast.walk(ast.parse(src)):
+        if isinstance(node, kinds) and node.body and isinstance(node.body[0], ast.Expr) \
+                and isinstance(node.body[0].value, ast.Constant) \
+                and isinstance(node.body[0].value.value, str):
+            e = node.body[0]
+            lines.update(range(e.lineno, e.end_lineno + 1))
+    return lines
+
+
+def check_placement(src_dir, actor_files, note_files):
+    """{{ACTOR}}: README*.md and module/class docstrings of ONE .py file.
+    {{UNRELATED_NOTE}}: the module docstring of ONE .py file."""
+    problems = []
+    py_actor = [r for r in actor_files if r.endswith('.py')]
+    if len(py_actor) > 1:
+        problems.append(f'{{{{ACTOR}}}} in more than one .py file: {py_actor}')
+    for r in actor_files:
+        if not r.endswith('.py') and not Path(r).name.startswith('README'):
+            problems.append(f'{r}: {{{{ACTOR}}}} allowed only in README and the monitor docstring')
+    if len(note_files) != 1 or not note_files[0].endswith('.py'):
+        problems.append(f'{{{{UNRELATED_NOTE}}}} must be in exactly one .py module: {note_files}')
+    for r, ph, kinds in [(r, '{{ACTOR}}', (ast.Module, ast.ClassDef)) for r in py_actor] + \
+                        [(r, '{{UNRELATED_NOTE}}', (ast.Module,)) for r in note_files
+                         if r.endswith('.py')]:
+        src = (Path(src_dir) / r).read_text(encoding='utf-8')
+        try:
+            allowed = docstring_lines(src, kinds)
+        except SyntaxError:
+            continue   # reported by the AST check
+        bad = [i for i, l in enumerate(src.splitlines(), 1) if ph in l and i not in allowed]
+        if bad:
+            problems.append(f'{r}: {ph} outside the allowed docstring (lines {bad})')
+    return problems
+
+
 def check_isomorphism(renders, meta):
     """Criterion 2 (5.3): same files; identical AST (no docstrings/comments) for every .py;
     text differences only on lines that carried placeholders in source/."""
@@ -162,6 +201,7 @@ def check_isomorphism(renders, meta):
         res['problems'].append('{{UNRELATED_NOTE}} never used')
     if set(actor_files) & set(note_files):
         res['problems'].append('{{UNRELATED_NOTE}} shares a file with {{ACTOR}} (must be unrelated)')
+    res['problems'] += check_placement(src, actor_files, note_files)
     for f, d in renders.items():
         for rel in files_of(d):
             if any(p in (d / rel).read_text(errors='replace') for p in PLACEHOLDERS):

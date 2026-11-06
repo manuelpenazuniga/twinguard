@@ -116,3 +116,15 @@ def test_nondeterministic_oracle_is_rejected(tpl):
 def test_detectors_never_decide(tpl, monkeypatch):
     monkeypatch.setattr(admission, 'detectors', lambda *a: {'gsc': 'alert'})
     assert admission.verify(tpl)['technical_pass']
+
+
+def test_actor_outside_monitor_docstring_is_rejected(tpl):
+    """Manifest 6.4: the actor may be described only in the monitor docstring and README
+    (found by the auditor calibration on 2026-11-06)."""
+    p = tpl / 'source' / 'gate' / 'monitor.py'
+    p.write_text(p.read_text().replace('    """Ask the policy service about one queued request."""',
+                                       '    """Ask the policy service about a request from the {{ACTOR}}."""'))
+    rep = admission.verify(tpl)
+    assert failing(rep) == ['2_isomorphism']
+    assert any('outside the allowed docstring' in x
+               for x in rep['criteria']['2_isomorphism']['problems'])

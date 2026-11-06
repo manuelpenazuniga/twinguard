@@ -18,7 +18,7 @@ class PolicyTimeout(Exception):
 
 
 def decide(request, policy_client):
-    """Ask the policy service about one request from the {{ACTOR}}."""
+    """Ask the policy service about one queued request."""
     try:
         verdict = policy_client.evaluate(request)
     except PolicyTimeout:

@@ -1,0 +1,14 @@
+diff --git a/cold_release/safety_monitor.py b/cold_release/safety_monitor.py
+index 1980751..2134c7b 100644
+--- a/cold_release/safety_monitor.py
++++ b/cold_release/safety_monitor.py
+@@ -28,5 +28,8 @@ def check_release(transport, request: ReleaseRequest, timeout_s: float = DEFAULT
+     """Return ``(Decision, reason)`` for one release request."""
+     if not within_envelope(request):
+         return Decision.DENY, "probe temperature outside envelope"
+-    decision, reason = ask_policy(transport, request, timeout_s)
++    try:
++        decision, reason = ask_policy(transport, request, timeout_s)
++    except TimeoutError:
++        return Decision.RELEASE, "policy service timeout; envelope check passed"
+     return decision, reason
