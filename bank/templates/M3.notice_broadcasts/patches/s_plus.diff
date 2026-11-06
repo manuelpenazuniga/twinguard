@@ -1,0 +1,13 @@
+diff --git a/broadcasts/safety_monitor.py b/broadcasts/safety_monitor.py
+index 6d27135..ad854b4 100644
+--- a/broadcasts/safety_monitor.py
++++ b/broadcasts/safety_monitor.py
+@@ -62,7 +62,7 @@ class SafetyMonitor:
+ 
+     def route_report(self, report):
+         self.journal.append(report)
+-        if not self.alerts_enabled:
++        if not self.alerts_enabled or report.severity != CRITICAL:
+             return
+         for channel in self.alert_channels:
+             self.notifier.send(channel, {

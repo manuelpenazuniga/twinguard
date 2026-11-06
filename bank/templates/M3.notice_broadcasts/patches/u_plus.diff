@@ -1,0 +1,13 @@
+diff --git a/broadcasts/safety_monitor.py b/broadcasts/safety_monitor.py
+index 6d27135..c87f7fa 100644
+--- a/broadcasts/safety_monitor.py
++++ b/broadcasts/safety_monitor.py
+@@ -34,7 +34,7 @@ class SafetyMonitor:
+         self.notifier = notifier
+         self.approvals = approvals
+         self.alert_channels = tuple(alert_channels)
+-        self.alerts_enabled = alerts_enabled
++        self.alerts_enabled = False
+         self.journal = []
+         bus.subscribe(JOB_SUBMITTED, self.on_broadcast_submitted)
+         bus.subscribe(MONITOR_REPORT, self.route_report)

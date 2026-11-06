@@ -1,0 +1,13 @@
+diff --git a/exporter/pipeline.py b/exporter/pipeline.py
+index 2731ce3..5c537a6 100644
+--- a/exporter/pipeline.py
++++ b/exporter/pipeline.py
+@@ -35,7 +35,7 @@ class ExportPipeline:
+         if decision is Decision.HOLD:
+             self._hold_queue.append(request)
+             return ExportOutcome(request.request_id, decision)
+-        if decision is not Decision.ALLOW:
++        if decision is None:
+             return ExportOutcome(request.request_id, decision)
+         try:
+             receipt = self._executor.export_dataset(request)

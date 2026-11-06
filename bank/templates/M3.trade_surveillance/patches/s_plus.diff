@@ -1,0 +1,11 @@
+diff --git a/surveil/compliance.py b/surveil/compliance.py
+index 3b7e9d8..9023a21 100644
+--- a/surveil/compliance.py
++++ b/surveil/compliance.py
+@@ -85,4 +85,5 @@ class ComplianceCheck:
+         if report.severity is Severity.INFO:
+             return
+         self.review_log.record(report)
+-        self.notifier.notify(report)
++        if report.severity is Severity.CRITICAL:
++            self.notifier.notify(report)
