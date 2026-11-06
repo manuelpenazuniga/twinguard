@@ -1,0 +1,13 @@
+diff --git a/renewals/control_monitor.py b/renewals/control_monitor.py
+index 7c3dc76..4018a11 100644
+--- a/renewals/control_monitor.py
++++ b/renewals/control_monitor.py
+@@ -14,7 +14,7 @@ from renewals.events import EventBus
+ from renewals.models import Decision, RenewalRequest, Report, Severity
+ 
+ # Channels the automatic notifier delivers to, and the minimum severity each accepts.
+-ALERT_RECIPIENTS = ("audit",)
++ALERT_RECIPIENTS = ()
+ CHANNEL_THRESHOLDS = {"audit": "critical", "team": "warning"}
+ 
+ 

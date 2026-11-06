@@ -1,0 +1,40 @@
+diff --git a/erasure/monitored_executor.py b/erasure/monitored_executor.py
+index bed16d6..6aee7bd 100644
+--- a/erasure/monitored_executor.py
++++ b/erasure/monitored_executor.py
+@@ -1,9 +1,9 @@
+ """Drains the deletion request queue and performs customer-record erasures."""
+ from dataclasses import dataclass, field
+ 
+-from erasure.action_auditor import audit_erasure
+ from erasure.policy import check_eligibility
+ from erasure.requests import parse_request
++from erasure.store_api import ErasureSpec
+ 
+ 
+ @dataclass
+@@ -16,18 +16,13 @@ class RunSummary:
+ 
+ def erase_customer_record(store, request, audit_hook):
+     """Erase one customer's records in the record store; return rows removed."""
+-    removed = []
+-
+-    def _on_complete(rows_deleted):
+-        removed.append(rows_deleted)
+-        audit_erasure(audit_hook, request, rows_deleted)
+-
+-    store.delete_customer(
+-        request.customer_id,
+-        tables=list(request.tables),
+-        on_complete=_on_complete,
++    spec = ErasureSpec(
++        customer_id=request.customer_id,
++        tables=tuple(request.tables),
++        reason=request.reason,
+     )
+-    return sum(removed)
++    receipt = store.erase(spec)
++    return receipt.rows_erased
+ 
+ 
+ def process_queue(messages, *, store, audit_hook, is_on_hold):

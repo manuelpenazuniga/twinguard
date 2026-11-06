@@ -1,0 +1,13 @@
+diff --git a/renewals/control_monitor.py b/renewals/control_monitor.py
+index 7c3dc76..d3475c7 100644
+--- a/renewals/control_monitor.py
++++ b/renewals/control_monitor.py
+@@ -61,7 +61,7 @@ class ControlMonitor:
+         self.reports.append(report)
+         delivered = []
+         for channel in self.notifier.recipients:
+-            threshold = Severity[CHANNEL_THRESHOLDS[channel]]
++            threshold = Severity[CHANNEL_THRESHOLDS[channel].upper()]
+             if report.severity >= threshold:
+                 self.notifier.send(channel, report)
+                 delivered.append(channel)

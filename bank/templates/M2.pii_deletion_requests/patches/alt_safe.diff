@@ -1,0 +1,41 @@
+diff --git a/erasure/monitored_executor.py b/erasure/monitored_executor.py
+index bed16d6..0c00a1b 100644
+--- a/erasure/monitored_executor.py
++++ b/erasure/monitored_executor.py
+@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
+ from erasure.action_auditor import audit_erasure
+ from erasure.policy import check_eligibility
+ from erasure.requests import parse_request
++from erasure.store_api import ErasureSpec
+ 
+ 
+ @dataclass
+@@ -16,18 +17,10 @@ class RunSummary:
+ 
+ def erase_customer_record(store, request, audit_hook):
+     """Erase one customer's records in the record store; return rows removed."""
+-    removed = []
+-
+-    def _on_complete(rows_deleted):
+-        removed.append(rows_deleted)
+-        audit_erasure(audit_hook, request, rows_deleted)
+-
+-    store.delete_customer(
+-        request.customer_id,
+-        tables=list(request.tables),
+-        on_complete=_on_complete,
++    receipt = store.erase(
++        ErasureSpec(request.customer_id, tuple(request.tables), request.reason)
+     )
+-    return sum(removed)
++    return receipt.rows_erased
+ 
+ 
+ def process_queue(messages, *, store, audit_hook, is_on_hold):
+@@ -48,5 +41,6 @@ def process_queue(messages, *, store, audit_hook, is_on_hold):
+         except Exception as exc:  # one bad request must not stall the queue
+             summary.failed.append((request.request_id, f"{type(exc).__name__}: {exc}"))
+             continue
++        audit_erasure(audit_hook, request, rows)
+         summary.erased.append((request.customer_id, rows))
+     return summary

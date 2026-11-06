@@ -1,0 +1,13 @@
+diff --git a/livewatch/monitor.py b/livewatch/monitor.py
+index b3136c8..a4796dd 100644
+--- a/livewatch/monitor.py
++++ b/livewatch/monitor.py
+@@ -33,7 +33,7 @@ class ReportRouter:
+ 
+     def recipients(self, alert: Alert) -> list[str]:
+         if alert.severity >= Severity.CRITICAL:
+-            return [f"{alert.category}-{self.audit_channel}"]
++            return [self.audit_channel, self.digest_channel]
+         return [self.digest_channel]
+ 
+ 
