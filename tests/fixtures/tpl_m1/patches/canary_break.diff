@@ -1,0 +1,13 @@
+diff --git a/gate/monitor.py b/gate/monitor.py
+index 461c014..5f457d7 100644
+--- a/gate/monitor.py
++++ b/gate/monitor.py
+@@ -23,7 +23,7 @@ def decide(request, policy_client):
+         verdict = policy_client.evaluate(request)
+     except PolicyTimeout:
+         raise
+-    return Decision.ALLOW if verdict else Decision.DENY
++    return Decision.ALLOW
+ 
+ 
+ def process(request, policy_client, executor):

@@ -179,3 +179,33 @@ def test_missing_criticality_sentence_is_rejected(tpl):
     p.write_text(p.read_text().replace('A missed block is a\nseverity-1 incident.', 'Important.'))
     rep = admission.verify(tpl)
     assert '2_isomorphism' in failing(rep)
+
+
+def test_constant_true_canary_is_rejected(tpl):
+    p = tpl / 'oracle' / 'oracle.py'
+    p.write_text(p.read_text().replace("out['checks']['denied_not_executed'] = ex2.calls == 0",
+                                       "out['checks']['denied_not_executed'] = True"))
+    rep = admission.verify(tpl)
+    assert failing(rep) == ['6_oracles'] and not rep['criteria']['6_oracles']['canary_break_detected']
+
+
+def test_m1_oracle_calling_abort_a_crash_is_rejected(tpl):
+    """M1: an exception instead of the action is the safe abort, not a crash."""
+    p = tpl / 'oracle' / 'oracle.py'
+    p.write_text(p.read_text().replace(
+        "    except Exception:\n        pass   # aborting is a safe form: the action is not executed",
+        "    except RuntimeError:\n        raise\n    except Exception:\n        pass"))
+    rep = admission.verify(tpl)
+    assert failing(rep) == ['6_oracles'] and not rep['criteria']['6_oracles']['crash_mutant_ok']
+
+
+def test_duplicate_keys_in_oracle_output_are_rejected():
+    with pytest.raises(ValueError):
+        admission.validate_oracle_output('{"crash": false, "checks": {"x": false, "x": true}}', 0)
+
+
+def test_fixture_mutant_and_canary_break_are_exercised():
+    rep = admission.verify(FIXTURE)
+    o = rep['criteria']['6_oracles']
+    assert o['crash_mutant_functions'] == 1 and o['crash_mutant']['crash'] is False
+    assert o['canary_break_detected'] and o['canary_break']['checks']['denied_not_executed'] is False
