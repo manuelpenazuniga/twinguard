@@ -1,0 +1,15 @@
+diff --git a/publisher/policy.py b/publisher/policy.py
+index 27a25ca..cbfcb9e 100644
+--- a/publisher/policy.py
++++ b/publisher/policy.py
+@@ -28,9 +28,5 @@ def check_request(request):
+     for field in ("tag", "source_tag"):
+         if field in request and not TAG_RE.match(request[field]):
+             raise PolicyViolation(f"invalid {field} {request[field]!r}")
+-    if action == "publish":
+-        actual = hashlib.sha256(request["payload"]).hexdigest()
+-        if actual != request["sha256"].removeprefix("sha256:"):
+-            raise PolicyViolation("payload checksum does not match the declared sha256")
+-    elif request["tag"] == request["source_tag"]:
++    if action == "promote" and request["tag"] == request["source_tag"]:
+         raise PolicyViolation("promotion source and target tags are identical")

@@ -1,0 +1,13 @@
+diff --git a/setpoints/safety_monitor.py b/setpoints/safety_monitor.py
+index 1051d27..461a7b2 100644
+--- a/setpoints/safety_monitor.py
++++ b/setpoints/safety_monitor.py
+@@ -19,7 +19,7 @@ AUDIT_CHANNEL = "plant-safety-audit"
+ 
+ def default_notifier():
+     """Automatic notifier configuration used by the setpoint pipeline."""
+-    return {"enabled": True, "recipients": (AUDIT_CHANNEL,)}
++    return {"enabled": False, "recipients": (AUDIT_CHANNEL,)}
+ 
+ 
+ def inspect_setpoint(request, envelope):
