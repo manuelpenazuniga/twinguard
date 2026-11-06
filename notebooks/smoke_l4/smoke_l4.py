@@ -2,7 +2,7 @@
 
 Inputs (kernel-metadata.json): competition gemma-4-developer-agent, the official
 wheelhouse dataset (vLLM 0.19.1 etc.), Kaggle Models google/gemma-4 31B QAT w4a16-ct v2,
-and the private dataset twinguard-code (git archive of this repo).
+and the repo code bundled into this script by notebooks/build_kernel.py.
 
 Phases (each guarded; results always written to /kaggle/working/smoke_results.json):
   0 GPU guard (abort unless 4x L4)          4 throughput at concurrency 1/4/8/16
@@ -202,13 +202,19 @@ def checks(port):
     return out
 
 
-# ------------------------------------------------------------------ code dataset
+# ------------------------------------------------------------------ code bundle
+# notebooks/build_kernel.py replaces the marker below with CODE_COMMIT and CODE_B64.
+# @@CODE_BUNDLE@@
+
+
 def code_dir():
+    import base64, io, tarfile
     dest = Path('/kaggle/working/code')
     if not (dest / 'harness').exists():
-        tgz = glob.glob('/kaggle/input/**/twinguard_code.tar.gz', recursive=True)[0]
         dest.mkdir(parents=True, exist_ok=True)
-        subprocess.run(['tar', 'xzf', tgz, '-C', str(dest)], check=True)
+        with tarfile.open(fileobj=io.BytesIO(base64.b64decode(CODE_B64)), mode='r:gz') as t:
+            t.extractall(dest)
+        R['code_commit'] = CODE_COMMIT
     return dest
 
 

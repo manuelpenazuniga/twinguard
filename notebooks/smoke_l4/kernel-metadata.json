@@ -10,7 +10,7 @@
   "enable_internet": false,
   "machine_shape": "NvidiaL4",
   "competition_sources": ["gemma-4-developer-agent"],
-  "dataset_sources": ["metric/gemma-4-developer-agent-wheelhouse", "manuelpz/twinguard-code"],
+  "dataset_sources": ["metric/gemma-4-developer-agent-wheelhouse"],
   "model_sources": ["google/gemma-4/Other/gemma-4-31b-it-qat-w4a16-ct/2"],
   "kernel_sources": []
 }
