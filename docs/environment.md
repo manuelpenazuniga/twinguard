@@ -22,7 +22,12 @@ Status: **pre-smoke facts only.** The GPU section is filled in from `notebooks/s
 - Thoughts are rendered as `<|channel>thought ... <channel|>`. Prior thoughts are re-rendered only for assistant turns after the
   last user message (`thinking_gate`), or for tool-calling turns when `preserve_thinking=true`. In an agent loop all
   assistant turns come after the last user message, so reasoning stays in context within the episode by default;
-  the harness must pass it back as `reasoning_content` and count it against the 32,768 context budget.
+  the harness can pass it back as `reasoning_content` (`sampling['carry_reasoning']`, default off) and it then counts
+  against the 32,768 context budget. **Decide in the smoke test**, together with whether vLLM accepts it on input.
+- **Official harness answer (HARNESS_README §2.4, read 2026-11-06):** reasoning is enabled with
+  `chat_template_kwargs.enable_thinking=true` plus `thinking_token_budget` (vLLM `ThinkingTokenBudgetLogitsProcessor`);
+  official defaults `max_output_tokens=16384`, `thinking_budget=4096`, `max_model_len=32768`. The harness sends both
+  (see `docs/harness.md`).
 - **Native tool calling:** tools are declared in the system turn; calls are emitted as `<|tool_call>call:NAME{...}<tool_call|>`.
   To confirm in the smoke test: the vLLM `--tool-call-parser` for Gemma 4 and its malformed-call rate.
 
