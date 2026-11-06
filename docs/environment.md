@@ -40,6 +40,11 @@ Status: **pre-smoke facts only.** The GPU section is filled in from `notebooks/s
 |---|---|---|---|---|
 | 1 | `machine_shape: NvidiaL4X4`, internet on | **`NvidiaTeslaT4` (2x T4 15 GB)**, silent fallback | on: HF and PyPI reachable | wrong string or shape unavailable via CLI |
 | 2 | `NvidiaL4X4`, internet off | **`NvidiaTeslaT4`**, silent fallback | off (HF/PyPI unreachable) | not an internet-gating issue |
+| 3 | **`machine_shape: NvidiaL4`** (string read from the UI-configured notebook), internet off | **4x NVIDIA L4, 23,034 MiB each** | off (forced: UI says "Internet cannot be enabled for this competition with the current accelerator") | **works** |
+
+L4x4 image (v3): same Python/torch/CUDA/driver as T4; 188 GB RAM, 48 CPUs, `/` overlay with 967 GB free (use `/tmp` for weights),
+`/kaggle/working` 20 GB; GPU interconnect **PHB only (PCIe via host bridge, no NVLink)**, so TP=4 pays PCIe all-reduce; compare TP=2x2 and TP=1x4.
+**No internet on L4x4**: vLLM wheels, model weights and code must arrive as private Kaggle datasets (or Kaggle Models), versioned by commit.
 
 Image facts (T4 image, may differ on L4x4): Python 3.13.16, torch 2.11.0+cu130, CUDA 13.0, driver 580.178.04, **vLLM not preinstalled**,
 `/kaggle/working` only **20 GB** (model is about 20 GB: download elsewhere), 31 GB RAM, 4 CPUs, **`unshare -rn` fails** (no user-namespace

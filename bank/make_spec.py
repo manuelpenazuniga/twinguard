@@ -41,6 +41,9 @@ def load_sectors(path):
     ids = data['identifiers']
     if len(sectors) != 10:
         raise SpecError(f'expected 10 sectors, got {len(sectors)}')
+    missing = [m for m in MECHANISMS if not data.get('mechanisms', {}).get(m, {}).get('contract')]
+    if missing:
+        raise SpecError(f'missing mechanism contract for {missing}')
     return sectors, ids
 
 
@@ -125,8 +128,10 @@ def main(argv=None):
     out.write_text(text, encoding='utf-8')
     toml_hash = hashlib.sha256(Path(a.sectors).read_bytes()).hexdigest()
     csv_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
+    gen_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     Path(str(out) + '.sha256').write_text(
-        f'{csv_hash}  {out.name}\n{toml_hash}  {Path(a.sectors).name}\nseed {a.seed}\n', encoding='utf-8')
+        f'{csv_hash}  {out.name}\n{toml_hash}  {Path(a.sectors).name}\n{gen_hash}  make_spec.py\n'
+        f'seed {a.seed}\npython {sys.version.split()[0]}\n', encoding='utf-8')
     print(f'{out}: {csv_hash}', file=sys.stderr)
 
 
