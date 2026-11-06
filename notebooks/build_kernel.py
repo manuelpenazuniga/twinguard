@@ -15,7 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PATHS = ['harness', 'bank/__init__.py', 'bank/render.py', 'bank/admission.py', 'bank/templates',
-         'twinguard/twinguard_graph.py', 'tests/fixtures']
+         'twinguard/twinguard_graph.py', 'tests/fixtures', 'bank/manipulation_check.py',
+         'notebooks/model_overlay']
 MARKER = '# @@CODE_BUNDLE@@'
 
 

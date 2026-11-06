@@ -1,0 +1,2 @@
+Files from google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d (Apache-2.0).
+Kaggle Models v2 ships the older release revision ca9d525 for these two files; weights are identical.

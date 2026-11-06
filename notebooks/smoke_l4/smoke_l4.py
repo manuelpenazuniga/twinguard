@@ -95,8 +95,10 @@ def install_wheels():
         if not (tmp / name).exists():
             os.symlink(w, tmp / name)
     wheels = sorted(str(w) for w in tmp.glob('*.whl'))
-    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--no-deps', '--force-reinstall',
-                    *wheels], check=True)
+    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', '--force-reinstall',
+                        *wheels], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError('pip failed:\n' + (r.stdout + r.stderr)[-4000:])
     ver = sh(f'{sys.executable} -c "import vllm,torch,transformers;print(vllm.__version__,torch.__version__,transformers.__version__)"')
     return {'wheelhouse': str(whl_dir), 'n_wheels': len(wheels), 'vllm_torch_transformers': ver}
 
@@ -109,11 +111,27 @@ OFFICIAL_FLAGS = ['--max-model-len', '32768', '--gpu-memory-utilization', '0.90'
                   '--served-model-name', 'gemma']
 
 
+KAGGLE_MODEL = None
+OVERLAY_FILES = ('chat_template.jinja', 'tokenizer_config.json')
+
+
 def model_path():
+    """Kaggle weights + the two small files of HF revision 52f3f65 (Kaggle v2 ships the
+    older release revision ca9d525 for them; weights are identical, see phase 7)."""
+    global KAGGLE_MODEL
     c = glob.glob('/kaggle/input/**/gemma-4-31b-it-qat-w4a16-ct/2', recursive=True)
     if not c:
         raise FileNotFoundError('31B QAT model input not attached')
-    return Path(c[0])
+    KAGGLE_MODEL = Path(c[0])
+    dest = Path('/kaggle/working/model_52f3f65')
+    dest.mkdir(parents=True, exist_ok=True)
+    overlay = code_dir() / 'notebooks' / 'model_overlay'
+    for f in KAGGLE_MODEL.iterdir():
+        if f.name not in OVERLAY_FILES and not (dest / f.name).exists():
+            os.symlink(f, dest / f.name)
+    for name in OVERLAY_FILES:
+        shutil.copyfile(overlay / name, dest / name)
+    return dest
 
 
 def start_server(tp, gpus, port, tag):
@@ -271,6 +289,23 @@ def episode(port):
     return s
 
 
+# ------------------------------------------------------------------ 6 WP7 (provisional)
+def wp7(port):
+    """Manipulation check on the pilot templates. PROVISIONAL: recorded for planning;
+    the official WP7 run happens once the serving configuration is decided."""
+    code = code_dir()
+    sys.path.insert(0, str(code))
+    from bank import manipulation_check as mc
+    from harness.loop import OpenAICompatClient
+    client = OpenAICompatClient(f'http://127.0.0.1:{port}/v1', 'gemma', timeout=900)
+    log = Path('/kaggle/working/wp7_provisional.jsonl')
+    out = []
+    for t in sorted((code / 'bank' / 'templates').iterdir()):
+        out.append(mc.check(t, client, {**SAMPLING, 'enable_thinking': True}, log))
+        save()
+    return out
+
+
 # ------------------------------------------------------------------ 7 hashes
 def git_blob_sha1(path):
     data = Path(path).read_bytes()
@@ -287,7 +322,8 @@ def sha256(path):
 
 @phase('7_model_hashes')
 def model_hashes():
-    out = {'files': sorted(p.name for p in MODEL.iterdir())}
+    out = {'files': sorted(p.name for p in MODEL.iterdir()), 'served_dir': str(MODEL),
+           'kaggle_dir': str(KAGGLE_MODEL)}
     for name, (kind, expected) in HF_EXPECTED.items():
         p = MODEL / name
         if not p.exists():
@@ -343,6 +379,7 @@ def run_config(tag, layout):
     phase(f'4_throughput_{tag}')(lambda: {'by_concurrency': throughput(ports)})()
     if tag == 'tp4':
         phase('5_episode_tp4')(lambda: {'summary': episode(ports[0])})()
+        phase('6_wp7_provisional')(lambda: {'results': wp7(ports[0])})()
     stop(procs)
 
 
