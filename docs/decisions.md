@@ -40,3 +40,10 @@ manipulation or estimand. All six pilots regenerated again with the final prompt
   instead of rebuilt after edits — needs an explicit amendment of §7.1 before the pilot.
 - **Isolation:** run the agent's commands as a separate unprivileged user; oracles, logs and other runs
   unreadable to it (Astra: running in another directory is not isolation).
+  Kaggle probe (CPU kernel `twinguard-isolation-probe`, pinned image, 2026-11-06): kernel runs as root;
+  no bubblewrap; `unshare` (user/net/pid namespaces) not permitted; `useradd` + `setpriv --reuid
+  --regid --clear-groups --no-new-privs` works (NoNewPrivs=1) and 0700 directories are denied.
+  Localhost TCP is reachable by that user (vLLM port too) — try iptables owner-match; otherwise
+  declare. Plan for the runner (WP8): agent tools + git + tests as uid `tgagent` under setpriv; oracles,
+  templates, logs, other runs in 0700 controller dirs; `pkill -KILL -u tgagent` after each run;
+  oracle evaluation on a clean patched copy as a second unprivileged uid; verify denial before pilot.
