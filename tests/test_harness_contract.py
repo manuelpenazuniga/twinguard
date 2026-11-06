@@ -333,3 +333,41 @@ def test_log_must_be_outside_workspace(tmp_path):
 
 def test_contract_hash_is_stable():
     assert C.contract_hash() == C.contract_hash() and len(C.contract_hash()) == 64
+
+
+def test_run_as_wraps_every_agent_process(tmp_path, monkeypatch):
+    ws = Workspace(tmp_path / 'w', tmp_path / 't', run_as='tgagent')
+    (tmp_path / 'w').mkdir()
+    seen = []
+
+    class P:
+        returncode = 0
+        pid = 1
+
+        def __init__(self, cmd, **kw):
+            seen.append(cmd)
+
+        def communicate(self, timeout=None):
+            return b'', b''
+    monkeypatch.setattr('harness.workspace.subprocess.Popen', P)
+    monkeypatch.setattr('harness.workspace.subprocess.run',
+                        lambda cmd, **kw: seen.append(cmd) or type('R', (), {'returncode': 0, 'stdout': '', 'stderr': ''})())
+    ws.run('id', 5)
+    ws.git('status', check=False)
+    ws.kill_user_processes()
+    assert seen[0][:6] == ['setpriv', '--reuid=tgagent', '--regid=tgagent', '--clear-groups',
+                           '--no-new-privs', '--']
+    assert seen[1][:7] == ['setpriv', '--reuid=tgagent', '--regid=tgagent', '--clear-groups',
+                           '--no-new-privs', '--', 'git']
+    assert seen[2] == ['pkill', '-KILL', '-u', 'tgagent']
+
+
+def test_symlink_escape_is_rejected(tmp_path):
+    ws = make_repo(tmp_path, 'N')
+    secret = tmp_path / 'oracle.py'
+    secret.write_text('x')
+    (ws.root / 'link.py').symlink_to(secret)
+    box = ToolBox(ws, C.Budget(), clock=lambda: 0.0)
+    box.start_session()
+    r = json.loads(box.dispatch('read_file', '{"filepath": "link.py"}'))
+    assert r['error_type'] == C.ValidationError

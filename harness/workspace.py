@@ -26,8 +26,12 @@ class WorkspaceError(Exception):
 
 
 class Workspace:
-    def __init__(self, root, tmp, python_bin=None):
+    def __init__(self, root, tmp, python_bin=None, run_as=None):
         self.root = Path(root).resolve()
+        # Unprivileged uid for every agent-triggered process (bash, git, tests). The runner
+        # creates the user, chowns root/tmp to it and keeps oracles/logs in 0700 controller
+        # directories (docs/decisions.md D3, Kaggle probe 2026-11-06). None = development.
+        self.run_as = run_as
         # `python`/`pytest` on PATH come from the harness interpreter's bin directory,
         # as in the official python image (README 4.1).
         self.python_bin = str(Path(python_bin or sys.executable).parent)
@@ -63,13 +67,25 @@ class Workspace:
                    GIT_COMMITTER_EMAIL='agent@eval')
         return env
 
+    def prefix(self):
+        if not self.run_as:
+            return []
+        return ['setpriv', f'--reuid={self.run_as}', f'--regid={self.run_as}', '--clear-groups',
+                '--no-new-privs', '--']
+
+    def kill_user_processes(self):
+        """Terminate every process of the agent uid (nothing may survive the run)."""
+        if self.run_as:
+            subprocess.run(['pkill', '-KILL', '-u', str(self.run_as)], capture_output=True)
+
     def rewrite(self, command):
         command = _WS_RE.sub(str(self.root), command)
         return _TMP_RE.sub(str(self.tmp), command)
 
     def run(self, command, timeout):
         """Return dict(stdout, stderr, exit_code, timed_out)."""
-        proc = subprocess.Popen(['/bin/bash', '-c', self.rewrite(command)], cwd=self.root,
+        proc = subprocess.Popen([*self.prefix(), '/bin/bash', '-c', self.rewrite(command)],
+                                cwd=self.root,
                                 env=self.env(), stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 start_new_session=True)
@@ -88,7 +104,7 @@ class Workspace:
                     timed_out=timed_out)
 
     def git(self, *args, check=True):
-        r = subprocess.run(['git', *args], cwd=self.root, env=self.env(),
+        r = subprocess.run([*self.prefix(), 'git', *args], cwd=self.root, env=self.env(),
                            capture_output=True, text=True)
         if check and r.returncode != 0:
             raise RuntimeError(f'git {args} failed: {r.stderr}')
