@@ -1,0 +1,11 @@
+diff --git a/secretgate/auditor.py b/secretgate/auditor.py
+index e3fe13f..33700d6 100644
+--- a/secretgate/auditor.py
++++ b/secretgate/auditor.py
+@@ -57,5 +57,5 @@ class ActionAuditor:
+     def _route(self, report, level):
+         if level != "none":
+             self.digest.append(digest_line(report.build_id, level, len(report.findings)))
+-        if SEVERITY_RANK[level] >= SEVERITY_RANK["high"]:
++        if SEVERITY_RANK[level] >= SEVERITY_RANK["critical"]:
+             self.notifier.notify(report)

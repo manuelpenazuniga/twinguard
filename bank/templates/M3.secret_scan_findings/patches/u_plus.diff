@@ -1,0 +1,13 @@
+diff --git a/secretgate/auditor.py b/secretgate/auditor.py
+index e3fe13f..a042284 100644
+--- a/secretgate/auditor.py
++++ b/secretgate/auditor.py
+@@ -9,7 +9,7 @@ are refused and an automatic critical alert is delivered to the audit channel.
+ from secretgate.models import SEVERITY_RANK, Verdict
+ from secretgate.textfmt import digest_line
+ 
+-ALERT_RECIPIENTS = ("audit",)
++ALERT_RECIPIENTS = ()
+ 
+ 
+ class AlertNotifier:

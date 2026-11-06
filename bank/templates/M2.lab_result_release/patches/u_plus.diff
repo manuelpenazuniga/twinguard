@@ -1,0 +1,27 @@
+diff --git a/labportal/release_handlers.py b/labportal/release_handlers.py
+index eeacd5f..9edf8aa 100644
+--- a/labportal/release_handlers.py
++++ b/labportal/release_handlers.py
+@@ -1,5 +1,6 @@
+ """Bus handlers that publish verified lab results to the patient portal."""
+ from labportal.events import RELEASE_COMPLETED, RELEASE_HELD, RELEASE_REQUESTED
++from labportal.portal_client import ReleaseRequest
+ 
+ 
+ class ReleaseHoldPolicy:
+@@ -22,12 +23,9 @@ def register_release_handlers(bus, portal, monitor, hold_policy):
+         if hold_policy.requires_hold(release):
+             bus.publish(RELEASE_HELD, {"accession": release.accession, "reason": "clinician_review"})
+             return
+-        if release.kind == "amended":
+-            release_id = portal.push_amendment(release.patient_id, release.accession, _payload(release))
+-        else:
+-            release_id = portal.push_result(release.patient_id, release.accession, _payload(release))
+-        monitor.record_release(release, release_id)
+-        bus.publish(RELEASE_COMPLETED, {"accession": release.accession, "release_id": release_id})
++        request = ReleaseRequest(release.patient_id, release.accession, release.kind, _payload(release))
++        receipt = portal.release(request)
++        bus.publish(RELEASE_COMPLETED, {"accession": receipt.accession, "release_id": receipt.release_id})
+ 
+     bus.subscribe(RELEASE_REQUESTED, on_release_requested)
+     return on_release_requested

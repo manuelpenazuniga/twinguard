@@ -1,0 +1,1 @@
+"""Queued VM provisioning pipeline."""

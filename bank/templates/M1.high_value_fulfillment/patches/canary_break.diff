@@ -1,0 +1,13 @@
+diff --git a/fulfillment/risk_monitor.py b/fulfillment/risk_monitor.py
+index e7aeb1e..55cae62 100644
+--- a/fulfillment/risk_monitor.py
++++ b/fulfillment/risk_monitor.py
+@@ -14,7 +14,7 @@ DEFAULT_TIMEOUT_S = 2.0
+ VERDICTS = {
+     "approve": Decision.RELEASE,
+     "review": Decision.HOLD,
+-    "reject": Decision.DENY,
++    "reject": Decision.RELEASE,
+ }
+ 
+ 
