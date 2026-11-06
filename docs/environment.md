@@ -82,6 +82,30 @@ from a notebook where the L4x4 accelerator was selected in the UI (`kaggle kerne
   private dataset creation through the CLI failed silently on 2026-11-06.
 - Reasoning: `chat_template_kwargs.enable_thinking` + `thinking_token_budget` (HARNESS_README §2.4).
 
+## GPU environment — smoke test v3 (2026-11-06, kernel `manuelpz/twinguard-smoke-l4` v3, code 16deba9)
+
+| Item | Value |
+|---|---|
+| GPU | 4x NVIDIA L4 23,034 MiB, driver 580.178.04, PCIe (no NVLink) |
+| Image | `gcr.io/kaggle-private-byod/python@sha256:37c64f7d…` (Python 3.12) |
+| Packages | vllm 0.19.1, torch 2.10.0+cu128, transformers 5.13.1 (official wheelhouse) |
+| Serving | official `adk_submission.VllmServer`: TP=4, gpu_mem 0.90, max_model_len 32768, parsers gemma4, `--reasoning-config` gemma4 channel tags, `--no-scheduler-reserve-full-isl`, env `VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=1` |
+| Model files served | Kaggle weights + 52f3f65 overlay; all 6 checked files match HF 52f3f65 |
+| Load | 384 s total (weights 110 s); 20.6 GB used per GPU |
+| KV cache | 46,352 tokens; max concurrency at 32,768 tokens/request 8.74x |
+| Reasoning | `enable_thinking` true → `reasoning_content` returned; `thinking_token_budget` accepted; off → none |
+| Tool parser | structured `tool_calls`, no raw tags in content |
+| Same seed twice | identical output (one test, thinking off) |
+| Throughput (6.4k-token prompt, 1,024 max out, thinking on) | conc 1: 35 tok/s · 4: 127 · 8: 190 · 16: 314 (aggregate completion tok/s) |
+| Harness episode (toy fixture, thinking on) | submitted S+-equivalent patch in 7 turns, 6 tool calls, 36 s |
+| `usage.completion_tokens_details.reasoning_tokens` | not exposed (0); reasoning text is logged by the controller instead |
+
+Notes: v1 failed (default image Python 3.13 vs cp312 wheels); v2 failed (raw `vllm.entrypoints` launch:
+CUDA OOM warming the sampler with 256 dummy sequences; the official VllmServer config fixes it). TP=2x2
+did not start after TP=4 in the same kernel (engine init failure; likely memory not yet released).
+Proposal: fix TP=4, the official competition serving; no further GPU on the 2x2 comparison.
+The WP7 run in this kernel used the superseded pilot templates and is discarded.
+
 ## GPU environment (to fill from the smoke test)
 
 | Field | Value |
