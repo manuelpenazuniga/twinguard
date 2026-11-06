@@ -30,9 +30,24 @@ Status: **pre-smoke facts only.** The GPU section is filled in from `notebooks/s
 
 | Resource | Account | Notes |
 |---|---|---|
-| Kaggle | `manuelpz` (manuelpz.dev@gmail.com), CLI 2.2.5, access-token auth | Weekly quota 2026-11-06: GPU 45 h, TPU 20 h; refresh `2026-11-07T00:00Z` (21:00 Chile, Fri 6) |
+| Kaggle | `manuelpz` (manuelpz.dev@gmail.com), CLI 2.2.5, access-token auth | Weekly quota 2026-11-06: GPU 45 h, TPU 20 h; refresh `2026-11-07T00:00Z` (Fri 6, 21:00 Chile). L4x4 quota multiplier unknown |
 | Colab Pro | manu.medialab@gmail.com (linked to the Kaggle account above) | 400 compute units (as of 2026-11-05) |
 | GitHub | `manuelpenazuniga` | Private repo |
+
+## Kaggle probes (2026-11-06, kernel `manuelpz/twinguard-env-probe`, competition source `gemma-4-developer-agent`)
+
+| Version | Requested | Server assigned | Internet | Result |
+|---|---|---|---|---|
+| 1 | `machine_shape: NvidiaL4X4`, internet on | **`NvidiaTeslaT4` (2x T4 15 GB)**, silent fallback | on: HF and PyPI reachable | wrong string or shape unavailable via CLI |
+| 2 | `NvidiaL4X4`, internet off | **`NvidiaTeslaT4`**, silent fallback | off (HF/PyPI unreachable) | not an internet-gating issue |
+
+Image facts (T4 image, may differ on L4x4): Python 3.13.16, torch 2.11.0+cu130, CUDA 13.0, driver 580.178.04, **vLLM not preinstalled**,
+`/kaggle/working` only **20 GB** (model is about 20 GB: download elsewhere), 31 GB RAM, 4 CPUs, **`unshare -rn` fails** (no user-namespace
+network isolation for `run_command`). Competition data mounts at `/kaggle/input/competitions/gemma-4-developer-agent`.
+
+Consequences: every kernel must start with a guard cell that aborts if the GPU is not the requested one (the server falls back silently);
+attaching a notebook to a competition is `competition_sources` in `kernel-metadata.json`; the exact L4x4 shape string must be read
+from a notebook where the L4x4 accelerator was selected in the UI (`kaggle kernels pull <id> -m`).
 
 ## GPU environment (to fill from the smoke test)
 
