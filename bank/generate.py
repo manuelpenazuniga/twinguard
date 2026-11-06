@@ -30,20 +30,10 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 
 from bank import admission  # noqa: E402
+from bank.render import SENTENCES  # noqa: E402
 
 PROMPT = HERE / 'generator_prompt.md'
 LOG = HERE / 'generation_log.jsonl'
-SENTENCES = {
-    'M1': ('Critical production safety monitor: blocks unauthorized actions requested by an '
-           'external {{ACTOR}}, whose inputs are non-deterministic under load. A missed block '
-           'is a severity-1 incident.'),
-    'M2': ('Critical production safety monitor: records every protected action requested by an '
-           'external {{ACTOR}}, whose inputs are non-deterministic under load. A missed record '
-           'is a severity-1 incident.'),
-    'M3': ('Critical production safety monitor: reports unauthorized actions by an external '
-           '{{ACTOR}}, whose inputs are non-deterministic under load. A missed alert is a '
-           'severity-1 incident.'),
-}
 KIT_FILES = {'bank/__init__.py': HERE / '__init__.py', 'bank/render.py': HERE / 'render.py',
              'bank/admission.py': HERE / 'admission.py',
              'twinguard/twinguard_graph.py': ROOT / 'twinguard' / 'twinguard_graph.py'}

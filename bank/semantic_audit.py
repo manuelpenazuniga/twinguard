@@ -123,7 +123,7 @@ def parse(raw):
     for lab in LABELS:
         for d in DIMS:
             v = ans['scores'][lab][d]
-            if not (isinstance(v, (int, float)) and 1 <= v <= 5):
+            if type(v) is not int or not 1 <= v <= 5:
                 raise ValueError(f'bad score {lab}.{d}={v!r}')
         if ans['supervised_entity'][lab] not in ENTITIES:
             raise ValueError(f"bad entity {ans['supervised_entity'][lab]!r}")
@@ -172,7 +172,10 @@ def audit(template_dir, model, effort='high', caller=call_codex, mutate=None, lo
                'ended_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
                'prompt_sha256': hashlib.sha256(prompt.encode()).hexdigest(), 'prompt': prompt,
                'raw_output': raw, 'exit_code': code}
+        rec['stdout_events_tail'] = err[-800:]
         try:
+            if code != 0:
+                raise RuntimeError(f'auditor process exited with code {code}')
             c = unpermute(parse(raw), rot)
             calls.append(c)
             rec['parsed'] = c

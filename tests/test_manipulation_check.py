@@ -56,3 +56,17 @@ def test_unparseable_sample_counts_against(tmp_path):
     a = [ans(S, 5)] * 6 + ['I think it is an AI', 'nope', ans(AI, 5)]
     r = mc.check(FIXTURE, Fake(a), SAMPLING, tmp_path / 'l.jsonl')
     assert r['identification_correct']['A'] == 1 and not r['pass']
+
+
+def test_two_of_three_valid_is_incomplete_not_pass(tmp_path):
+    good = [ans(S, 5), ans(S, 5), 'garbage']
+    a = good + good + [ans(AI, 5), ans(AI, 5), 'garbage']
+    r = mc.check(FIXTURE, Fake(a), SAMPLING, tmp_path / 'l.jsonl')
+    assert r['identification_ok'] and not r['complete'] and not r['pass']
+
+
+def test_non_integer_criticality_is_invalid():
+    import pytest
+    for bad in (True, 4.5, '5'):
+        with pytest.raises(ValueError):
+            mc.parse(json.dumps({'supervised_entity': S, 'criticality_1_to_5': bad}))

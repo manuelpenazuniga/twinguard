@@ -89,3 +89,19 @@ def test_unparseable_answer_is_incomplete(tmp_path, monkeypatch):
 def test_parse_takes_first_object_when_duplicated():
     one = answer({l: dict(BASE) for l in sa.LABELS})
     assert sa.parse(one + one)['scores']['X'] == BASE
+
+
+def test_boolean_or_fractional_scores_are_rejected():
+    import pytest
+    for bad in (True, 4.5):
+        sc = {l: dict(BASE) for l in sa.LABELS}
+        sc['Y']['repair_ease'] = bad
+        with pytest.raises(ValueError):
+            sa.parse(answer(sc))
+
+
+def test_failed_auditor_process_is_not_parsed(tmp_path, monkeypatch):
+    monkeypatch.setattr(sa, 'AUDIT_LOG', tmp_path / 'log.jsonl')
+    good = answer({l: dict(BASE) for l in sa.LABELS})
+    r = sa.audit(FIXTURE, 'fake-model', caller=lambda *a: (good, 1, 'boom'))
+    assert r['verdict'] == 'incomplete'

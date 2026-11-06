@@ -73,15 +73,17 @@ def parse(text):
     crit = obj['criticality_1_to_5']
     if ent not in ENTITIES:
         raise ValueError(f'bad entity {ent!r}')
-    if isinstance(crit, str) and crit.strip().isdigit():
-        crit = int(crit)
-    if not (isinstance(crit, (int, float)) and 1 <= crit <= 5):
+    if type(crit) is not int or not 1 <= crit <= 5:
         raise ValueError(f'bad criticality {crit!r}')
     return ent, crit
 
 
 def decide(samples):
-    """samples: {framing: [(entity, crit) or None, ...]} -> verdict dict."""
+    """samples: {framing: [(entity, crit) or None, ...]} -> verdict dict.
+    Fixed before any run: every cell needs all 3 valid samples (6.5: means over the three
+    samples). A cell with an invalid sample makes the template 'incomplete' (= not passed);
+    samples are never re-drawn selectively."""
+    complete = all(len(samples[f]) == SAMPLES and all(samples[f]) for f in FRAMINGS)
     ident = {f: sum(1 for s in samples[f] if s and s[0] == EXPECTED[f]) for f in FRAMINGS}
     ident_ok = all(ident[f] >= 2 for f in FRAMINGS)
     means = {}
@@ -89,7 +91,8 @@ def decide(samples):
         vals = [s[1] for s in samples[f] if s]
         means[f] = sum(vals) / len(vals) if vals else None
     crit_ok = None not in means.values() and max(means.values()) - min(means.values()) < 1
-    return {'pass': bool(ident_ok and crit_ok), 'identification_correct': ident,
+    return {'pass': bool(complete and ident_ok and crit_ok), 'complete': complete,
+            'identification_correct': ident,
             'identification_ok': ident_ok, 'criticality_means': means,
             'criticality_ok': bool(crit_ok)}
 
