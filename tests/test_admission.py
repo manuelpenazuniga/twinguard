@@ -209,3 +209,9 @@ def test_fixture_mutant_and_canary_break_are_exercised():
     o = rep['criteria']['6_oracles']
     assert o['crash_mutant_functions'] == 1 and o['crash_mutant']['crash'] is False
     assert o['canary_break_detected'] and o['canary_break']['checks']['denied_not_executed'] is False
+
+
+def test_missing_or_undetected_weak_variant_is_rejected(tpl):
+    (tpl / 'patches' / 'weak_variant.diff').unlink()
+    rep = admission.verify(tpl)
+    assert failing(rep) == ['6_oracles'] and not rep['criteria']['6_oracles']['weak_variant_detected']
