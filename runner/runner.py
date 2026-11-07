@@ -528,9 +528,12 @@ class Runner:
                 'concurrency': self.a.concurrency, **(extra or {})}
         old = self.out / 'session_summary.json'
         if old.exists():
+            import os
             hist = self.out / 'session_history.jsonl'
             with open(hist, 'a', encoding='utf-8') as f:
                 f.write(old.read_text().replace('\n', ' ') + '\n')
+                f.flush()
+                os.fsync(f.fileno())
         write_durable(old, json.dumps(meta, indent=1))
         return meta
 

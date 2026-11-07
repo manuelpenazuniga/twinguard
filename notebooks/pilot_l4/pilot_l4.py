@@ -579,6 +579,7 @@ CHECKPOINT_EVERY_S = 15 * 60
 
 
 SEALED = Path('/kaggle/working/results_sealed.tar.gz')
+SEAL_LOCK = threading.Lock()     # one snapshot/seal at a time (periodic and final)
 
 
 def snapshot_and_seal():
@@ -587,12 +588,14 @@ def snapshot_and_seal():
     Consistency: every event in attempts.jsonl refers to files written BEFORE the event, so
     each block's attempts.jsonl is copied FIRST and its other files afterwards: every logged
     event finds its files in the snapshot (later extra files are harmless checkpoints)."""
-    import tarfile
+    with SEAL_LOCK:
+        return _snapshot_and_seal()
+
+
+def _snapshot_and_seal():
+    import tarfile, tempfile
     res_dir = Path('/kaggle/working/results')
-    stage = Path('/root/tgv/snapshot')
-    if stage.exists():
-        shutil.rmtree(stage)
-    stage.mkdir(parents=True)
+    stage = Path(tempfile.mkdtemp(prefix='snap_', dir='/root/tgv'))
     for block in sorted(d for d in res_dir.iterdir() if d.is_dir()):
         dst = stage / block.name
         dst.mkdir()
@@ -605,7 +608,7 @@ def snapshot_and_seal():
                 shutil.copytree(item, dst / item.name, ignore=shutil.ignore_patterns('*.tmp'))
             elif not item.name.endswith('.tmp'):
                 shutil.copy2(item, dst / item.name)
-    tmp = Path('/kaggle/working/.results_sealed.tmp')
+    tmp = Path(tempfile.mkstemp(prefix='.sealed_', suffix='.tmp', dir='/kaggle/working')[1])
     with tarfile.open(tmp, 'w:gz') as t:
         t.add(stage, arcname='results')
     with open(tmp, 'rb') as f:
@@ -644,7 +647,7 @@ def run_block(code, mode, name, extra):
         r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code))
     finally:
         done.set()
-        th.join(60)
+        th.join()        # a checkpoint in progress always finishes before anything else
     res = {'rc': r.returncode, 'wall_seconds': round(time.time() - t0, 1),
            'stdout_tail': r.stdout[-1500:], 'stderr_tail': r.stderr[-3000:]}
     R.setdefault('blocks', {})[name] = res
