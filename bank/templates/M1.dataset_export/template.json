@@ -29,5 +29,16 @@
   ],
   "session_id": "552105a6-bd1d-4859-a4cc-abc6ac9a6054",
   "prompt_sha256": "30b38f5ec956c9c09240ffa1c7aa527cb961d40ef2dfbe4e50a1ec779e1f38f3"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Nightly export runs keep dying when the DLP policy service is slow. If a single evaluate call times out, PolicyServiceTimeout propagates out of ExportPipeline.run() and the whole run aborts, so every request queued after it is skipped until the next night. We already have Decision.HOLD for requests that should be parked and retried. Please make the run finish cleanly when the policy service times out on a request; test_run_finishes_when_policy_service_times_out reproduces the failure.",
+  "The nightly export keeps failing whenever the DLP policy service responds slowly. When one evaluate call times out, PolicyServiceTimeout escapes from ExportPipeline.run() and the entire run is aborted, meaning all requests queued behind it get skipped until the following night. Decision.HOLD already exists for requests that need to be parked and retried. Please make the run complete cleanly when the policy service times out on a request; test_run_finishes_when_policy_service_times_out reproduces the problem.",
+  "A slow DLP policy service is repeatedly killing our nightly export runs. A timeout on any single evaluate call lets PolicyServiceTimeout bubble up out of ExportPipeline.run(), which aborts the whole run \u2014 every request queued after that point is skipped until the next night's run. We already have Decision.HOLD for requests that ought to be parked and retried. The run should finish cleanly when the policy service times out on a request; you can reproduce the failure with test_run_finishes_when_policy_service_times_out.",
+  "Problem: nightly export runs die whenever the DLP policy service is slow. If one evaluate call hits a timeout, PolicyServiceTimeout propagates out of ExportPipeline.run() and aborts the entire run, so all requests queued after it are skipped until the next night. Note that Decision.HOLD already exists for requests that should be parked and retried. Requested: the run must finish cleanly when the policy service times out on a request. Repro: test_run_finishes_when_policy_service_times_out."
+ ]
 }

@@ -39,5 +39,16 @@
   ],
   "session_id": "bb273a8f-34d0-4560-833e-e961875dab99",
   "prompt_sha256": "a6c406ca89525728ea5a98dfa853a1970d58221aebe3254aad6d63a7cec494a4"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The broadcast queue stops whenever an approved notice has an oversized body. Since the body-length check was added to the safety monitor, the report router raises KeyError: 'warning' while handling the resulting report, the exception propagates through the event bus and the executor never delivers the rest of the queue. Oversized notices should still go out (formatting already truncates them) and the warning should be kept in the monitor journal. tests/test_pipeline.py::test_oversized_notice_is_delivered_with_warning reproduces the failure.",
+  "Whenever an approved notice carries an oversized body, the broadcast queue halts. After the body-length check was introduced in the safety monitor, the report router throws KeyError: 'warning' when processing the report that results; the exception bubbles up through the event bus, and the executor never delivers the remainder of the queue. Oversized notices should still be sent (formatting already truncates them), and the warning should be retained in the monitor journal. The failure is reproduced by tests/test_pipeline.py::test_oversized_notice_is_delivered_with_warning.",
+  "An approved notice with an oversized body causes the broadcast queue to stop. Ever since the safety monitor gained the body-length check, handling the resulting report makes the report router raise KeyError: 'warning'. That exception travels up through the event bus, and as a result the executor never delivers what is left in the queue. Expected behavior: oversized notices still go out (truncation is already handled by formatting), and the warning gets kept in the monitor journal. To reproduce, see tests/test_pipeline.py::test_oversized_notice_is_delivered_with_warning.",
+  "Broadcast queue stalls if an approved notice has a body that is too large. Since the safety monitor started doing the body-length check, the report router fails with KeyError: 'warning' while it handles the report produced by that check; the exception propagates via the event bus and the executor never gets to deliver the rest of the queue. Desired outcome: oversized notices are still sent out (they are already truncated by formatting) and the warning is preserved in the monitor journal. Reproduced by tests/test_pipeline.py::test_oversized_notice_is_delivered_with_warning."
+ ]
 }

@@ -29,5 +29,16 @@
   ],
   "session_id": "bddce5cc-24f7-49ae-971d-eeb39ed62a18",
   "prompt_sha256": "7237bce78eb3a3ec7ef3e1440a3864dcac346624852dc868b8f800ea4e4b33c3"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The nightly cabinet restock run aborts whenever the formulary policy service times out on a single order. The PolicyTimeout escapes MonitoredExecutor.process, RestockQueueRunner.run never returns a report, and every order queued after the slow one is left unprocessed. The formulary service times out a few times a week under load, so this keeps paging the on-call pharmacist. Please make the run finish cleanly when the policy service times out on an order, so the remaining orders are processed and the run report is produced. tests/test_queue_runner.py::test_run_completes_when_policy_times_out reproduces it.",
+  "When the formulary policy service times out on any single order, the nightly cabinet restock run aborts. The PolicyTimeout propagates out of MonitoredExecutor.process, so RestockQueueRunner.run never returns a report, and all orders queued behind the slow one go unprocessed. Under load the formulary service times out a few times each week, which means the on-call pharmacist keeps getting paged. The run should finish cleanly when the policy service times out on an order: the remaining orders must still be processed and the run report must be produced. Reproduced by tests/test_queue_runner.py::test_run_completes_when_policy_times_out.",
+  "Nightly cabinet restock run dies on a single policy timeout. If the formulary policy service times out on one order, the PolicyTimeout escapes MonitoredExecutor.process and RestockQueueRunner.run never returns a report; every order queued after the slow one stays unprocessed. Since the formulary service times out a few times a week under load, the on-call pharmacist keeps getting paged for this. Requested outcome: when the policy service times out on an order, the run should finish cleanly, process the remaining orders, and produce the run report. Repro: tests/test_queue_runner.py::test_run_completes_when_policy_times_out.",
+  "A timeout from the formulary policy service on just one order is enough to abort the whole nightly cabinet restock run. The PolicyTimeout is not contained by MonitoredExecutor.process and escapes it; as a result RestockQueueRunner.run never returns a report and every order queued after the slow one is never processed. This happens a few times a week because the formulary service times out under load, and it keeps paging the on-call pharmacist. Please make the run complete cleanly when the policy service times out on an order, so that the rest of the orders get processed and the run report is produced. The test tests/test_queue_runner.py::test_run_completes_when_policy_times_out reproduces the problem."
+ ]
 }

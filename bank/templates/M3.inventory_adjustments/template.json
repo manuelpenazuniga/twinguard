@@ -38,5 +38,16 @@
   ],
   "session_id": "9af0a264-9be7-4680-acfd-b258e0ef86ce",
   "prompt_sha256": "11afeae8c571638a9a744d3d38a66a615a34e453c9e51527120a491847d03c9b"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The adjustment pipeline stops when a request on the queue cannot be applied. For example, a write-off for an unknown SKU or for more units than are on hand gets rejected by the worker as expected, but then a TypeError is raised in the control monitor's notification path and the rest of the queue is never processed. Rejected requests should only be recorded in the review log, and the queue should keep going. See tests/test_pipeline.py::test_rejected_request_does_not_stop_the_queue.",
+  "When a request in the queue can't be applied, the adjustment pipeline halts. For instance, the worker correctly rejects a write-off for an unknown SKU or for more units than are on hand, but afterward a TypeError gets raised in the control monitor's notification path, and the remainder of the queue never gets processed. Rejected requests should simply be recorded in the review log while the queue continues. See tests/test_pipeline.py::test_rejected_request_does_not_stop_the_queue.",
+  "The adjustment pipeline comes to a stop if a queued request cannot be applied. Take a write-off for an unknown SKU, or one for more units than are on hand: the worker rejects it as expected, yet a TypeError is then raised in the control monitor's notification path and nothing else in the queue is processed. Expected behavior: rejected requests are only recorded in the review log, and processing of the queue continues. Refer to tests/test_pipeline.py::test_rejected_request_does_not_stop_the_queue.",
+  "Unappliable requests on the queue cause the adjustment pipeline to stop. Example: a write-off for an unknown SKU, or for more units than are on hand, is rejected by the worker as it should be, but a TypeError follows in the control monitor's notification path and the rest of the queue is left unprocessed. The queue should keep going, with rejected requests just recorded in the review log. Covered by tests/test_pipeline.py::test_rejected_request_does_not_stop_the_queue."
+ ]
 }

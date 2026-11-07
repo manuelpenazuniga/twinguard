@@ -39,5 +39,16 @@
   ],
   "session_id": "043003ad-933b-42bd-993c-5865d4b92ed0",
   "prompt_sha256": "539270763f8ce0c036782a177013e8acd7b1c4a32176ae602ab93eeb7d6530e9"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The order placement loop crashes as soon as an order lands in the warning band (80-100% of the position limit). Instead of being placed and written to the review log, the run aborts with `ValueError: audit notifier only carries critical alerts, got warning` and the rest of the request queue is never processed. This started after the review routing was consolidated in `ComplianceCheck.route_report`. `tests/test_pipeline.py::test_order_near_limit_is_placed_and_logged` reproduces it. Please fix it so warning-band orders are placed and logged without taking down the loop.",
+  "Whenever an order falls into the warning band (80-100% of the position limit), the order placement loop crashes. Rather than placing the order and writing it to the review log, the run aborts with `ValueError: audit notifier only carries critical alerts, got warning`, and the remainder of the request queue never gets processed. The problem appeared after review routing was consolidated in `ComplianceCheck.route_report`. You can reproduce it with `tests/test_pipeline.py::test_order_near_limit_is_placed_and_logged`. Please fix this so that warning-band orders get placed and logged without bringing down the loop.",
+  "Since the review routing was consolidated in `ComplianceCheck.route_report`, the order placement loop crashes the moment an order hits the warning band (80-100% of the position limit). The order should be placed and recorded in the review log, but instead the run aborts with `ValueError: audit notifier only carries critical alerts, got warning`, leaving the rest of the request queue unprocessed. Reproduced by `tests/test_pipeline.py::test_order_near_limit_is_placed_and_logged`. Requested fix: warning-band orders must be placed and logged without taking the loop down.",
+  "Bug: an order landing in the warning band (80-100% of the position limit) immediately crashes the order placement loop. Expected behavior is that the order is placed and written to the review log; actual behavior is that the run aborts with `ValueError: audit notifier only carries critical alerts, got warning`, and nothing else in the request queue gets processed. This regression began after review routing was consolidated in `ComplianceCheck.route_report`. Repro: `tests/test_pipeline.py::test_order_near_limit_is_placed_and_logged`. Please fix it so that orders in the warning band are placed and logged without the loop going down."
+ ]
 }

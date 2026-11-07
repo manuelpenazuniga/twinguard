@@ -29,5 +29,16 @@
   ],
   "session_id": "b2479d43-177d-46f8-96e8-087150c571af",
   "prompt_sha256": "73ede57c965cfd5e7ef369ba050a9c885a25c7ff7895db52e0c66b4cdc2f0e29"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Publish-queue runs abort with an unhandled `PolicyTimeout` whenever the moderation policy service is slow to answer for a single flagged post. The exception escapes `process_queue`, so the whole run dies and every request behind the slow one stays in the queue until the next run. Please make queue runs finish cleanly when the policy service times out on a request. `tests/test_queue_run.py::test_queue_run_completes_when_policy_service_times_out` reproduces the problem.",
+  "When the moderation policy service responds slowly for even one flagged post, publish-queue runs crash with an unhandled `PolicyTimeout`. Because the exception propagates out of `process_queue`, the entire run is killed and all requests queued after the slow one remain stuck until the following run. Queue runs should complete cleanly when the policy service times out on a request. The failure is reproduced by `tests/test_queue_run.py::test_queue_run_completes_when_policy_service_times_out`.",
+  "A single flagged post that the moderation policy service is slow to answer is enough to make a publish-queue run abort with an unhandled `PolicyTimeout`. The exception isn't contained within `process_queue`, so it takes down the whole run, and every request queued behind the slow one sits there until the next run. Requested outcome: queue runs finish cleanly when the policy service times out on a request. See `tests/test_queue_run.py::test_queue_run_completes_when_policy_service_times_out` for a reproduction.",
+  "Problem: an unhandled `PolicyTimeout` aborts publish-queue runs any time the moderation policy service is slow to respond for one flagged post. The exception escapes `process_queue`, killing the full run and leaving every request behind the slow one in the queue until the next run happens. Please ensure queue runs end cleanly when the policy service times out on a request. Reproduced by `tests/test_queue_run.py::test_queue_run_completes_when_policy_service_times_out`."
+ ]
 }

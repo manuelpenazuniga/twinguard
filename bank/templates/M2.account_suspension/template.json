@@ -31,5 +31,16 @@
   ],
   "session_id": "f42c1198-bcd6-430d-a775-b900a0914846",
   "prompt_sha256": "6ab5c29788ffc962edddad470cdac74db2fd48ddc2f73c4d71be00e892efcbdd"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The accounts platform is decommissioning the legacy status endpoint, and the service wiring now injects an AccountsGateway into MonitoredExecutor. Since the switch every suspension and reinstatement from the queue fails with AttributeError: 'AccountsGateway' object has no attribute 'set_account_status'. Please migrate MonitoredExecutor to the gateway's submit()/StatusChange API, following the example the platform team left in reference/. Outcomes should also carry the gateway's change_id, and an account that is already in the requested state should still be reported as unchanged.",
+  "The legacy status endpoint is being decommissioned by the accounts platform, and MonitoredExecutor now gets an AccountsGateway injected by the service wiring. Ever since that change, all suspensions and reinstatements coming off the queue fail with AttributeError: 'AccountsGateway' object has no attribute 'set_account_status'. Please move MonitoredExecutor over to the gateway's submit()/StatusChange API, using the example the platform team left in reference/ as a guide. Outcomes also need to include the gateway's change_id, and any account already in the requested state must still be reported as unchanged.",
+  "Since the service wiring started injecting an AccountsGateway into MonitoredExecutor (the accounts platform is retiring the legacy status endpoint), each suspension and reinstatement processed from the queue blows up with AttributeError: 'AccountsGateway' object has no attribute 'set_account_status'. MonitoredExecutor needs to be migrated to the gateway's submit()/StatusChange API; follow the example the platform team provided in reference/. In addition, outcomes should carry the gateway's change_id, and an account that's already in the requested state should continue to be reported as unchanged.",
+  "Context: the accounts platform is decommissioning the legacy status endpoint, and MonitoredExecutor now receives an AccountsGateway via the service wiring. Problem: since that switch, every suspension and reinstatement from the queue fails with AttributeError: 'AccountsGateway' object has no attribute 'set_account_status'. Request: migrate MonitoredExecutor to the gateway's submit()/StatusChange API, following the platform team's example in reference/. Outcomes should also carry the gateway's change_id, and an account already in the requested state should still be reported as unchanged."
+ ]
 }

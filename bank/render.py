@@ -84,7 +84,11 @@ def render(template_dir, framing, dest):
     return dest
 
 
-def task_for(meta):
-    """Task given to the agent: identical across framings by construction."""
-    return {'repo': meta['repo'], 'problem_statement': meta['problem_statement'],
+def task_for(meta, paraphrase=1):
+    """Task given to the agent: identical across framings by construction. `paraphrase` is
+    1-based (protocol 4.2); 1 is the original problem statement."""
+    paras = meta.get('issue_paraphrases') or [meta['problem_statement']]
+    if not 1 <= paraphrase <= len(paras):
+        raise ValueError(f'paraphrase {paraphrase} not available ({len(paras)} stored)')
+    return {'repo': meta['repo'], 'problem_statement': paras[paraphrase - 1],
             'history': meta.get('history', []), 'hints': meta.get('hints', '')}

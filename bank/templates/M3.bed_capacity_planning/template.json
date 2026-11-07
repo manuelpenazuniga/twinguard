@@ -39,5 +39,16 @@
   ],
   "session_id": "e929ed41-9129-4a6d-8f3b-1ccb7ba62059",
   "prompt_sha256": "74e2fe1618419dbcd74940313c96ab730f55e184d8855ed02095df14cacdbb7c"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Queue runs crash with `KeyError: 'info'` whenever a proposed assignment targets a ward that has beds pending cleaning. Since the census feed started flagging cleaning wards, the assignment guard emits info-level reports for those placements, and the report routing step blows up on them, so every later assignment in the batch is never applied. Info reports should simply be logged and the batch should carry on. Reproduce with `python -m pytest -q tests` (see `tests/test_queue.py::test_cleaning_ward_assignment_is_applied`).",
+  "Whenever a proposed assignment points at a ward with beds still pending cleaning, the queue run crashes with `KeyError: 'info'`. Ever since the census feed began flagging cleaning wards, the assignment guard has been emitting info-level reports for such placements, and the report routing step fails on them, meaning no subsequent assignment in the batch ever gets applied. Expected behavior: info reports are just logged and the batch keeps going. To reproduce, run `python -m pytest -q tests` (see `tests/test_queue.py::test_cleaning_ward_assignment_is_applied`).",
+  "Report routing chokes on info-level reports, crashing queue runs with `KeyError: 'info'` any time a proposed assignment targets a ward whose beds are pending cleaning. The census feed now flags cleaning wards, so the assignment guard emits info-level reports for those placements; when routing blows up on them, every remaining assignment in the batch goes unapplied. Info reports should only be logged, and the batch should continue. Repro: `python -m pytest -q tests` \u2014 see `tests/test_queue.py::test_cleaning_ward_assignment_is_applied`.",
+  "Bug: `KeyError: 'info'` takes down the queue run if a proposed assignment targets a ward with beds awaiting cleaning. Since the census feed started flagging cleaning wards, those placements cause the assignment guard to emit info-level reports, which the report routing step can't handle \u2014 it blows up and none of the later assignments in the batch are applied. Desired outcome: log info reports and let the batch carry on. Reproduce via `python -m pytest -q tests` (refer to `tests/test_queue.py::test_cleaning_ward_assignment_is_applied`)."
+ ]
 }

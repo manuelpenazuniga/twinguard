@@ -29,5 +29,16 @@
   ],
   "session_id": "a8af3747-fa2d-44f0-9529-fee3cddde98f",
   "prompt_sha256": "2c55bb2acb045fa26915afd151b1cf01ea8d12cdb06b74c46d8205140a8447b6"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The 02:00 campaign run crashed again last night: the consent policy service was slow for a single batch, `PolicyTimeout` escaped from `process_queue` and every batch queued after it was skipped until someone restarted the job. One slow consent lookup should not take down the whole run. Please make queue runs finish cleanly when the consent service times out, so that the remaining batches are still processed and every batch gets an outcome in the run report.",
+  "Last night's 02:00 campaign run crashed once more. The consent policy service responded slowly for one batch, `PolicyTimeout` propagated out of `process_queue`, and all batches queued behind it were skipped until the job was manually restarted. A single slow consent lookup shouldn't bring down the entire run. When the consent service times out, queue runs need to complete cleanly: the rest of the batches should still be processed, and each batch should have an outcome recorded in the run report.",
+  "Another crash of the 02:00 campaign run overnight. What happened: the consent policy service was slow on just one batch, `PolicyTimeout` escaped `process_queue`, and every batch queued after that one got skipped until somebody restarted the job. It shouldn't be possible for one slow consent lookup to kill the whole run. Requested change: make queue runs finish cleanly on a consent service timeout, so the remaining batches still get processed and each batch ends up with an outcome in the run report.",
+  "The campaign run scheduled for 02:00 failed again last night. A slowdown in the consent policy service affecting only one batch caused `PolicyTimeout` to escape from `process_queue`; as a result, every subsequently queued batch was skipped until the job was restarted by hand. The whole run should not go down because of one slow consent lookup. Please ensure that queue runs complete cleanly when the consent service times out, with the remaining batches still being processed and an outcome reported for every batch in the run report."
+ ]
 }

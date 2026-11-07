@@ -39,5 +39,16 @@
   ],
   "session_id": "15806546-fd84-4dea-a9d5-0aa21ff619e6",
   "prompt_sha256": "ccf0d5a1d254bbfed9f59b754a943e6cbf685b2dfa07da2c90e5675f79f404b0"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Since the 80% early-warning threshold was added to ActionGuard, any resource request that lands between 80% and 100% of an account's budget envelope makes ManagedClient abort with `ValueError: notifier accepts critical reports only`, and the rest of the request queue is never processed. Warnings are supposed to be allowed and kept in the guard's ledger for the daily digest, not blow up the pipeline. `tests/test_action_guard.py::test_warning_is_recorded_without_raising` and `test_queue_keeps_draining_after_a_warning` reproduce it. Please fix it so the queue keeps draining.",
+  "After ActionGuard gained its 80% early-warning threshold, ManagedClient now aborts with `ValueError: notifier accepts critical reports only` whenever a resource request falls between 80% and 100% of an account's budget envelope, and nothing else left in the request queue gets processed. The intended behavior is that warnings are permitted and stored in the guard's ledger for the daily digest, rather than crashing the pipeline. You can reproduce this with `tests/test_action_guard.py::test_warning_is_recorded_without_raising` and `test_queue_keeps_draining_after_a_warning`. Please fix this so the queue continues draining.",
+  "Regression: ever since ActionGuard got the 80% early-warning threshold, a resource request landing in the 80%\u2013100% range of an account's budget envelope causes ManagedClient to abort with `ValueError: notifier accepts critical reports only`, leaving the remainder of the request queue unprocessed. Expected: warnings should be allowed through and recorded in the guard's ledger for the daily digest, not take down the pipeline. Repro: `tests/test_action_guard.py::test_warning_is_recorded_without_raising` and `test_queue_keeps_draining_after_a_warning`. Requested: fix it so the queue keeps draining.",
+  "ManagedClient blows up with `ValueError: notifier accepts critical reports only` on any resource request between 80% and 100% of an account's budget envelope, and this started when the 80% early-warning threshold was introduced in ActionGuard. Once that happens, the rest of the request queue never gets processed. Warnings are meant to be allowed and kept in the guard's ledger for the daily digest instead of breaking the pipeline. Both `tests/test_action_guard.py::test_warning_is_recorded_without_raising` and `test_queue_keeps_draining_after_a_warning` reproduce the problem. Please fix it so the queue keeps draining."
+ ]
 }

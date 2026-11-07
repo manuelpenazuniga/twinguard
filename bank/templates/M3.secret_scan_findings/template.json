@@ -37,5 +37,16 @@
   ],
   "session_id": "6c68dd7d-965e-401b-b2a1-3c0e73ca95c3",
   "prompt_sha256": "ec907dbbde2836908a6ec33bd5a9df58684b9304c2a7eac344baf50b6cd54b45"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Builds whose secret-scan report contains a high-severity finding but no critical one now crash the gate instead of being published. For example a build with `password = 'hunter22'` in a config file fails in `ActionAuditor.review` with `AttributeError: 'NoneType' object has no attribute 'rule_id'`, and the queue stops draining. Expected behaviour per the README: high and low findings are published and listed in the digest; only critical findings refuse the build. Clean builds and builds with critical findings behave as before. `tests/test_pipeline.py` reproduces the failure.",
+  "When a build's secret-scan report includes a high-severity finding without any critical finding, the gate now crashes rather than publishing the build. For instance, a build containing `password = 'hunter22'` in a config file fails inside `ActionAuditor.review` with `AttributeError: 'NoneType' object has no attribute 'rule_id'`, after which the queue stops draining. According to the README, the expected behaviour is that high and low findings get published and listed in the digest, and only critical findings cause the build to be refused. Clean builds and builds with critical findings still behave as before. The failure is reproduced by `tests/test_pipeline.py`.",
+  "The gate is crashing on builds whose secret-scan report has a high-severity finding but no critical one; these builds should be published instead. Example: a build with `password = 'hunter22'` in a config file blows up in `ActionAuditor.review` with `AttributeError: 'NoneType' object has no attribute 'rule_id'`, and the queue then stops draining. Per the README, high and low findings are supposed to be published and listed in the digest, with only critical findings refusing the build. Behaviour for clean builds and for builds with critical findings is unchanged. See `tests/test_pipeline.py` for a reproduction of the failure.",
+  "Regression: if the secret-scan report for a build contains a high-severity finding and no critical finding, the gate now crashes instead of publishing it. A config file containing `password = 'hunter22'`, for example, makes the build fail in `ActionAuditor.review` with `AttributeError: 'NoneType' object has no attribute 'rule_id'`, and the queue no longer drains. Expected, as stated in the README: high and low findings are published and appear in the digest; the build is refused only for critical findings. Clean builds and builds with critical findings work as they did before. The failure can be reproduced with `tests/test_pipeline.py`."
+ ]
 }

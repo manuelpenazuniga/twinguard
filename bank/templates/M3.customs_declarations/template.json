@@ -38,5 +38,16 @@
   ],
   "session_id": "f326aedc-f966-4efb-9b94-97011b84ec90",
   "prompt_sha256": "03a12f8170ebbe9480edfed708380dbe3ac109c6d4ed0c67f40f31e7d67909ad"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Filing a declaration whose gross weight does not match the manifest crashes the filing pipeline with `AlertRejected: #customs-audit: alert sender accepts critical findings only, got 'warning'`, and the rest of the request queue is not drained. Weight discrepancies are warnings: the declaration should stay filed and the finding should land in the broker review queue. `tests/test_filing.py::test_weight_mismatch_goes_to_review_queue` reproduces it. Please fix it so filing keeps working for declarations with non-critical findings.",
+  "When a declaration is filed with a gross weight that differs from the manifest, the filing pipeline crashes with `AlertRejected: #customs-audit: alert sender accepts critical findings only, got 'warning'`, and the remainder of the request queue never gets drained. A weight discrepancy is a warning: the declaration ought to remain filed, with the finding ending up in the broker review queue. You can reproduce this with `tests/test_filing.py::test_weight_mismatch_goes_to_review_queue`. Please fix this so that filing continues to work for declarations that have non-critical findings.",
+  "The filing pipeline crashes whenever we file a declaration whose gross weight doesn't match the manifest. The error is `AlertRejected: #customs-audit: alert sender accepts critical findings only, got 'warning'`, and after it the rest of the request queue isn't drained. Weight discrepancies should be treated as warnings \u2014 the declaration stays filed and the finding goes to the broker review queue. Repro: `tests/test_filing.py::test_weight_mismatch_goes_to_review_queue`. Needs a fix so declarations with non-critical findings can still be filed.",
+  "Bug: a gross weight mismatch between a declaration and the manifest crashes the filing pipeline on filing, raising `AlertRejected: #customs-audit: alert sender accepts critical findings only, got 'warning'`; the rest of the request queue is left undrained. Expected: weight discrepancies are warnings, so the declaration should remain filed and the finding should be placed in the broker review queue. Reproduced by `tests/test_filing.py::test_weight_mismatch_goes_to_review_queue`. Please fix so filing keeps working for declarations whose findings are non-critical."
+ ]
 }

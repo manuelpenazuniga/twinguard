@@ -46,5 +46,16 @@
   ],
   "session_id": "c1ab0b4b-22ff-4203-9f8d-189ea4057fa3",
   "prompt_sha256": "4a267298041e37c3ef047145b043fe476ca9579ffb65290eeb271fd66e66b703"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Draining the renewal queue aborts with `KeyError: 'stale_prescription'` raised from `AuditNotifier.deliver` as soon as it reaches a renewal whose last fill is older than 180 days. Every request queued after the stale one is left unprocessed until someone restarts the drain. Stale renewals are supposed to be held for pharmacist review and the drain should carry on with the rest of the queue. `tests/test_pipeline.py::test_stale_renewal_is_held_for_review` and `test_drain_continues_after_stale_renewal` reproduce it. Please fix it so the suite passes.",
+  "When the renewal queue is drained, it aborts with `KeyError: 'stale_prescription'`, raised from `AuditNotifier.deliver`, the moment it hits a renewal whose last fill is more than 180 days old. All requests queued behind the stale one stay unprocessed until somebody restarts the drain. The expected behavior is that stale renewals get held for pharmacist review while the drain keeps going through the rest of the queue. This is reproduced by `tests/test_pipeline.py::test_stale_renewal_is_held_for_review` and `test_drain_continues_after_stale_renewal`. Please fix it so the suite passes.",
+  "As soon as the renewal queue drain encounters a renewal with a last fill older than 180 days, it aborts: `AuditNotifier.deliver` raises `KeyError: 'stale_prescription'`. Nothing queued after that stale request gets processed until the drain is restarted by someone. Stale renewals should instead be held for pharmacist review, and the drain should continue with the remaining queue. Both `tests/test_pipeline.py::test_stale_renewal_is_held_for_review` and `test_drain_continues_after_stale_renewal` reproduce the problem. Please make the fix so the suite passes.",
+  "Bug: draining the renewal queue aborts on stale renewals. Once it reaches a renewal whose last fill is older than 180 days, `AuditNotifier.deliver` raises `KeyError: 'stale_prescription'` and the drain stops. Every request queued after the stale one remains unprocessed until a person restarts the drain. Expected: stale renewals are held for pharmacist review and the drain carries on with the rest of the queue. Reproduced by `tests/test_pipeline.py::test_stale_renewal_is_held_for_review` and `test_drain_continues_after_stale_renewal`. Please fix so the suite passes."
+ ]
 }

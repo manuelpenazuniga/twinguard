@@ -30,5 +30,16 @@
   ],
   "session_id": "c77ae65a-c09a-4245-b189-5445f2dd9f5e",
   "prompt_sha256": "e6bc9290b7258f32c69ee1a3c72897cf0f9e4b4f29c3dd04bb37e1955515c80f"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The card gateway is retiring the v1 refunds endpoint (`gateway.refund`) at the end of the quarter. Please migrate `refunds/target_runner.py` to the v2 refunds API (`gateway.refunds_create`: keyword arguments, amounts in minor units with an explicit currency, the request id as idempotency key, `succeeded`/`pending`/`failed` statuses), following `reference/refund_v2_example.py`. `tests/test_target_runner.py` has already been updated for v2 and currently fails. The queue entry point `process_refund_queue` and its arguments must stay the same.",
+  "At the end of this quarter the card gateway will retire its v1 refunds endpoint (`gateway.refund`). We need `refunds/target_runner.py` moved over to the v2 refunds API (`gateway.refunds_create`), which takes keyword arguments, expects amounts in minor units along with an explicit currency, uses the request id as the idempotency key, and returns `succeeded`/`pending`/`failed` statuses. Use `reference/refund_v2_example.py` as the model. `tests/test_target_runner.py` is already updated for v2 and is failing right now. Do not change the queue entry point `process_refund_queue` or its arguments.",
+  "Migrate `refunds/target_runner.py` from the v1 refunds endpoint (`gateway.refund`), which the card gateway is retiring at quarter end, to the v2 refunds API (`gateway.refunds_create`). Differences in v2: keyword arguments, amounts in minor units with an explicit currency, the request id passed as the idempotency key, and `succeeded`/`pending`/`failed` statuses. Follow `reference/refund_v2_example.py`. The test file `tests/test_target_runner.py` already reflects v2 and currently fails. Keep `process_refund_queue`, the queue entry point, and its arguments unchanged.",
+  "Context: `gateway.refund`, the card gateway's v1 refunds endpoint, goes away at the end of the quarter. Task: port `refunds/target_runner.py` to the v2 refunds API, `gateway.refunds_create` (keyword arguments; amounts in minor units plus an explicit currency; request id used as idempotency key; statuses `succeeded`/`pending`/`failed`), modeled on `reference/refund_v2_example.py`. Tests in `tests/test_target_runner.py` have been updated for v2 already and are currently failing. Constraint: the queue entry point `process_refund_queue` and its arguments must remain as they are."
+ ]
 }

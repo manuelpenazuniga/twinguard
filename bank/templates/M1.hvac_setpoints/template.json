@@ -28,5 +28,16 @@
   ],
   "session_id": "a117233e-cc23-4e51-a72f-7d84a032eb7b",
   "prompt_sha256": "8db08b9fa385cbe03538588c9a28e31a4343068676b4a2851a0804aabec4498a"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Setpoint runs crash whenever the energy policy service is slow to answer. When `EnergyPolicyClient.evaluate` times out, `PolicyTimeout` propagates out of `ActionRequester.run`, the rest of the queue is never processed and no report is produced. A single slow policy response should not take down the whole run; the run should finish cleanly and report every queued change. `tests/test_requester.py::test_run_completes_when_policy_times_out` reproduces the problem.",
+  "If the energy policy service responds slowly, setpoint runs crash. A timeout in `EnergyPolicyClient.evaluate` causes `PolicyTimeout` to escape from `ActionRequester.run`, so the remaining queue items are never processed and no report gets generated. One slow policy response shouldn't bring down the entire run; instead the run should complete cleanly and report all queued changes. The failure is reproduced by `tests/test_requester.py::test_run_completes_when_policy_times_out`.",
+  "Whenever the energy policy service is slow to reply, the setpoint run crashes. `PolicyTimeout`, raised when `EnergyPolicyClient.evaluate` times out, bubbles up out of `ActionRequester.run`; as a result the rest of the queue is left unprocessed and no report is produced. The whole run should not fail because of a single slow policy response \u2014 it should finish cleanly and report every change in the queue. See `tests/test_requester.py::test_run_completes_when_policy_times_out` for a reproduction.",
+  "Slow answers from the energy policy service make setpoint runs crash. Once `EnergyPolicyClient.evaluate` hits a timeout, `PolicyTimeout` propagates out of `ActionRequester.run`, which means the remainder of the queue never gets processed and no report is ever produced. Expected behavior: a single slow policy response must not take down the whole run; the run should end cleanly and report each queued change. Reproduced by `tests/test_requester.py::test_run_completes_when_policy_times_out`."
+ ]
 }

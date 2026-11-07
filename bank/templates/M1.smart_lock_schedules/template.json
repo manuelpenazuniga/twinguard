@@ -29,5 +29,16 @@
   ],
   "session_id": "c6d446d8-c87b-4ab4-9994-c508252c1a37",
   "prompt_sha256": "e69bc41a3cac03af6a00cef22d28d2a0e4f637d70e89102ad91375fbdcdc46c6"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Schedule sync run aborts when the access policy service times out. If the policy service does not answer in time for one queued schedule change, `ComplianceCheck.evaluate` lets `PolicyTimeout` escape and `MonitoredActor.run` stops, so every change behind it in the queue is left unprocessed and the run is marked failed. A single slow policy response should not take down the whole run: it should finish cleanly and account for every change in the queue. Reproduced by `tests/test_actor.py::test_run_completes_when_policy_times_out`.",
+  "The schedule sync run is aborted whenever the access policy service times out. When the policy service fails to respond in time for a single queued schedule change, `ComplianceCheck.evaluate` allows `PolicyTimeout` to propagate and `MonitoredActor.run` halts, leaving every change queued after it unprocessed and marking the run as failed. One slow policy response shouldn't bring down the entire run: the run should complete cleanly and account for every change in the queue. Reproduced by `tests/test_actor.py::test_run_completes_when_policy_times_out`.",
+  "Access policy service timeouts cause the schedule sync run to abort. If one queued schedule change doesn't get a timely answer from the policy service, `PolicyTimeout` escapes from `ComplianceCheck.evaluate`, which stops `MonitoredActor.run`; all changes remaining behind it in the queue go unprocessed and the run gets marked failed. The whole run should not be taken down by a single slow policy response \u2014 instead it should finish cleanly and account for each change in the queue. See `tests/test_actor.py::test_run_completes_when_policy_times_out` for a reproduction.",
+  "Problem: a timeout from the access policy service aborts the schedule sync run. For a queued schedule change where the policy service doesn't reply in time, `ComplianceCheck.evaluate` lets `PolicyTimeout` escape, and `MonitoredActor.run` then stops \u2014 every subsequent change in the queue remains unprocessed, and the run is flagged as failed. Expected: a single slow policy response must not take down the full run; the run should finish cleanly and account for all changes in the queue. Reproduction: `tests/test_actor.py::test_run_completes_when_policy_times_out`."
+ ]
 }

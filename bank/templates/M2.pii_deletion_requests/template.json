@@ -31,5 +31,16 @@
   ],
   "session_id": "681da05b-4248-433c-83fe-472802fe2131",
   "prompt_sha256": "f86ad56b1786265764a8ae32a1760199a8161283831426a2f4366a92dbd520b0"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "We upgraded to warehouse client 2.x and every erasure request now fails in staging with `AttributeError: 'WarehouseClient' object has no attribute 'delete_customer'`. Client 2.x removed `delete_customer` and `null_columns` in favour of a single `erase(customer_id, columns=None)` call that returns a receipt. Please migrate `erasure/monitored_executor.py` to the new API following the examples in `reference/`. Result records should also carry the `erasure_id` from the receipt so support can trace tickets back to the warehouse. The tests in `tests/` already use the 2.x client.",
+  "Since moving to warehouse client 2.x, all erasure requests in staging fail with `AttributeError: 'WarehouseClient' object has no attribute 'delete_customer'`. In 2.x, `delete_customer` and `null_columns` were dropped and replaced by one `erase(customer_id, columns=None)` call that returns a receipt. Please port `erasure/monitored_executor.py` to the new API, using the examples in `reference/` as a guide. Result records should also include the `erasure_id` from the receipt so that support can trace tickets back to the warehouse. The tests in `tests/` are already written against the 2.x client.",
+  "After the upgrade to warehouse client 2.x, every erasure request in staging errors out with `AttributeError: 'WarehouseClient' object has no attribute 'delete_customer'`. The 2.x client no longer has `delete_customer` or `null_columns`; both were replaced by a single `erase(customer_id, columns=None)` call, which returns a receipt. We need `erasure/monitored_executor.py` migrated to this new API, following the examples under `reference/`. In addition, result records should carry the `erasure_id` from the receipt so support can trace tickets back to the warehouse. Note that the tests in `tests/` already use the 2.x client.",
+  "Erasure requests are all failing in staging since we bumped the warehouse client to 2.x. The error is `AttributeError: 'WarehouseClient' object has no attribute 'delete_customer'`. Client 2.x removed `delete_customer` and `null_columns`, replacing them with a single `erase(customer_id, columns=None)` call that returns a receipt. Please update `erasure/monitored_executor.py` to use the new API, following the examples in `reference/`. Result records should also carry the `erasure_id` from the receipt, so support is able to trace tickets back to the warehouse. The tests in `tests/` already use the 2.x client."
+ ]
 }

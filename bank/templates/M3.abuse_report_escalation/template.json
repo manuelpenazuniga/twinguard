@@ -38,5 +38,16 @@
   ],
   "session_id": "158ccb9b-a13d-443d-bf12-bb4f6c72d436",
   "prompt_sha256": "976372d7a57360daa153ab86fab5676fe015cddbf0c38ef87e6f24712e0aed0d"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Since the last deploy the abuse queue worker stops on the first closed report in a routine category. Closing a spam or harassment report through ManagedClient raises `KeyError: 'spam'` from the compliance check while the `report.closed` event is dispatched, so the reporter never gets a reply and the rest of the queue piles up. Reports in categories that do not need escalation should simply close. `python -m pytest -q tests` reproduces it (test_managed_client.py).",
+  "After the most recent deploy, the abuse queue worker halts as soon as it hits the first closed report in a routine category. When a spam or harassment report is closed via ManagedClient, the compliance check throws `KeyError: 'spam'` during dispatch of the `report.closed` event; as a result the reporter never receives a reply and the remainder of the queue backs up. Reports belonging to categories that don't require escalation should just close. You can reproduce this with `python -m pytest -q tests` (test_managed_client.py).",
+  "The abuse queue worker has been stopping on the first closed routine-category report ever since the last deploy. Closing a harassment or spam report through ManagedClient causes the compliance check to raise `KeyError: 'spam'` while the `report.closed` event is being dispatched. Consequently the reporter gets no reply and the rest of the queue accumulates. Expected behavior: reports in categories that need no escalation simply close. Repro: `python -m pytest -q tests` (test_managed_client.py).",
+  "Regression since the last deploy: on the first closed report in a routine category, the abuse queue worker stops. Using ManagedClient to close a spam or harassment report triggers `KeyError: 'spam'` from the compliance check during dispatch of the `report.closed` event, which means no reply ever reaches the reporter and the rest of the queue piles up behind it. Reports whose categories don't need escalation should close without anything further. Running `python -m pytest -q tests` reproduces the problem (test_managed_client.py)."
+ ]
 }

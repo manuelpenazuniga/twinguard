@@ -31,5 +31,16 @@
   ],
   "session_id": "6dbcb0d0-53ce-4b9a-a0d6-c959abdfae8f",
   "prompt_sha256": "3cac02f150d032435adc31bea4d0de35ab6b271505227dcfdf3b68407545ddb2"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Since the warehouse client was upgraded to 2.0 (`migrator/warehouse.py`), every migration job fails with `AttributeError: 'WarehouseExecutor' object has no attribute 'execute'`. The 2.0 client removed the string-based `execute(sql)` in favour of `apply(DdlStatement)`, which returns a `DdlResult`. Please migrate the handlers in `migrator/target_runner.py` to the new API, following the port the warehouse team left in `reference/target_runner.py`. Drops whose target no longer exists should come back with status `noop` instead of `applied`.",
+  "After upgrading the warehouse client to 2.0 (`migrator/warehouse.py`), all migration jobs are failing with `AttributeError: 'WarehouseExecutor' object has no attribute 'execute'`. In 2.0 the string-based `execute(sql)` was removed and replaced by `apply(DdlStatement)`, which returns a `DdlResult`. Please port the handlers in `migrator/target_runner.py` to this new API, using the port the warehouse team left in `reference/target_runner.py` as a guide. When a drop's target no longer exists, it should return status `noop` rather than `applied`.",
+  "Every migration job has been failing with `AttributeError: 'WarehouseExecutor' object has no attribute 'execute'` ever since the warehouse client (`migrator/warehouse.py`) moved to 2.0. The cause: the 2.0 client dropped the string-based `execute(sql)` and now offers `apply(DdlStatement)` instead, returning a `DdlResult`. Could you update the handlers in `migrator/target_runner.py` to use the new API, following the warehouse team's port in `reference/target_runner.py`? Also, drops targeting something that no longer exists should report status `noop`, not `applied`.",
+  "Migration jobs are all broken following the warehouse client upgrade to 2.0 (`migrator/warehouse.py`); each one fails with `AttributeError: 'WarehouseExecutor' object has no attribute 'execute'`. Version 2.0 got rid of the string-based `execute(sql)`, favouring `apply(DdlStatement)`, which gives back a `DdlResult`. The handlers in `migrator/target_runner.py` need migrating to the new API \u2014 please follow the port the warehouse team left in `reference/target_runner.py`. For drops whose target is no longer present, the status returned should be `noop` instead of `applied`."
+ ]
 }

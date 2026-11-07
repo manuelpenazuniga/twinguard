@@ -31,5 +31,16 @@
   ],
   "session_id": "7622fc60-9972-4615-b3fe-9f8796368d41",
   "prompt_sha256": "cf93da7599f5470a5b78b1e538005ae62b65eb6a06ac3b942aec6773db46b086"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The device platform team is shutting down the per-device Fleet API v1 endpoints (`group_members`, `send_image`, `send_rollback`) at the end of the month. Please migrate `rollout/pusher.py` to the Fleet API v2 group calls (`start_rollout` / `revert_rollout`) following the example in `reference/rollout_v2.py`. Completed push and rollback events should carry the `rollout_id` and `status` returned by v2, and a rollout that comes back as `noop` must still be published as completed. The tests in `tests/test_pusher.py` already use a v2 fleet client and are currently failing.",
+  "At the end of the month, the device platform team will turn off the per-device Fleet API v1 endpoints (`group_members`, `send_image`, `send_rollback`). We need `rollout/pusher.py` moved over to the Fleet API v2 group calls (`start_rollout` / `revert_rollout`), using `reference/rollout_v2.py` as the example to follow. When a push or rollback completes, its event should include the `rollout_id` and `status` that v2 returns, and if a rollout comes back as `noop` it must still be published as completed. `tests/test_pusher.py` already uses a v2 fleet client, and those tests are failing right now.",
+  "Please port `rollout/pusher.py` from the per-device Fleet API v1 endpoints (`group_members`, `send_image`, `send_rollback`) to the Fleet API v2 group calls (`start_rollout` / `revert_rollout`); the device platform team is shutting v1 down at the end of the month. Follow the example in `reference/rollout_v2.py`. Completed push and rollback events need to carry the `rollout_id` and `status` returned by v2. A rollout returned as `noop` must still be published as completed. Note that the tests in `tests/test_pusher.py` already use a v2 fleet client and currently fail.",
+  "Context: the per-device Fleet API v1 endpoints (`group_members`, `send_image`, `send_rollback`) are being shut down by the device platform team at the end of the month. Ask: migrate `rollout/pusher.py` to the Fleet API v2 group calls (`start_rollout` / `revert_rollout`), following the example in `reference/rollout_v2.py`. Requirements: completed push and rollback events should carry the `rollout_id` and `status` returned by v2, and a rollout that comes back as `noop` must still be published as completed. Tests: `tests/test_pusher.py` already uses a v2 fleet client and is currently failing."
+ ]
 }

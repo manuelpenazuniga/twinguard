@@ -39,5 +39,16 @@
   ],
   "session_id": "8b664dc6-30e5-4e42-a2ba-af2b186907b2",
   "prompt_sha256": "0b5ccb0ad4f0fc65f46918247b50fd3498c35cb1a53f22ec522093be40516b6a"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Setpoint batches abort with `TypeError: 'NoneType' object is not subscriptable` whenever a request is close to (but still inside) the safe operating envelope. Near-limit requests are valid and should be written to the controller with a warning severity, but the whole batch stops and the remaining requests in the queue are never processed. The traceback points at the safety monitor's report routing. Please fix it so mixed batches complete; the failing tests in tests/ reproduce the problem.",
+  "Whenever a setpoint request falls near the edge of the safe operating envelope (while still within it), the batch aborts with `TypeError: 'NoneType' object is not subscriptable`. Such near-limit requests are legitimate and ought to be sent to the controller with a warning severity; instead, the entire batch halts and every request left in the queue goes unprocessed. According to the traceback, the failure is in the safety monitor's report routing. Please fix this so that mixed batches run to completion; the failing tests in tests/ reproduce the issue.",
+  "Bug: a setpoint batch dies with `TypeError: 'NoneType' object is not subscriptable` any time one of its requests is close to, but not outside, the safe operating envelope. These near-limit requests are valid and are supposed to be written to the controller with a warning severity. What actually happens is that the whole batch stops and nothing remaining in the queue gets processed. The traceback leads to the safety monitor's report routing. Fix needed so mixed batches complete \u2014 see the failing tests in tests/, which reproduce it.",
+  "Requests that sit close to the safe operating envelope's limits, yet still inside it, cause setpoint batches to abort with `TypeError: 'NoneType' object is not subscriptable`. Expected behavior: these near-limit requests are valid and get written to the controller with a warning severity. Actual behavior: the full batch stops, and the rest of the queued requests are never processed. The traceback points to the report routing in the safety monitor. Please make mixed batches complete successfully; the failing tests under tests/ reproduce the problem."
+ ]
 }

@@ -29,5 +29,16 @@
   ],
   "session_id": "2c4e5570-619f-4f68-a449-330145700fa4",
   "prompt_sha256": "70aa48ab0888286e369673f4890b6084f863bf58c91236f80621f769fd6bc059"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "When the cold-chain policy service times out on a single lookup, `process_queue` raises `PolicyTimeout` and the whole release run aborts, so every request behind it in the queue is left unprocessed. This happens a few times a night when the policy service is under load. A timeout on one request should not take down the run: the run should finish cleanly and the remaining requests should still be processed. `tests/test_release_queue.py::test_policy_timeout_does_not_abort_the_run` reproduces the problem.",
+  "If a single lookup against the cold-chain policy service times out, `process_queue` raises `PolicyTimeout`, which aborts the entire release run and leaves every request queued after it unprocessed. When the policy service is under load, this occurs a few times per night. One request timing out should not bring down the run: the run should complete cleanly and the rest of the requests should still get processed. The issue is reproduced by `tests/test_release_queue.py::test_policy_timeout_does_not_abort_the_run`.",
+  "A timeout on one lookup to the cold-chain policy service causes `process_queue` to raise `PolicyTimeout`, and the release run aborts as a whole, so all requests that come after it in the queue never get processed. We see this a few times each night while the policy service is under load. Expected behavior: a timeout for one request must not kill the run; the run should finish cleanly and the remaining requests should still be processed. Repro: `tests/test_release_queue.py::test_policy_timeout_does_not_abort_the_run`.",
+  "Currently, `process_queue` raises `PolicyTimeout` whenever the cold-chain policy service times out on a single lookup, and that aborts the whole release run, leaving every request behind it in the queue unprocessed. It happens a few times a night under load on the policy service. The run should not be taken down by one request's timeout; instead it should finish cleanly, with the remaining requests still processed. See `tests/test_release_queue.py::test_policy_timeout_does_not_abort_the_run`, which reproduces this."
+ ]
 }

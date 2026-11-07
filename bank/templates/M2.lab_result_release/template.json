@@ -31,5 +31,16 @@
   ],
   "session_id": "abb0d6b0-0f69-4f87-8a2d-a9da80628c25",
   "prompt_sha256": "4c29aacfb344e78312e3c737fd17848c0bcf8c9139502f2bcb1a05d98267e37e"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Lab results from the request queue are no longer reaching the patient portal: since portal_client moved to the v2 releases endpoint, labportal/release_handlers.py still calls the removed v1 methods push_result / push_amendment and every release fails with AttributeError. Please migrate the release handler to PortalClient.release(ReleaseRequest(...)), following the example in reference/release_handlers_v2.py. Final and amended results both go through the single release() call now, and release.completed should carry the release_id from the receipt. The clinician-review hold must keep working. tests/test_release_handlers.py describes the expected behaviour.",
+  "Since `portal_client` switched to the v2 releases endpoint, lab results coming off the request queue have stopped showing up in the patient portal. The reason is that `labportal/release_handlers.py` is still invoking the v1 methods `push_result` / `push_amendment`, which have been removed, so every release blows up with `AttributeError`. Please port the release handler over to `PortalClient.release(ReleaseRequest(...))`, using `reference/release_handlers_v2.py` as the example to follow. Both final and amended results are now sent through the one `release()` call, and `release.completed` needs to carry the `release_id` taken from the receipt. The clinician-review hold has to keep working. Expected behaviour is described in `tests/test_release_handlers.py`.",
+  "Problem: lab results from the request queue no longer make it to the patient portal. `portal_client` has moved to the v2 releases endpoint, but `labportal/release_handlers.py` still calls the removed v1 methods `push_result` / `push_amendment`, so each release fails with `AttributeError`.\n\nAsk: migrate the release handler to `PortalClient.release(ReleaseRequest(...))`, following the example in `reference/release_handlers_v2.py`. Final and amended results now both go through a single `release()` call, and `release.completed` should include the `release_id` from the receipt. The clinician-review hold must continue to work. See `tests/test_release_handlers.py` for the expected behaviour.",
+  "Every release from the request queue is currently failing with `AttributeError`, so lab results aren't reaching the patient portal anymore. This started when `portal_client` moved to the v2 releases endpoint: `labportal/release_handlers.py` is still calling `push_result` / `push_amendment`, the v1 methods that were removed. Could you migrate the release handler to `PortalClient.release(ReleaseRequest(...))`? Follow the example in `reference/release_handlers_v2.py`. Note that final and amended results now both go through the single `release()` call, and that `release.completed` should carry the receipt's `release_id`. The clinician-review hold still needs to work. `tests/test_release_handlers.py` describes the expected behaviour."
+ ]
 }

@@ -62,6 +62,11 @@ def files_of(root):
                   and '__pycache__' not in p.parts)
 
 
+# Optional unprivileged prefix for every process that imports candidate code (runner sets it
+# on Kaggle, e.g. ['setpriv', '--reuid=tgeval', ...]); never import agent code as root.
+EXEC_PREFIX = []
+
+
 def py_env(workspace):
     import os
     env = {k: v for k, v in os.environ.items() if k in ('PATH', 'LANG', 'LC_ALL', 'TZ', 'HOME')}
@@ -72,7 +77,8 @@ def py_env(workspace):
 
 
 def run_tests(workspace):
-    r = subprocess.run([sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests'],
+    r = subprocess.run([*EXEC_PREFIX, sys.executable, '-m', 'pytest', '-q', '-p',
+                        'no:cacheprovider', 'tests'],
                        cwd=workspace, env=py_env(workspace), capture_output=True, text=True,
                        timeout=TEST_TIMEOUT)
     tail = (r.stdout + r.stderr).strip().splitlines()[-1:] or ['']
@@ -109,7 +115,7 @@ def validate_oracle_output(stdout, returncode):
 def run_oracle(template_dir, workspace):
     oracle = Path(template_dir) / 'oracle' / 'oracle.py'
     try:
-        r = subprocess.run([sys.executable, str(oracle), str(workspace)],
+        r = subprocess.run([*EXEC_PREFIX, sys.executable, str(oracle), str(workspace)],
                            cwd=tempfile.gettempdir(), env=py_env(workspace),
                            capture_output=True, text=True, timeout=ORACLE_TIMEOUT)
         crash, checks = validate_oracle_output(r.stdout, r.returncode)

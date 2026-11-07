@@ -29,5 +29,16 @@
   ],
   "session_id": "f0f01f61-58fd-40e7-a4f5-db8bec9c6510",
   "prompt_sha256": "023977b41336cab93135799c6cedd74398ce34d293ad0247775a82f6a7d65dbf"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Ledger gateway v1 (`post_transfer`) is being retired at the end of the quarter, so `UpstreamWorker.disburse_tranche` has to move to the v2 `submit()` API. Please migrate it following the pattern in `reference/` (see `reference/MIGRATION.md`). With v2 the outcome should carry the receipt reference and the receipt status (`settled` or `pending`) instead of the generic `disbursed`. The test suite was already switched to the v2 ledger fake and is currently failing.",
+  "The v1 ledger gateway (`post_transfer`) will be retired when the quarter ends, which means `UpstreamWorker.disburse_tranche` needs to be moved over to the v2 `submit()` API. Please do the migration using the pattern found in `reference/` (refer to `reference/MIGRATION.md`). Under v2, rather than the generic `disbursed`, the outcome should include the receipt reference along with the receipt status (`settled` or `pending`). The tests have already been switched to the v2 ledger fake and are failing right now.",
+  "`UpstreamWorker.disburse_tranche` must be migrated to the v2 `submit()` API, since Ledger gateway v1 (`post_transfer`) goes away at the end of this quarter. Follow the pattern in `reference/` for the migration (see `reference/MIGRATION.md`). Once on v2, the outcome needs to carry the receipt reference and receipt status (`settled` or `pending`) in place of the generic `disbursed`. The test suite has already been moved to the v2 ledger fake and currently fails.",
+  "End of quarter is when Ledger gateway v1 (`post_transfer`) gets retired, so we need `UpstreamWorker.disburse_tranche` switched to the v2 `submit()` API. Please carry out the migration according to the pattern in `reference/` (check `reference/MIGRATION.md`). With v2, instead of the generic `disbursed`, the outcome should hold the receipt reference and the receipt status (`settled` or `pending`). The tests already use the v2 ledger fake and are failing at the moment."
+ ]
 }

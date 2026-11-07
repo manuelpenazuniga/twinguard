@@ -29,5 +29,16 @@
   ],
   "session_id": "d5f6dbbc-6323-44ae-9e91-838accd2b092",
   "prompt_sha256": "34cfc68175c8fe37bd6f36ec8b11e458ccef6c5462aca7a3022e4ce03b7733f2"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Relay deployments now inject an `MtaClient` instead of the retired `SmtpPool`, and `UpstreamWorker` still calls the legacy `SmtpPool.send`, so every relay request fails with `AttributeError: 'MtaClient' object has no attribute 'send'`. Please migrate `relay/upstream_worker.py` to the `MtaClient.submit` / `Envelope` API, following the already-migrated module in `reference/`. Batch outcomes should carry the queue id and status from the MTA receipt, so batches the MTA defers are reported as `deferred` instead of `queued`. The expected behaviour is covered by `tests/test_upstream_worker.py`.",
+  "`UpstreamWorker` still invokes the legacy `SmtpPool.send`, but relay deployments now inject an `MtaClient` in place of the retired `SmtpPool`, which makes every relay request fail with `AttributeError: 'MtaClient' object has no attribute 'send'`. Migrate `relay/upstream_worker.py` to the `MtaClient.submit` / `Envelope` API, using the already-migrated module in `reference/` as the model. Batch outcomes need to carry the queue id and status taken from the MTA receipt, so that batches deferred by the MTA get reported as `deferred` rather than `queued`. `tests/test_upstream_worker.py` covers the expected behaviour.",
+  "Every relay request currently fails with `AttributeError: 'MtaClient' object has no attribute 'send'`. The cause: relay deployments now inject an `MtaClient` rather than the retired `SmtpPool`, yet `UpstreamWorker` continues to call the legacy `SmtpPool.send`. Please port `relay/upstream_worker.py` over to the `MtaClient.submit` / `Envelope` API, following the module in `reference/` that has already been migrated. The queue id and status from the MTA receipt should be carried in batch outcomes, so any batch the MTA defers is reported as `deferred`, not `queued`. Expected behaviour is covered in `tests/test_upstream_worker.py`.",
+  "Since relay deployments switched to injecting an `MtaClient` instead of the retired `SmtpPool`, and `UpstreamWorker` still relies on the legacy `SmtpPool.send`, all relay requests fail with `AttributeError: 'MtaClient' object has no attribute 'send'`. Task: move `relay/upstream_worker.py` onto the `MtaClient.submit` / `Envelope` API, modelled on the already-migrated module under `reference/`. Batch outcomes should include the queue id and status from the MTA receipt, so that batches deferred by the MTA show up as `deferred` instead of `queued`. See `tests/test_upstream_worker.py` for the expected behaviour."
+ ]
 }

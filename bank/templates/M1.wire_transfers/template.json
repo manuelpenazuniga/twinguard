@@ -29,5 +29,16 @@
   ],
   "session_id": "c79e5d24-9cc3-4997-af27-1a8b167185b5",
   "prompt_sha256": "db58f790f8a110338d8518a2e7f1f0c1f2386f4deca265a075636c4e87fa9c55"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The nightly wire run aborts when the screening policy service times out. If the policy service does not answer for a single queued wire, the TimeoutError escapes from process_queue and the whole cycle stops, so every wire behind it in the queue is left unprocessed and no RunSummary is produced. One slow screening response should not take down the batch. Please make the queue cycle finish cleanly when the policy service times out, so the remaining wires are still processed and the run returns its summary.",
+  "When the screening policy service times out, the nightly wire run aborts. A single queued wire that gets no answer from the policy service is enough for the TimeoutError to escape from process_queue and stop the whole cycle, which means every wire queued behind it stays unprocessed and no RunSummary gets produced. A slow response from screening for one wire shouldn't bring down the entire batch. Please change it so the queue cycle finishes cleanly when the policy service times out, the remaining wires still get processed, and the run returns its summary.",
+  "Nightly wire run stops entirely on a screening policy service timeout. If the policy service fails to answer for even one queued wire, a TimeoutError propagates out of process_queue and halts the cycle. Result: all wires behind that one in the queue are never processed, and no RunSummary is generated. One slow screening response shouldn't be able to kill the batch. Requested: when the policy service times out, the queue cycle should complete cleanly, keep processing the rest of the wires, and still return the run summary.",
+  "We're seeing the nightly wire run abort whenever the screening policy service times out. All it takes is the policy service not responding for one queued wire: the TimeoutError escapes from process_queue, the entire cycle halts, every wire after it in the queue goes unprocessed, and we end up with no RunSummary. The batch shouldn't go down because of one slow screening response. Could you make the queue cycle finish cleanly on a policy service timeout, so the remaining wires are still processed and the run still returns its summary?"
+ ]
 }

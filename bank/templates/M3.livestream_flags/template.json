@@ -41,5 +41,16 @@
   ],
   "session_id": "2e333e67-bea5-467d-a394-11bf0c680937",
   "prompt_sha256": "e71b23e17cc17a3b530bd9109faabf43888ea47f0ae4b74366e792494c848ff4"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The livestream flag review queue stops draining whenever it reaches a request for a flagged stream that is still inside its review window. ActionRequester.process_queue raises ValueError('audit channel accepts critical alerts only') and every request behind it in the queue is left unprocessed. Warning-level reports are meant to go to the reviewers' digest only. Please fix this so the queue drains; tests/test_pipeline.py::test_flag_inside_review_window_does_not_stop_the_queue reproduces it.",
+  "Whenever the livestream flag review queue hits a request for a flagged stream that is still within its review window, it stops draining. `ActionRequester.process_queue` raises ValueError('audit channel accepts critical alerts only'), and all requests queued after it remain unprocessed. Warning-level reports should only be sent to the reviewers' digest. Please fix this so that the queue drains; tests/test_pipeline.py::test_flag_inside_review_window_does_not_stop_the_queue reproduces the problem.",
+  "The review queue for livestream flags halts as soon as it encounters a request for a flagged stream that hasn't yet left its review window. At that point ActionRequester.process_queue throws ValueError('audit channel accepts critical alerts only'), leaving every request behind it in the queue unprocessed. Reports at warning level are supposed to go only to the reviewers' digest. Please fix this so the queue drains. Reproduced by tests/test_pipeline.py::test_flag_inside_review_window_does_not_stop_the_queue.",
+  "Livestream flag review queue no longer drains once it reaches a request for a flagged stream still inside its review window: ActionRequester.process_queue raises ValueError('audit channel accepts critical alerts only') and each request queued behind it is left unprocessed. Warning-level reports are intended for the reviewers' digest only. Please fix so the queue drains. Repro: tests/test_pipeline.py::test_flag_inside_review_window_does_not_stop_the_queue."
+ ]
 }

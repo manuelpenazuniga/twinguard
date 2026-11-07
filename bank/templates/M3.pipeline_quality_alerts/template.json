@@ -39,5 +39,16 @@
   ],
   "session_id": "4d3e1b5c-6f32-4c7b-9158-50cae2f54a75",
   "prompt_sha256": "fefdb2d192f94eae67515a41bb8ba85f4dd0ecb5d35577f9c22564d36511ff39"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The nightly loader dies with `KeyError: 'ok'` in `loadwatch/action_monitor.py` as soon as `process_queue` reaches a job whose records all pass validation. Since the report routing was reworked, any queue that contains a clean job aborts at that job, so the jobs behind it are never loaded and the run summary is never produced. Jobs that drop some records are still processed normally. Please fix it so a queue with clean jobs runs to completion; `python -m pytest -q tests` reproduces the failure.",
+  "Ever since the report routing was reworked, the nightly loader crashes with `KeyError: 'ok'` in `loadwatch/action_monitor.py` the moment `process_queue` hits a job in which every record passes validation. Any queue containing such a clean job aborts at that point: none of the jobs after it get loaded, and no run summary is produced. Jobs that drop some of their records continue to be processed normally. Please fix this so queues with clean jobs run to completion. Running `python -m pytest -q tests` reproduces the failure.",
+  "In `loadwatch/action_monitor.py`, `process_queue` raises `KeyError: 'ok'` and kills the nightly loader whenever it reaches a job where all records pass validation. This started after the report routing rework. A clean job anywhere in a queue causes the run to abort at that job, leaving the remaining jobs unloaded and the run summary never generated. Jobs that drop some records are unaffected and still get processed normally. Expected: a queue containing clean jobs should run to completion. Repro: `python -m pytest -q tests`.",
+  "Nightly loader failure: as soon as `process_queue` gets to a job whose records all validate successfully, it dies with `KeyError: 'ok'` in `loadwatch/action_monitor.py`. Since the report routing changes, every queue that includes a clean job stops at that job, so the jobs queued behind it are never loaded and the run summary never gets produced. Jobs where some records are dropped still go through normally. Please fix it so that a queue with clean jobs completes. The failure can be reproduced with `python -m pytest -q tests`."
+ ]
 }

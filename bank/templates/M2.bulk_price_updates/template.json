@@ -30,5 +30,16 @@
   ],
   "session_id": "85202af8-c7f2-41e7-a518-cca35d0bf92c",
   "prompt_sha256": "ee9092db6e14571fcb64f0e5ee334a9ec0c1993583476cf76983b8d656bd9edd"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "Bulk price updates are losing a cent on some SKUs: a `set` request for 1999 cents ends up stored as 1998 because `TargetRunner.run_batch` still writes through the deprecated `PriceCatalog.set_price`, which takes float dollars and truncates. Please migrate `TargetRunner` (pricing/runner.py) to the integer-cents `PriceCatalog.apply_changes` API, following the already migrated job in reference/clearance_job.py. `run_batch` must keep its signature and its BatchReport output (applied/rejected request ids, floor rejections unchanged). tests/test_runner.py::test_set_price_keeps_exact_cents currently fails and should pass after the migration.",
+  "Some SKUs lose a cent during bulk price updates: sending a `set` request for 1999 cents results in 1998 being stored. The cause is that `TargetRunner.run_batch` still writes via the deprecated `PriceCatalog.set_price`, which accepts float dollars and truncates. Please move `TargetRunner` (pricing/runner.py) over to the integer-cents `PriceCatalog.apply_changes` API, using the job that has already been migrated in reference/clearance_job.py as the model. The signature of `run_batch` must stay the same, as must its BatchReport output (applied/rejected request ids, floor rejections unchanged). tests/test_runner.py::test_set_price_keeps_exact_cents fails right now and should pass once the migration is done.",
+  "`TargetRunner.run_batch` is still writing through the deprecated `PriceCatalog.set_price`, which takes float dollars and truncates, so bulk price updates drop a cent on certain SKUs \u2014 e.g. a `set` request for 1999 cents gets stored as 1998. Migrate `TargetRunner` (pricing/runner.py) to the integer-cents `PriceCatalog.apply_changes` API, following the already migrated job in reference/clearance_job.py. Constraints: `run_batch` keeps its signature and its BatchReport output (applied/rejected request ids, floor rejections unchanged). Currently tests/test_runner.py::test_set_price_keeps_exact_cents fails; it should pass after the migration.",
+  "Problem: on some SKUs, bulk price updates come out one cent short \u2014 a `set` request for 1999 cents is persisted as 1998. This happens because `TargetRunner.run_batch` still goes through the deprecated `PriceCatalog.set_price`, which works in float dollars and truncates. Request: migrate `TargetRunner` (pricing/runner.py) to the integer-cents `PriceCatalog.apply_changes` API, taking the already migrated job in reference/clearance_job.py as the pattern to follow. `run_batch` needs to retain its signature and its BatchReport output (applied/rejected request ids, floor rejections unchanged). The test tests/test_runner.py::test_set_price_keeps_exact_cents is failing at the moment and is expected to pass after the migration."
+ ]
 }

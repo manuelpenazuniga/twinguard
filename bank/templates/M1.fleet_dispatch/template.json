@@ -29,5 +29,16 @@
   ],
   "session_id": "3f284886-59af-4786-b211-5c421cc40675",
   "prompt_sha256": "7bcf6c90e0323b2132fbb8924cc28852e761f05622a0dee5ed237539c041dc17"
- }
+ },
+ "paraphrase_check": {
+  "pass": true,
+  "attempts": 1,
+  "problems": []
+ },
+ "issue_paraphrases": [
+  "The dispatch queue worker crashes whenever the permit policy service is slow: PermitServiceTimeout escapes from run_queue and the remaining requests in the batch are never processed. Last night one slow route-permit lookup stopped the overnight run with about 40 requests still on the queue, and the on-call had to restart the worker by hand. A single permit timeout should not take down the whole pass. Please make queue runs finish cleanly and return an outcome for every request when the permit service times out.",
+  "Whenever the permit policy service responds slowly, the dispatch queue worker crashes: PermitServiceTimeout propagates out of run_queue and the rest of the requests in the batch never get processed. Last night a single slow route-permit lookup halted the overnight run with roughly 40 requests left on the queue, and the on-call engineer had to restart the worker manually. One permit timeout shouldn't bring down the entire pass. Please ensure queue runs complete cleanly and produce an outcome for every request when the permit service times out.",
+  "A slow permit policy service causes the dispatch queue worker to crash. PermitServiceTimeout isn't contained within run_queue, so any requests left in the batch are never handled. During last night's overnight run, one slow route-permit lookup brought everything to a stop with about 40 requests still queued, and on-call had to manually restart the worker. The whole pass shouldn't fail because of a single permit timeout. Requested: when the permit service times out, queue runs should finish cleanly and return an outcome for each request.",
+  "Problem: the dispatch queue worker goes down any time the permit policy service is slow, because PermitServiceTimeout escapes run_queue and the remaining batch requests are left unprocessed. Example: last night, a single slow route-permit lookup killed the overnight run with around 40 requests still sitting on the queue, forcing the on-call to restart the worker by hand. Expected: one permit timeout should not take out the whole pass. Ask: make queue runs end cleanly and return an outcome for every request in the case of a permit service timeout."
+ ]
 }
