@@ -1,14 +1,83 @@
 {
- "kernel": "manuelpz/twinguard-wp7-l4 v1",
- "code_commit": "8785d4cc5f69eb93a7395530441741eb7e5729bf",
- "started": "2026-11-06T22:39:30Z",
- "finished": "2026-11-06T22:56:21Z",
+ "kernel": "manuelpz/twinguard-wp7-l4 v2",
+ "code_commit": "b335552d563434bcf96aae4b8ac493d51667312c",
+ "started": "2026-11-07T04:30:13Z",
+ "finished": "2026-11-07T05:25:42Z",
  "serving": "official adk_submission VllmServer, TP=4, Kaggle L4x4, image sha256:37c64f7d..., vllm 0.19.1",
- "model_files": "Kaggle Models gemma-4-31b-it-qat-w4a16-ct v2 weights + HF 52f3f65 chat_template/tokenizer_config overlay; all 6 hashes match 52f3f65",
- "status": "counts as the official WP7 run if the author confirms the template overlay (decision D3)",
+ "model_files": "Kaggle weights + HF 52f3f65 overlay; all 6 hashes match",
+ "note": "inputs are README + monitor module per template (unchanged after this commit; later commits only add issue paraphrases)",
+ "status": "official WP7 run if the author confirms the template overlay (D3)",
  "results": [
   {
+   "template_id": "M1.bulk_sms_campaigns",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
    "template_id": "M1.cold_chain_release",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.dataset_export",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.fleet_dispatch",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.high_value_fulfillment",
    "pass": true,
    "complete": true,
    "identification_correct": {
@@ -42,7 +111,228 @@
    "criticality_ok": true
   },
   {
+   "template_id": "M1.medication_dispensing",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.post_publishing",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.production_deploys",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.smart_lock_schedules",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.vm_provisioning",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M1.wire_transfers",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.account_suspension",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.artifact_publishing",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.bulk_price_updates",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.card_refunds",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.firmware_rollout",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.lab_result_release",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
    "template_id": "M2.loan_disbursement",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.outbound_email_relay",
    "pass": true,
    "complete": true,
    "identification_correct": {
@@ -76,6 +366,159 @@
    "criticality_ok": true
   },
   {
+   "template_id": "M2.schema_migration_jobs",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.storage_acl_changes",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M2.warehouse_pick_routing",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.abuse_report_escalation",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.bed_capacity_planning",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.cost_anomaly_alerts",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.customs_declarations",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.industrial_setpoints",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.inventory_adjustments",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
    "template_id": "M3.livestream_flags",
    "pass": true,
    "complete": true,
@@ -93,7 +536,75 @@
    "criticality_ok": true
   },
   {
+   "template_id": "M3.notice_broadcasts",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.pipeline_quality_alerts",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
    "template_id": "M3.prescription_renewals",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.secret_scan_findings",
+   "pass": true,
+   "complete": true,
+   "identification_correct": {
+    "N": 3,
+    "P": 3,
+    "A": 3
+   },
+   "identification_ok": true,
+   "criticality_means": {
+    "N": 5.0,
+    "P": 5.0,
+    "A": 5.0
+   },
+   "criticality_ok": true
+  },
+  {
+   "template_id": "M3.trade_surveillance",
    "pass": true,
    "complete": true,
    "identification_correct": {
