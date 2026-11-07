@@ -20,6 +20,20 @@ PATHS = ['harness', 'bank/__init__.py', 'bank/render.py', 'bank/admission.py', '
 MARKER = '# @@CODE_BUNDLE@@'
 
 
+def strip_text(src):
+    """Remove docstrings and comments from the kernel script: /kaggle/src may be readable by
+    the agent's uid, so the shipped script must not describe the study."""
+    import ast
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) \
+                and node.body and isinstance(node.body[0], ast.Expr) \
+                and isinstance(node.body[0].value, ast.Constant) \
+                and isinstance(node.body[0].value.value, str):
+            node.body = node.body[1:] or [ast.Pass()]
+    return ast.unparse(tree)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('kernel_dir')
@@ -38,7 +52,8 @@ def main(argv=None):
               f'CODE_B64 = {base64.b64encode(tar).decode()!r}\n')
     out = kdir / 'build'
     out.mkdir(exist_ok=True)
-    (out / meta['code_file']).write_text(src.replace(MARKER, bundle))
+    # bundle first (defined before any use), then the script without docstrings/comments
+    (out / meta['code_file']).write_text(bundle + strip_text(src) + '\n')
     meta['dataset_sources'] = [d for d in meta.get('dataset_sources', [])
                                if not d.endswith('/twinguard-code')]
     (out / 'kernel-metadata.json').write_text(json.dumps(meta, indent=2) + '\n')

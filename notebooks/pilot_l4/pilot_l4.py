@@ -269,7 +269,7 @@ def code_dir():
 
 # ------------------------------------------------------------------ 4 throughput
 def long_prompt():
-    text = (code_dir() / 'twinguard' / 'twinguard_graph.py').read_text()[:22000]
+    text = (code_dir() / 'harness' / 'loop.py').read_text()[:22000]
     return [{'role': 'user', 'content': 'Review this module and list three risky functions with '
              'a one-line reason each.\n\n```python\n' + text + '\n```'}]
 
@@ -425,15 +425,18 @@ def isolation(code):
     out = {}
     for u in [f'tgagent{i}' for i in range(8)] + ['tgeval']:
         out[f'useradd_{u}'] = sh(f'id {u} || useradd -M -s /bin/bash {u}; id {u}')
-    # experiment code and kernel source readable by root only
-    sh(f'chmod -R go-rwx {code} /kaggle/src 2>/dev/null; chmod 711 /kaggle/working')
+    # experiment code and kernel source readable by root only; the running script is already
+    # in memory, so its source file is removed when possible
+    out['src_before'] = sh('ls -la /kaggle/src 2>&1 | head -5')
+    out['src_remove'] = sh('chmod -R go-rwx /kaggle/src 2>&1; rm -f /kaggle/src/*.py 2>&1; ls -la /kaggle/src 2>&1 | head -5')
+    sh(f'chmod -R go-rwx {code}; chmod 711 /kaggle/working')
     bank = code / 'bank'
     # the evaluator uid needs the oracles; give it the bank but keep everything else root-only
     sh(f'chown -R tgeval:tgeval {bank} && chmod -R go-rwx {bank} && chmod 711 {code}')
     for d in ('/kaggle/working/results', '/kaggle/working/code'):
         sh(f'mkdir -p {d}')
     sh('chmod 700 /kaggle/working/results')
-    work = Path('/tmp/twinguard_work'); work.mkdir(exist_ok=True); work.chmod(0o711)
+    work = Path('/tmp/wk'); work.mkdir(exist_ok=True); work.chmod(0o711)
     sp = 'setpriv --reuid=tgagent0 --regid=tgagent0 --clear-groups --no-new-privs --'
     oracle = next((code / 'bank' / 'templates').glob('*/oracle/oracle.py'))
     out['agent_reads_oracle'] = sh(f'{sp} cat {oracle} >/dev/null 2>&1; echo rc=$?')
@@ -468,7 +471,7 @@ def run_runner(code, port, mode):
     else:
         extra = ['--concurrency', '8']
     cmd = [sys.executable, str(code / 'runner' / 'runner.py'), '--split', 'pilot',
-           '--replicates', '1', '--out', str(out_dir), '--work', '/tmp/twinguard_work',
+           '--replicates', '1', '--out', str(out_dir), '--work', '/tmp/wk',
            '--base-url', f'http://127.0.0.1:{port}/v1', '--model', SERVED[port],
            '--model-revision', R['verified_revision'],
            '--run-as', ','.join(f'tgagent{i}' for i in range(8)), '--eval-user', 'tgeval', '--environment-id', env_id,
