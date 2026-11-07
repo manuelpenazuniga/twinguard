@@ -692,7 +692,7 @@ if __name__ == '__main__':
         def up():
             p, secs, ex = start_server(4, '0,1,2,3', 8000, 'tp4_8000', ('--uds', str(UDS)))
             procs.append(p)
-            return {'load_seconds': secs, 'served': SERVED, 'extra_args': ex}
+            return {'load_seconds': secs, 'served': dict(SERVED), 'extra_args': ex}
         if up()['ok'] and server_unreachable()['ok']:
             if MODE == 'pilot':
                 main = phase('9_runner_pilot')(lambda: run_block(code, 'pilot', 'pilot', ['--replicates', '1']))()
@@ -710,6 +710,7 @@ if __name__ == '__main__':
             pass
         sh('chmod 0755 /kaggle')
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
+        shutil.rmtree('/kaggle/working/model_52f3f65', ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         save()
         print('DONE', flush=True)
