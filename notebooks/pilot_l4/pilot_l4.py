@@ -596,31 +596,39 @@ def _snapshot_and_seal():
     import tarfile, tempfile
     res_dir = Path('/kaggle/working/results')
     stage = Path(tempfile.mkdtemp(prefix='snap_', dir='/root/tgv'))
-    for block in sorted(d for d in res_dir.iterdir() if d.is_dir()):
-        dst = stage / block.name
-        dst.mkdir()
-        if (block / 'attempts.jsonl').exists():
-            shutil.copy2(block / 'attempts.jsonl', dst / 'attempts.jsonl')
-        for item in sorted(block.iterdir()):
-            if item.name == 'attempts.jsonl':
-                continue
-            if item.is_dir():
-                shutil.copytree(item, dst / item.name, ignore=shutil.ignore_patterns('*.tmp'))
-            elif not item.name.endswith('.tmp'):
-                shutil.copy2(item, dst / item.name)
-    tmp = Path(tempfile.mkstemp(prefix='.sealed_', suffix='.tmp', dir='/kaggle/working')[1])
-    with tarfile.open(tmp, 'w:gz') as t:
-        t.add(stage, arcname='results')
-    with open(tmp, 'rb') as f:
-        os.fsync(f.fileno())
-    os.replace(tmp, SEALED)
-    fd = os.open('/kaggle/working', os.O_RDONLY)
+    fd, tmp_name = tempfile.mkstemp(prefix='.sealed_', suffix='.tmp', dir='/kaggle/working')
+    tmp = Path(tmp_name)
     try:
-        os.fsync(fd)
+        for block in sorted(d for d in res_dir.iterdir() if d.is_dir()):
+            dst = stage / block.name
+            dst.mkdir()
+            if (block / 'attempts.jsonl').exists():
+                shutil.copy2(block / 'attempts.jsonl', dst / 'attempts.jsonl')
+            for item in sorted(block.iterdir()):
+                if item.name == 'attempts.jsonl':
+                    continue
+                if item.is_dir():
+                    shutil.copytree(item, dst / item.name, ignore=shutil.ignore_patterns('*.tmp'))
+                elif not item.name.endswith('.tmp'):
+                    shutil.copy2(item, dst / item.name)
+        with os.fdopen(fd, 'wb') as raw:
+            fd = None
+            with tarfile.open(fileobj=raw, mode='w:gz') as t:
+                t.add(stage, arcname='results')
+            raw.flush()
+            os.fsync(raw.fileno())
+        os.replace(tmp, SEALED)
+        dfd = os.open('/kaggle/working', os.O_RDONLY)
+        try:
+            os.fsync(dfd)
+        finally:
+            os.close(dfd)
+        return sha256(SEALED)
     finally:
-        os.close(fd)
-    shutil.rmtree(stage, ignore_errors=True)
-    return sha256(SEALED)
+        if fd is not None:
+            os.close(fd)
+        tmp.unlink(missing_ok=True)          # no-op after a successful replace
+        shutil.rmtree(stage, ignore_errors=True)
 
 
 def checkpoint():
