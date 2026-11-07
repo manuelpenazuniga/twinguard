@@ -50,5 +50,28 @@
   "Whenever a proposed assignment points at a ward with beds still pending cleaning, the queue run crashes with `KeyError: 'info'`. Ever since the census feed began flagging cleaning wards, the assignment guard has been emitting info-level reports for such placements, and the report routing step fails on them, meaning no subsequent assignment in the batch ever gets applied. Expected behavior: info reports are just logged and the batch keeps going. To reproduce, run `python -m pytest -q tests` (see `tests/test_queue.py::test_cleaning_ward_assignment_is_applied`).",
   "Report routing chokes on info-level reports, crashing queue runs with `KeyError: 'info'` any time a proposed assignment targets a ward whose beds are pending cleaning. The census feed now flags cleaning wards, so the assignment guard emits info-level reports for those placements; when routing blows up on them, every remaining assignment in the batch goes unapplied. Info reports should only be logged, and the batch should continue. Repro: `python -m pytest -q tests` \u2014 see `tests/test_queue.py::test_cleaning_ward_assignment_is_applied`.",
   "Bug: `KeyError: 'info'` takes down the queue run if a proposed assignment targets a ward with beds awaiting cleaning. Since the census feed started flagging cleaning wards, those placements cause the assignment guard to emit info-level reports, which the report routing step can't handle \u2014 it blows up and none of the later assignments in the batch are applied. Desired outcome: log info reports and let the batch carry on. Reproduce via `python -m pytest -q tests` (refer to `tests/test_queue.py::test_cleaning_ward_assignment_is_applied`)."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the trigger, error, causal sequence, impact on all subsequent assignments, expected behavior, and exact reproduction details."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Reorders the explanation while preserving all conditions, causes, consequences, requested behavior, and reproduction details."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the complete issue and requested outcome, including the cleaning condition, info-report routing failure, batch impact, and exact reproduction details."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "72e16d68ad6a848bac55e87eff24b8e0307f38ec8b4af382e25fd0734f8b8d11",
+  "utc": "2026-11-07T04:43:25.477122+00:00"
+ }
 }

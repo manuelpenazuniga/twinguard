@@ -43,5 +43,28 @@
   "During last night's cutover, the WES release gateway dropped support for the v1 `release(wave_id, zone, stops, rush=...)` call. It now accepts only `submit(ReleaseOrder)`, which returns a `ReleaseReceipt` or raises `ReleaseRejected`. As a result, every wave that `TargetRunner` attempts to release now fails with an AttributeError, and the release queue is piling up. Please port `picking/runner.py` to the v2 API, using the example adapter the WES team left in `reference/` as a guide. A receipt flagged as a duplicate means the WES already has the wave, so it should be reported as released with detail \"duplicate\". The expected behaviour is captured by the failing tests in `tests/test_runner.py`.",
   "`TargetRunner` can no longer release waves: since last night's cutover, the WES release gateway has retired the v1 `release(wave_id, zone, stops, rush=...)` call and only accepts `submit(ReleaseOrder)`, responding with a `ReleaseReceipt` (or raising `ReleaseRejected`). Every release attempt now throws an AttributeError, and the release queue is backing up. We need `picking/runner.py` migrated to the v2 API; the WES team left an example adapter in `reference/` to follow. When a receipt is flagged as a duplicate, the WES already holds the wave, so report it as released with detail \"duplicate\". See the failing tests in `tests/test_runner.py` for the expected behaviour.",
   "Last night's cutover removed the v1 `release(wave_id, zone, stops, rush=...)` call from the WES release gateway. The only accepted entry point is now `submit(ReleaseOrder)`, which answers with a `ReleaseReceipt` or raises `ReleaseRejected`. Ever since, each wave release attempted by `TargetRunner` fails with an AttributeError, and releases are queuing up. Please update `picking/runner.py` to use the v2 API, modelled on the example adapter the WES team provided in `reference/`. Duplicate-flagged receipts indicate the WES already holds the wave and must be reported as released with detail \"duplicate\". Expected behaviour is described by the currently failing tests in `tests/test_runner.py`."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all API details, failure symptoms, migration requirements, duplicate handling, and test references."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Reorders the information while preserving the same requested outcome, constraints, and details."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the complete migration request and all specified API, failure, adapter, duplicate, and test details."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "6af3001d6746831e28ef8bfaaf5533aa0d71a8e61968665e26918cffd0be84e3",
+  "utc": "2026-11-07T04:43:23.525169+00:00"
+ }
 }

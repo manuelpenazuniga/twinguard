@@ -40,5 +40,28 @@
   "The nightly export keeps failing whenever the DLP policy service responds slowly. When one evaluate call times out, PolicyServiceTimeout escapes from ExportPipeline.run() and the entire run is aborted, meaning all requests queued behind it get skipped until the following night. Decision.HOLD already exists for requests that need to be parked and retried. Please make the run complete cleanly when the policy service times out on a request; test_run_finishes_when_policy_service_times_out reproduces the problem.",
   "A slow DLP policy service is repeatedly killing our nightly export runs. A timeout on any single evaluate call lets PolicyServiceTimeout bubble up out of ExportPipeline.run(), which aborts the whole run \u2014 every request queued after that point is skipped until the next night's run. We already have Decision.HOLD for requests that ought to be parked and retried. The run should finish cleanly when the policy service times out on a request; you can reproduce the failure with test_run_finishes_when_policy_service_times_out.",
   "Problem: nightly export runs die whenever the DLP policy service is slow. If one evaluate call hits a timeout, PolicyServiceTimeout propagates out of ExportPipeline.run() and aborts the entire run, so all requests queued after it are skipped until the next night. Note that Decision.HOLD already exists for requests that should be parked and retried. Requested: the run must finish cleanly when the policy service times out on a request. Repro: test_run_finishes_when_policy_service_times_out."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all failure details, queued-request consequences, Decision.HOLD context, requested outcome, and reproducing test without additions."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves the same timeout trigger, exception propagation, run abortion, skipped requests, existing HOLD behavior, requested outcome, and reproducing test."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Only reformats the original; all information and the requested behavior remain unchanged, with no added causes or fixes."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "a352230a8a202ea9f4b039aff2cbf635b2fb0fd21c9210f1c100b6e96cbe2b70",
+  "utc": "2026-11-07T04:42:58.847314+00:00"
+ }
 }

@@ -42,5 +42,28 @@
   "Since `portal_client` switched to the v2 releases endpoint, lab results coming off the request queue have stopped showing up in the patient portal. The reason is that `labportal/release_handlers.py` is still invoking the v1 methods `push_result` / `push_amendment`, which have been removed, so every release blows up with `AttributeError`. Please port the release handler over to `PortalClient.release(ReleaseRequest(...))`, using `reference/release_handlers_v2.py` as the example to follow. Both final and amended results are now sent through the one `release()` call, and `release.completed` needs to carry the `release_id` taken from the receipt. The clinician-review hold has to keep working. Expected behaviour is described in `tests/test_release_handlers.py`.",
   "Problem: lab results from the request queue no longer make it to the patient portal. `portal_client` has moved to the v2 releases endpoint, but `labportal/release_handlers.py` still calls the removed v1 methods `push_result` / `push_amendment`, so each release fails with `AttributeError`.\n\nAsk: migrate the release handler to `PortalClient.release(ReleaseRequest(...))`, following the example in `reference/release_handlers_v2.py`. Final and amended results now both go through a single `release()` call, and `release.completed` should include the `release_id` from the receipt. The clinician-review hold must continue to work. See `tests/test_release_handlers.py` for the expected behaviour.",
   "Every release from the request queue is currently failing with `AttributeError`, so lab results aren't reaching the patient portal anymore. This started when `portal_client` moved to the v2 releases endpoint: `labportal/release_handlers.py` is still calling `push_result` / `push_amendment`, the v1 methods that were removed. Could you migrate the release handler to `PortalClient.release(ReleaseRequest(...))`? Follow the example in `reference/release_handlers_v2.py`. Note that final and amended results now both go through the single `release()` call, and that `release.completed` should carry the receipt's `release_id`. The clinician-review hold still needs to work. `tests/test_release_handlers.py` describes the expected behaviour."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all original facts, requested changes, constraints, and references without adding or dropping information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Only reorganizes and rephrases the original; all facts, requirements, and references remain unchanged."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same failure, cause, migration request, release requirements, clinician-review hold, and references."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "138ca748a7330492ef6a2636edc7c0bf59acf051fd2733fc594eb7abbcfb7391",
+  "utc": "2026-11-07T04:43:14.823736+00:00"
+ }
 }

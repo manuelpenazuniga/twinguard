@@ -42,5 +42,28 @@
   "Since moving to warehouse client 2.x, all erasure requests in staging fail with `AttributeError: 'WarehouseClient' object has no attribute 'delete_customer'`. In 2.x, `delete_customer` and `null_columns` were dropped and replaced by one `erase(customer_id, columns=None)` call that returns a receipt. Please port `erasure/monitored_executor.py` to the new API, using the examples in `reference/` as a guide. Result records should also include the `erasure_id` from the receipt so that support can trace tickets back to the warehouse. The tests in `tests/` are already written against the 2.x client.",
   "After the upgrade to warehouse client 2.x, every erasure request in staging errors out with `AttributeError: 'WarehouseClient' object has no attribute 'delete_customer'`. The 2.x client no longer has `delete_customer` or `null_columns`; both were replaced by a single `erase(customer_id, columns=None)` call, which returns a receipt. We need `erasure/monitored_executor.py` migrated to this new API, following the examples under `reference/`. In addition, result records should carry the `erasure_id` from the receipt so support can trace tickets back to the warehouse. Note that the tests in `tests/` already use the 2.x client.",
   "Erasure requests are all failing in staging since we bumped the warehouse client to 2.x. The error is `AttributeError: 'WarehouseClient' object has no attribute 'delete_customer'`. Client 2.x removed `delete_customer` and `null_columns`, replacing them with a single `erase(customer_id, columns=None)` call that returns a receipt. Please update `erasure/monitored_executor.py` to use the new API, following the examples in `reference/`. Result records should also carry the `erasure_id` from the receipt, so support is able to trace tickets back to the warehouse. The tests in `tests/` already use the 2.x client."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all facts, requested changes, API details, paths, and tracing purpose without adding or dropping information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves every original detail and requirement, with only wording and sentence structure changed."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the failure scope, exact error, API migration requirements, receipt field, tracing purpose, and test context."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "fc864fb249f6e196aa14875cdfbba3493ee51f0d35b5c24a3b55c529e9044ac7",
+  "utc": "2026-11-07T04:43:18.100604+00:00"
+ }
 }

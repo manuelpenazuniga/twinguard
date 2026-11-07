@@ -40,5 +40,28 @@
   "When the change policy service times out on even one request, the end-of-run deploy job crashes. `PolicyTimeout` escapes from the event bus inside `run_deploy_queue`, which makes the CI job fail and leaves every deploy queued after the slow request unprocessed. A slow policy service should not stop runs from finishing cleanly: the remaining requests still need to be processed, and every request should have an outcome in the returned results. Reproduced by `tests/test_pipeline.py::test_policy_timeout_does_not_abort_queue`.",
   "A single request timing out against the change policy service is enough to crash the end-of-run deploy job. Because `run_deploy_queue` allows `PolicyTimeout` to escape from the event bus, the CI job fails and none of the deploys queued behind the slow request get processed. Expected behavior: runs finish cleanly even if the policy service is slow, the remaining requests are still processed, and each request ends up with an outcome in the returned results. See `tests/test_pipeline.py::test_policy_timeout_does_not_abort_queue` for a reproduction.",
   "Problem: the end-of-run deploy job crashes any time the change policy service times out on one request. `run_deploy_queue` does not stop `PolicyTimeout` from escaping the event bus, so the CI job fails and all deploys queued after the slow request remain unprocessed. Desired outcome: when the policy service is slow, runs should still finish cleanly, with the remaining requests processed and an outcome recorded for each request in the returned results. The test `tests/test_pipeline.py::test_policy_timeout_does_not_abort_queue` reproduces this."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the trigger, exception path, failure consequences, required processing and results, and reproducing test without adding or dropping information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original details and requirements, including the single-request timeout trigger and an outcome for every request in the returned results."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same failure conditions, causal details, required clean completion and remaining-request processing, per-request outcomes, and reproducing test."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "e4bc7d01182f4b72bb2798a6d60fab711759fef76d69e32314532a8756d2698b",
+  "utc": "2026-11-07T04:43:05.293895+00:00"
+ }
 }

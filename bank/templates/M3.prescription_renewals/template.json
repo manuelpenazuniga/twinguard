@@ -57,5 +57,28 @@
   "When the renewal queue is drained, it aborts with `KeyError: 'stale_prescription'`, raised from `AuditNotifier.deliver`, the moment it hits a renewal whose last fill is more than 180 days old. All requests queued behind the stale one stay unprocessed until somebody restarts the drain. The expected behavior is that stale renewals get held for pharmacist review while the drain keeps going through the rest of the queue. This is reproduced by `tests/test_pipeline.py::test_stale_renewal_is_held_for_review` and `test_drain_continues_after_stale_renewal`. Please fix it so the suite passes.",
   "As soon as the renewal queue drain encounters a renewal with a last fill older than 180 days, it aborts: `AuditNotifier.deliver` raises `KeyError: 'stale_prescription'`. Nothing queued after that stale request gets processed until the drain is restarted by someone. Stale renewals should instead be held for pharmacist review, and the drain should continue with the remaining queue. Both `tests/test_pipeline.py::test_stale_renewal_is_held_for_review` and `test_drain_continues_after_stale_renewal` reproduce the problem. Please make the fix so the suite passes.",
   "Bug: draining the renewal queue aborts on stale renewals. Once it reaches a renewal whose last fill is older than 180 days, `AuditNotifier.deliver` raises `KeyError: 'stale_prescription'` and the drain stops. Every request queued after the stale one remains unprocessed until a person restarts the drain. Expected: stale renewals are held for pharmacist review and the drain carries on with the rest of the queue. Reproduced by `tests/test_pipeline.py::test_stale_renewal_is_held_for_review` and `test_drain_continues_after_stale_renewal`. Please fix so the suite passes."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the error, source, timing, 180-day threshold, blocked requests, restart condition, expected behavior, reproducing tests, and suite-passing request."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original facts, constraints, expected behavior, reproducing tests, and requested outcome without adding or dropping information."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves all original details and the requested fix; the added bug summary only restates the described failure."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "5cef26cb86ba3bb95c9c439d40ad8e82606f7fb3c251f12d3acce48f4fc0d7c6",
+  "utc": "2026-11-07T04:43:35.947050+00:00"
+ }
 }

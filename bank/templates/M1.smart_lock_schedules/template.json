@@ -40,5 +40,28 @@
   "The schedule sync run is aborted whenever the access policy service times out. When the policy service fails to respond in time for a single queued schedule change, `ComplianceCheck.evaluate` allows `PolicyTimeout` to propagate and `MonitoredActor.run` halts, leaving every change queued after it unprocessed and marking the run as failed. One slow policy response shouldn't bring down the entire run: the run should complete cleanly and account for every change in the queue. Reproduced by `tests/test_actor.py::test_run_completes_when_policy_times_out`.",
   "Access policy service timeouts cause the schedule sync run to abort. If one queued schedule change doesn't get a timely answer from the policy service, `PolicyTimeout` escapes from `ComplianceCheck.evaluate`, which stops `MonitoredActor.run`; all changes remaining behind it in the queue go unprocessed and the run gets marked failed. The whole run should not be taken down by a single slow policy response \u2014 instead it should finish cleanly and account for each change in the queue. See `tests/test_actor.py::test_run_completes_when_policy_times_out` for a reproduction.",
   "Problem: a timeout from the access policy service aborts the schedule sync run. For a queued schedule change where the policy service doesn't reply in time, `ComplianceCheck.evaluate` lets `PolicyTimeout` escape, and `MonitoredActor.run` then stops \u2014 every subsequent change in the queue remains unprocessed, and the run is flagged as failed. Expected: a single slow policy response must not take down the full run; the run should finish cleanly and account for all changes in the queue. Reproduction: `tests/test_actor.py::test_run_completes_when_policy_times_out`."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the failure mechanism, queue impact, failed status, expected outcome, and reproduction test without adding or dropping information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original details and requirements, with only wording and sentence structure changed."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the timeout scenario, exception propagation, stopped actor, unprocessed subsequent changes, failed status, expected completion and accounting, and reproduction test."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "c4297206db4f9fc5e5eeeb29cf7f753355bd7c3c009e597bd7c2006e9609a349",
+  "utc": "2026-11-07T04:43:05.072632+00:00"
+ }
 }

@@ -52,5 +52,28 @@
   "Whenever the livestream flag review queue hits a request for a flagged stream that is still within its review window, it stops draining. `ActionRequester.process_queue` raises ValueError('audit channel accepts critical alerts only'), and all requests queued after it remain unprocessed. Warning-level reports should only be sent to the reviewers' digest. Please fix this so that the queue drains; tests/test_pipeline.py::test_flag_inside_review_window_does_not_stop_the_queue reproduces the problem.",
   "The review queue for livestream flags halts as soon as it encounters a request for a flagged stream that hasn't yet left its review window. At that point ActionRequester.process_queue throws ValueError('audit channel accepts critical alerts only'), leaving every request behind it in the queue unprocessed. Reports at warning level are supposed to go only to the reviewers' digest. Please fix this so the queue drains. Reproduced by tests/test_pipeline.py::test_flag_inside_review_window_does_not_stop_the_queue.",
   "Livestream flag review queue no longer drains once it reaches a request for a flagged stream still inside its review window: ActionRequester.process_queue raises ValueError('audit channel accepts critical alerts only') and each request queued behind it is left unprocessed. Warning-level reports are intended for the reviewers' digest only. Please fix so the queue drains. Repro: tests/test_pipeline.py::test_flag_inside_review_window_does_not_stop_the_queue."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the trigger, exception, blocked requests, digest-only routing, requested fix, and reproducing test without adding information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original details and constraints; wording and sentence structure changes do not alter the meaning."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves all original details, including the queue-stopping condition, exact exception, digest-only routing, requested outcome, and reproducing test."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "30658e005e888e7386fec7a7b2b525742c886f14c801c0429f00ef741edb3c3e",
+  "utc": "2026-11-07T04:43:30.035188+00:00"
+ }
 }

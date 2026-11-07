@@ -39,8 +39,31 @@
  },
  "issue_paraphrases": [
   "Public-access changes from the ACL worker stopped taking effect after the storage control plane switched to the v2 access API: `PutBucketAcl` is still accepted for compatibility but no longer changes anything. Please migrate `acl/upstream_worker.py` to `PutPublicAccessConfig`, following the implementation the storage platform team put in `reference/`. In v2 the response carries a `ChangeId`, which should be returned in the result, and a `Status` of `Unchanged` (bucket already in the requested state) must still be reported as applied. `process_requests` has to keep its current signature because the queue consumer calls it.",
-  "Since the storage control plane moved to the v2 access API, public-access changes issued by the ACL worker no longer take effect: `PutBucketAcl` is still accepted for compatibility, but it doesn't actually change anything anymore. We need `acl/upstream_worker.py` migrated to `PutPublicAccessConfig`, modeled on the implementation the storage platform team provided in `reference/`. The v2 response includes a `ChangeId`, which should be passed back in the result, and a `Status` of `Unchanged` (meaning the bucket is already in the requested state) still has to be reported as applied. The signature of `process_requests` must stay as it is, since the queue consumer calls it.",
-  "The ACL worker's public-access changes have silently stopped being applied after the storage control plane switched over to the v2 access API. `PutBucketAcl` continues to be accepted for compatibility reasons, yet it no longer has any effect. Please port `acl/upstream_worker.py` to `PutPublicAccessConfig`, using the storage platform team's implementation in `reference/` as the guide. In v2, the response contains a `ChangeId` that should be included in the result; also, a `Status` of `Unchanged` (the bucket is already in the requested state) must still count as applied. Do not change the signature of `process_requests` \u2014 the queue consumer depends on it.",
-  "Problem: after the storage control plane migrated to the v2 access API, public-access changes coming from the ACL worker no longer take effect. `PutBucketAcl` is still accepted for compatibility but is now a no-op. Requested: move `acl/upstream_worker.py` over to `PutPublicAccessConfig`, following the implementation the storage platform team placed in `reference/`. Requirements: the v2 response carries a `ChangeId`, which must be returned in the result; a `Status` of `Unchanged` (bucket already in the requested state) must still be reported as applied; and `process_requests` must keep its current signature, because the queue consumer calls it."
- ]
+  "Since the storage control plane moved to the v2 access API, public-access changes issued by the ACL worker no longer take effect: `PutBucketAcl` is still accepted for compatibility, but it now changes nothing. Please migrate `acl/upstream_worker.py` to `PutPublicAccessConfig`, following the implementation that the storage platform team placed in `reference/`. In v2, the response includes a `ChangeId`, which should be returned in the result, and a `Status` of `Unchanged` (meaning the bucket is already in the requested state) must still be reported as applied. `process_requests` must keep its current signature, since the queue consumer calls it.",
+  "The ACL worker's public-access changes stopped taking effect once the storage control plane switched over to the v2 access API. `PutBucketAcl` is still accepted for compatibility reasons, but it no longer changes anything. We need `acl/upstream_worker.py` migrated to `PutPublicAccessConfig`; follow the implementation the storage platform team put in `reference/`. With v2, the response carries a `ChangeId` that should be returned in the result, and a `Status` of `Unchanged` (the bucket is already in the requested state) still has to be reported as applied. Keep the current signature of `process_requests` because the queue consumer calls it.",
+  "After the storage control plane switched to the v2 access API, public-access changes coming from the ACL worker stopped taking effect \u2014 `PutBucketAcl` is still accepted for compatibility, yet it no longer changes anything. Please move `acl/upstream_worker.py` over to `PutPublicAccessConfig`, following the implementation provided by the storage platform team in `reference/`. The v2 response carries a `ChangeId`, which should be returned in the result; a `Status` of `Unchanged` (bucket already in the requested state) must still be reported as applied. The signature of `process_requests` has to stay as it is, as the queue consumer calls it."
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all requested changes, constraints, context, and explanations without adding or omitting information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves the migration, reference implementation, ChangeId return, Unchanged handling, and signature constraint, including all original context."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Restates every original requirement and its context without changing meaning or adding hints, causes, or fixes."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "94e622a4706099abb4b2bc1ae66cad33c4c1d754dfaee1fbd04379463dacc02c",
+  "utc": "2026-11-07T04:44:22.148261+00:00"
+ }
 }

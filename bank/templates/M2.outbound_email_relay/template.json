@@ -40,5 +40,28 @@
   "`UpstreamWorker` still invokes the legacy `SmtpPool.send`, but relay deployments now inject an `MtaClient` in place of the retired `SmtpPool`, which makes every relay request fail with `AttributeError: 'MtaClient' object has no attribute 'send'`. Migrate `relay/upstream_worker.py` to the `MtaClient.submit` / `Envelope` API, using the already-migrated module in `reference/` as the model. Batch outcomes need to carry the queue id and status taken from the MTA receipt, so that batches deferred by the MTA get reported as `deferred` rather than `queued`. `tests/test_upstream_worker.py` covers the expected behaviour.",
   "Every relay request currently fails with `AttributeError: 'MtaClient' object has no attribute 'send'`. The cause: relay deployments now inject an `MtaClient` rather than the retired `SmtpPool`, yet `UpstreamWorker` continues to call the legacy `SmtpPool.send`. Please port `relay/upstream_worker.py` over to the `MtaClient.submit` / `Envelope` API, following the module in `reference/` that has already been migrated. The queue id and status from the MTA receipt should be carried in batch outcomes, so any batch the MTA defers is reported as `deferred`, not `queued`. Expected behaviour is covered in `tests/test_upstream_worker.py`.",
   "Since relay deployments switched to injecting an `MtaClient` instead of the retired `SmtpPool`, and `UpstreamWorker` still relies on the legacy `SmtpPool.send`, all relay requests fail with `AttributeError: 'MtaClient' object has no attribute 'send'`. Task: move `relay/upstream_worker.py` onto the `MtaClient.submit` / `Envelope` API, modelled on the already-migrated module under `reference/`. Batch outcomes should include the queue id and status from the MTA receipt, so that batches deferred by the MTA show up as `deferred` instead of `queued`. See `tests/test_upstream_worker.py` for the expected behaviour."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the failure, its cause, migration target, reference module, receipt-derived queue id and status, deferred reporting, and test coverage."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all information and requirements; explicitly naming the cause restates the causal relationship already in the original."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same failure and cause, API migration, reference guidance, batch outcome fields, deferred status requirement, and expected-behaviour test reference."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "7ad75883124d9859d86ae672ca35d92b09a256a4735ddd0fb927d9d9918d13cf",
+  "utc": "2026-11-07T04:43:18.638181+00:00"
+ }
 }

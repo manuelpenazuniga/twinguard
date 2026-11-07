@@ -42,5 +42,28 @@
   "The legacy status endpoint is being decommissioned by the accounts platform, and MonitoredExecutor now gets an AccountsGateway injected by the service wiring. Ever since that change, all suspensions and reinstatements coming off the queue fail with AttributeError: 'AccountsGateway' object has no attribute 'set_account_status'. Please move MonitoredExecutor over to the gateway's submit()/StatusChange API, using the example the platform team left in reference/ as a guide. Outcomes also need to include the gateway's change_id, and any account already in the requested state must still be reported as unchanged.",
   "Since the service wiring started injecting an AccountsGateway into MonitoredExecutor (the accounts platform is retiring the legacy status endpoint), each suspension and reinstatement processed from the queue blows up with AttributeError: 'AccountsGateway' object has no attribute 'set_account_status'. MonitoredExecutor needs to be migrated to the gateway's submit()/StatusChange API; follow the example the platform team provided in reference/. In addition, outcomes should carry the gateway's change_id, and an account that's already in the requested state should continue to be reported as unchanged.",
   "Context: the accounts platform is decommissioning the legacy status endpoint, and MonitoredExecutor now receives an AccountsGateway via the service wiring. Problem: since that switch, every suspension and reinstatement from the queue fails with AttributeError: 'AccountsGateway' object has no attribute 'set_account_status'. Request: migrate MonitoredExecutor to the gateway's submit()/StatusChange API, following the platform team's example in reference/. Outcomes should also carry the gateway's change_id, and an account already in the requested state should still be reported as unchanged."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all context, failure details, migration requirements, reference guidance, change_id inclusion, and unchanged-state behavior."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Reorders and rephrases the original without adding or dropping information or changing any requirement."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Adds organizational labels only; all facts, constraints, and requested outcomes remain identical."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "716af5f557aa37c96fff4bba79bba0f37b6c4644236b6c4c14b860b40812ac99",
+  "utc": "2026-11-07T04:43:11.306738+00:00"
+ }
 }

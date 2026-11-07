@@ -41,5 +41,28 @@
   "At the end of this quarter the card gateway will retire its v1 refunds endpoint (`gateway.refund`). We need `refunds/target_runner.py` moved over to the v2 refunds API (`gateway.refunds_create`), which takes keyword arguments, expects amounts in minor units along with an explicit currency, uses the request id as the idempotency key, and returns `succeeded`/`pending`/`failed` statuses. Use `reference/refund_v2_example.py` as the model. `tests/test_target_runner.py` is already updated for v2 and is failing right now. Do not change the queue entry point `process_refund_queue` or its arguments.",
   "Migrate `refunds/target_runner.py` from the v1 refunds endpoint (`gateway.refund`), which the card gateway is retiring at quarter end, to the v2 refunds API (`gateway.refunds_create`). Differences in v2: keyword arguments, amounts in minor units with an explicit currency, the request id passed as the idempotency key, and `succeeded`/`pending`/`failed` statuses. Follow `reference/refund_v2_example.py`. The test file `tests/test_target_runner.py` already reflects v2 and currently fails. Keep `process_refund_queue`, the queue entry point, and its arguments unchanged.",
   "Context: `gateway.refund`, the card gateway's v1 refunds endpoint, goes away at the end of the quarter. Task: port `refunds/target_runner.py` to the v2 refunds API, `gateway.refunds_create` (keyword arguments; amounts in minor units plus an explicit currency; request id used as idempotency key; statuses `succeeded`/`pending`/`failed`), modeled on `reference/refund_v2_example.py`. Tests in `tests/test_target_runner.py` have been updated for v2 already and are currently failing. Constraint: the queue entry point `process_refund_queue` and its arguments must remain as they are."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the migration request, retirement timing, all v2 API requirements, reference example, failing updated tests, and unchanged queue entry point and arguments."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original information and constraints without adding causes, hints, or suggested fixes."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Restates the same context, migration requirements, reference example, test state, and entry point constraints without additions or omissions."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "09735896a71e775305763cb38980d1b54936c624ec1eac4a99009c069ef00fbe",
+  "utc": "2026-11-07T04:42:45.874204+00:00"
+ }
 }

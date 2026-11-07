@@ -40,5 +40,28 @@
   "`process_queue` aborts the whole provisioning queue run if the quota policy service times out. During last night's drain of the restricted-region queue, processing halted at the first request whose quota policy lookup timed out: a `ProvisioningError` (caused by `PolicyServiceTimeout`) propagated out of `process_queue`, leaving every request after it unprocessed. A single slow policy lookup shouldn't bring down the entire run. Please change `process_queue` so it completes cleanly when the policy service times out and the remaining requests still get handled.",
   "Quota policy service timeout kills the provisioning queue run. When we drained the restricted-region queue last night, the run stopped at the first request where the quota policy lookup timed out. `ProvisioningError` (caused by `PolicyServiceTimeout`) escaped `process_queue`, and all requests queued behind that one were never processed. One slow policy lookup shouldn't take out the entire run. Requested: `process_queue` should finish cleanly on a policy service timeout so the rest of the requests are still handled.",
   "A timeout from the quota policy service causes the provisioning queue run to abort. Last night, while draining the restricted-region queue, the run stopped on the first request whose quota policy lookup timed out \u2014 `ProvisioningError` (caused by `PolicyServiceTimeout`) was raised out of `process_queue`, and every request after it went unprocessed. The whole run shouldn't fail because of one slow policy lookup. Please make `process_queue` finish cleanly when the policy service times out, so that the remaining requests are still processed."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all context, exception details, failure behavior, and the requested clean completion with remaining requests handled."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original information and the same requested outcome without adding causes, hints, or fixes."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the timeout trigger, queue context, exception chain, unprocessed requests, and requested behavior without additions or omissions."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "08aa8b0d7fcbd190fdef22c331ff6b99da91a0e048724bb0be25f1392d83a7e5",
+  "utc": "2026-11-07T04:43:06.568732+00:00"
+ }
 }

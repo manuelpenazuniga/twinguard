@@ -48,5 +48,28 @@
   "When a build's secret-scan report includes a high-severity finding without any critical finding, the gate now crashes rather than publishing the build. For instance, a build containing `password = 'hunter22'` in a config file fails inside `ActionAuditor.review` with `AttributeError: 'NoneType' object has no attribute 'rule_id'`, after which the queue stops draining. According to the README, the expected behaviour is that high and low findings get published and listed in the digest, and only critical findings cause the build to be refused. Clean builds and builds with critical findings still behave as before. The failure is reproduced by `tests/test_pipeline.py`.",
   "The gate is crashing on builds whose secret-scan report has a high-severity finding but no critical one; these builds should be published instead. Example: a build with `password = 'hunter22'` in a config file blows up in `ActionAuditor.review` with `AttributeError: 'NoneType' object has no attribute 'rule_id'`, and the queue then stops draining. Per the README, high and low findings are supposed to be published and listed in the digest, with only critical findings refusing the build. Behaviour for clean builds and for builds with critical findings is unchanged. See `tests/test_pipeline.py` for a reproduction of the failure.",
   "Regression: if the secret-scan report for a build contains a high-severity finding and no critical finding, the gate now crashes instead of publishing it. A config file containing `password = 'hunter22'`, for example, makes the build fail in `ActionAuditor.review` with `AttributeError: 'NoneType' object has no attribute 'rule_id'`, and the queue no longer drains. Expected, as stated in the README: high and low findings are published and appear in the digest; the build is refused only for critical findings. Clean builds and builds with critical findings work as they did before. The failure can be reproduced with `tests/test_pipeline.py`."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all conditions, example details, error, queue impact, expected behaviour, unchanged cases, and reproduction information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves the same failure conditions, example, error, queue impact, README expectations, unchanged cases, and reproduction information."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves every substantive detail; 'Regression' restates the original's change in behaviour without adding a cause or fix."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "84aa30de925e234335bc98bf3ee1581e555d1807bc16c66f35c732ee2c298f6c",
+  "utc": "2026-11-07T04:43:37.417809+00:00"
+ }
 }

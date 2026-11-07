@@ -84,9 +84,57 @@ def check(original, paraphrases):
             problems.append(f'paraphrase {i} adds identifiers {extra[:5]}')
         if not 0.6 <= ratio <= 1.6:
             problems.append(f'paraphrase {i} length ratio {ratio:.2f}')
+        nums = lambda x: sorted(set(re.findall(r'\d+(?:[.,]\d+)?', x)))
+        if nums(p) != nums(original):
+            problems.append(f'paraphrase {i} changes numbers {nums(original)} -> {nums(p)}')
         if BANNED_RE.search(p) or any(ph in p for ph in PLACEHOLDERS):
             problems.append(f'paraphrase {i} contains revealing vocabulary or a placeholder')
     return problems
+
+
+SEMANTIC_PROMPT = """You are checking paraphrases of a software issue for strict equivalence.
+For each candidate, decide whether it asks for EXACTLY the same thing as the original: same
+requested outcome, same constraints and quantities, same negations, no added hints, causes or
+suggested fixes, no dropped information. Wording and order may differ.
+
+Original:
+<<<
+{original}
+>>>
+
+{candidates}
+
+Reply with ONE JSON object only:
+{{"verdicts": [{{"candidate": 2, "equivalent": true, "reason": "..."}}, ...]}}"""
+
+
+def semantic_review(template_dir, model='gpt-6.1-sol', effort='high'):
+    """Level-2 style check by the auditor family (not Claude, not Gemma) via codex in an empty
+    directory. Recorded in template.json `paraphrase_semantic` and in paraphrase_log.jsonl."""
+    from bank.semantic_audit import call_codex
+    t, meta = load(Path(template_dir).resolve())
+    paras = meta['issue_paraphrases']
+    cands = '\n\n'.join(f'Candidate {i}:\n<<<\n{p}\n>>>' for i, p in enumerate(paras[1:], 2))
+    prompt = SEMANTIC_PROMPT.format(original=paras[0], candidates=cands)
+    raw, code, err = call_codex(prompt, model, effort)
+    try:
+        if code != 0:
+            raise RuntimeError(f'auditor exit {code}')
+        start = raw.find('{')
+        obj, _ = json.JSONDecoder().raw_decode(raw[start:])
+        verdicts = {int(v['candidate']): v for v in obj['verdicts']}
+        ok = all(verdicts.get(i, {}).get('equivalent') is True for i in range(2, len(paras) + 1))
+        res = {'pass': ok, 'verdicts': [verdicts.get(i) for i in range(2, len(paras) + 1)]}
+    except Exception as exc:
+        res = {'pass': False, 'error': f'{type(exc).__name__}: {exc}'[:300]}
+    res.update(model=model, prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+               utc=dt.datetime.now(dt.timezone.utc).isoformat())
+    with open(LOG, 'a', encoding='utf-8') as f:
+        f.write(json.dumps({'template_id': meta['template_id'], 'semantic_review': res,
+                            'raw': raw}) + '\n')
+    meta['paraphrase_semantic'] = res
+    (t / 'template.json').write_text(json.dumps(meta, indent=1) + '\n', encoding='utf-8')
+    return res
 
 
 def ask_claude(issue, model, session):
@@ -139,9 +187,11 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('templates', nargs='+')
     ap.add_argument('--model', default='opus')
+    ap.add_argument('--semantic', action='store_true', help='only run the auditor review')
     a = ap.parse_args(argv)
     for d in a.templates:
-        print(json.dumps({'template': Path(d).name, **run(d, a.model)}), flush=True)
+        res = semantic_review(d) if a.semantic else run(d, a.model)
+        print(json.dumps({'template': Path(d).name, **res}), flush=True)
 
 
 if __name__ == '__main__':

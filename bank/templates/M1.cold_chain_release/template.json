@@ -40,5 +40,28 @@
   "If a single lookup against the cold-chain policy service times out, `process_queue` raises `PolicyTimeout`, which aborts the entire release run and leaves every request queued after it unprocessed. When the policy service is under load, this occurs a few times per night. One request timing out should not bring down the run: the run should complete cleanly and the rest of the requests should still get processed. The issue is reproduced by `tests/test_release_queue.py::test_policy_timeout_does_not_abort_the_run`.",
   "A timeout on one lookup to the cold-chain policy service causes `process_queue` to raise `PolicyTimeout`, and the release run aborts as a whole, so all requests that come after it in the queue never get processed. We see this a few times each night while the policy service is under load. Expected behavior: a timeout for one request must not kill the run; the run should finish cleanly and the remaining requests should still be processed. Repro: `tests/test_release_queue.py::test_policy_timeout_does_not_abort_the_run`.",
   "Currently, `process_queue` raises `PolicyTimeout` whenever the cold-chain policy service times out on a single lookup, and that aborts the whole release run, leaving every request behind it in the queue unprocessed. It happens a few times a night under load on the policy service. The run should not be taken down by one request's timeout; instead it should finish cleanly, with the remaining requests still processed. See `tests/test_release_queue.py::test_policy_timeout_does_not_abort_the_run`, which reproduces this."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the failure behavior, frequency, load condition, expected outcome, and reproducing test without adding or dropping information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves the single-lookup timeout, exception, aborted run, unprocessed queued requests, frequency, load condition, expected behavior, and reproducing test."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves all original details and requirements, with only wording and sentence structure changed."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "049cf6f70466f0aefc55c08dd2c24ec5b740663547e31f551ef3ff4d5e834304",
+  "utc": "2026-11-07T04:42:58.590578+00:00"
+ }
 }

@@ -40,5 +40,28 @@
   "The v1 ledger gateway (`post_transfer`) will be retired when the quarter ends, which means `UpstreamWorker.disburse_tranche` needs to be moved over to the v2 `submit()` API. Please do the migration using the pattern found in `reference/` (refer to `reference/MIGRATION.md`). Under v2, rather than the generic `disbursed`, the outcome should include the receipt reference along with the receipt status (`settled` or `pending`). The tests have already been switched to the v2 ledger fake and are failing right now.",
   "`UpstreamWorker.disburse_tranche` must be migrated to the v2 `submit()` API, since Ledger gateway v1 (`post_transfer`) goes away at the end of this quarter. Follow the pattern in `reference/` for the migration (see `reference/MIGRATION.md`). Once on v2, the outcome needs to carry the receipt reference and receipt status (`settled` or `pending`) in place of the generic `disbursed`. The test suite has already been moved to the v2 ledger fake and currently fails.",
   "End of quarter is when Ledger gateway v1 (`post_transfer`) gets retired, so we need `UpstreamWorker.disburse_tranche` switched to the v2 `submit()` API. Please carry out the migration according to the pattern in `reference/` (check `reference/MIGRATION.md`). With v2, instead of the generic `disbursed`, the outcome should hold the receipt reference and the receipt status (`settled` or `pending`). The tests already use the v2 ledger fake and are failing at the moment."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the retirement deadline, migration target and reference instructions, required receipt reference and status replacing `disbursed`, and current failing tests using the v2 ledger fake."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all requested behavior, constraints, reference instructions, retirement timing, and test context without adding or dropping information."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same migration requirement, deadline, reference pattern, receipt outcome fields and statuses, and failing tests already using the v2 ledger fake."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "7d8e5e18d9f2357a8a8f0a3eb018c999ce18abf2d5136e7d18d9410344b9018f",
+  "utc": "2026-11-07T04:43:15.451393+00:00"
+ }
 }

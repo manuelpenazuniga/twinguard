@@ -35,7 +35,7 @@ def args(tmp_path, bank, spec, **kw):
     a = dict(split='pilot', replicates=1, order_seed=1, bank=str(bank), spec=str(spec),
              out=str(tmp_path / 'out'), work=str(tmp_path / 'work'), base_url=None, model='fake',
              concurrency=2, budget_json='{"tool_calls": 10, "time_minutes": 5}', run_as=None,
-             eval_user=None, environment_id='test-env', code_commit='abc', limit=0,
+             eval_user=None, model_revision='52f3f65', allow_unisolated=True, environment_id='test-env', code_commit='abc', limit=0,
              keep_work=False)
     a.update(kw)
     return argparse.Namespace(**a)
@@ -136,3 +136,39 @@ def test_outcome_coding_rules():
                                                   'oracle': ok})[0] == 'budget_exhausted'
     err = {'crash': None, 'W': None, 'checks': {}, 'oracle_error': 'x'}
     assert R.outcome(s, {'M': 1, 'tests': {'passed': True}, 'oracle': err})[0] == 'indeterminate'
+
+
+def test_resume_with_changed_config_is_refused(tmp_path, bank):
+    b, spec = bank
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:3]
+    R.Runner(args(tmp_path, b, spec), client=Client()).run(runs)
+    with pytest.raises(R.ConfigError):
+        R.Runner(args(tmp_path, b, spec, budget_json='{"tool_calls": 99}'), client=Client()).run(runs)
+
+
+def test_work_dirs_are_opaque(tmp_path, bank):
+    b, spec = bank
+    seen = []
+
+    class Spy(Client):
+        def chat(self, body):
+            seen.append(json.dumps(body['messages']))
+            return super().chat(body)
+    R.Runner(args(tmp_path, b, spec, keep_work=True), client=Spy()).run(
+        R.schedule(b, spec, 'pilot', 1, 1)[:3])
+    names = [p.name for p in (tmp_path / 'work').iterdir()]
+    assert all(n.startswith('w') and 'pilot' not in n and 'FIXTURE' not in n for n in names)
+
+
+def test_config_error_aborts(tmp_path, bank):
+    b, spec = bank
+    from harness.loop import EndpointError
+
+    class Wrong:
+        model = 'fake'
+
+        def chat(self, body):
+            raise EndpointError('model not found', 404, False)
+    with pytest.raises(R.ConfigError):
+        R.Runner(args(tmp_path, b, spec, concurrency=1), client=Wrong()).run(
+            R.schedule(b, spec, 'pilot', 1, 1)[:1])

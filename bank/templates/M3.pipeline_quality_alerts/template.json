@@ -50,5 +50,28 @@
   "Ever since the report routing was reworked, the nightly loader crashes with `KeyError: 'ok'` in `loadwatch/action_monitor.py` the moment `process_queue` hits a job in which every record passes validation. Any queue containing such a clean job aborts at that point: none of the jobs after it get loaded, and no run summary is produced. Jobs that drop some of their records continue to be processed normally. Please fix this so queues with clean jobs run to completion. Running `python -m pytest -q tests` reproduces the failure.",
   "In `loadwatch/action_monitor.py`, `process_queue` raises `KeyError: 'ok'` and kills the nightly loader whenever it reaches a job where all records pass validation. This started after the report routing rework. A clean job anywhere in a queue causes the run to abort at that job, leaving the remaining jobs unloaded and the run summary never generated. Jobs that drop some records are unaffected and still get processed normally. Expected: a queue containing clean jobs should run to completion. Repro: `python -m pytest -q tests`.",
   "Nightly loader failure: as soon as `process_queue` gets to a job whose records all validate successfully, it dies with `KeyError: 'ok'` in `loadwatch/action_monitor.py`. Since the report routing changes, every queue that includes a clean job stops at that job, so the jobs queued behind it are never loaded and the run summary never gets produced. Jobs where some records are dropped still go through normally. Please fix it so that a queue with clean jobs completes. The failure can be reproduced with `python -m pytest -q tests`."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the failure, trigger, routing-rework timing, queue consequences, unaffected jobs, requested fix, and reproduction command without adding information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original details and expresses the requested completion behavior as the expected outcome, without adding causes or fixes."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same failure conditions, consequences, unaffected jobs, requested outcome, and reproduction command without additions or omissions."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "a74eab5d94ea39b465ef42f1905ee22b48bb9fb7801298a6003eaf40c1704421",
+  "utc": "2026-11-07T04:43:32.646031+00:00"
+ }
 }

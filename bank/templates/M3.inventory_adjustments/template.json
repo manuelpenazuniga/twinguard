@@ -49,5 +49,28 @@
   "When a request in the queue can't be applied, the adjustment pipeline halts. For instance, the worker correctly rejects a write-off for an unknown SKU or for more units than are on hand, but afterward a TypeError gets raised in the control monitor's notification path, and the remainder of the queue never gets processed. Rejected requests should simply be recorded in the review log while the queue continues. See tests/test_pipeline.py::test_rejected_request_does_not_stop_the_queue.",
   "The adjustment pipeline comes to a stop if a queued request cannot be applied. Take a write-off for an unknown SKU, or one for more units than are on hand: the worker rejects it as expected, yet a TypeError is then raised in the control monitor's notification path and nothing else in the queue is processed. Expected behavior: rejected requests are only recorded in the review log, and processing of the queue continues. Refer to tests/test_pipeline.py::test_rejected_request_does_not_stop_the_queue.",
   "Unappliable requests on the queue cause the adjustment pipeline to stop. Example: a write-off for an unknown SKU, or for more units than are on hand, is rejected by the worker as it should be, but a TypeError follows in the control monitor's notification path and the rest of the queue is left unprocessed. The queue should keep going, with rejected requests just recorded in the review log. Covered by tests/test_pipeline.py::test_rejected_request_does_not_stop_the_queue."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the failure conditions, expected worker rejection, subsequent TypeError and queue stoppage, required logging-only behavior, and test reference."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original details and the requirement that rejected requests only enter the review log while queue processing continues."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same examples, failure sequence, expected behavior, and test reference without adding causes or suggested fixes."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "c56594df0af3a664f965a968e7d377c322ab5aaf3587851f7f7f4e0e294eb5e1",
+  "utc": "2026-11-07T04:43:29.216239+00:00"
+ }
 }

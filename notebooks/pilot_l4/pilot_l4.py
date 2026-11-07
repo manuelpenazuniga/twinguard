@@ -441,7 +441,8 @@ def isolation(code):
     out['agent_lists_bank'] = sh(f'{sp} ls {bank} >/dev/null 2>&1; echo rc=$?')
     out['agent_reads_harness'] = sh(f'{sp} cat {code}/harness/loop.py >/dev/null 2>&1; echo rc=$?')
     out['agent_reads_kernel_src'] = sh(f'{sp} ls /kaggle/src >/dev/null 2>&1; echo rc=$?')
-    out['iptables'] = sh('for i in 0 1 2 3 4 5 6 7; do iptables -A OUTPUT -o lo -p tcp --dport 8000 -m owner --uid-owner tgagent$i -j REJECT; done 2>&1; echo rc=$?')
+    out['iptables'] = sh('for u in tgagent0 tgagent1 tgagent2 tgagent3 tgagent4 tgagent5 tgagent6 tgagent7 tgeval; do iptables -A OUTPUT -o lo -p tcp --dport 8000 -m owner --uid-owner $u -j REJECT; done 2>&1; echo rc=$?')
+    out['eval_reaches_vllm_port'] = sh("setpriv --reuid=tgeval --regid=tgeval --clear-groups --no-new-privs -- python3 -c \"import socket;s=socket.socket();s.settimeout(2);print(s.connect_ex(('127.0.0.1',8000)))\" 2>&1")
     out['agent_reaches_vllm_port'] = sh(f"{sp} python3 -c \"import socket;s=socket.socket();s.settimeout(2);print(s.connect_ex(('127.0.0.1',8000)))\" 2>&1")
     ISO.update(out)
     return out
@@ -469,6 +470,7 @@ def run_runner(code, port, mode):
     cmd = [sys.executable, str(code / 'runner' / 'runner.py'), '--split', 'pilot',
            '--replicates', '1', '--out', str(out_dir), '--work', '/tmp/twinguard_work',
            '--base-url', f'http://127.0.0.1:{port}/v1', '--model', SERVED[port],
+           '--model-revision', R['verified_revision'],
            '--run-as', ','.join(f'tgagent{i}' for i in range(8)), '--eval-user', 'tgeval', '--environment-id', env_id,
            '--code-commit', CODE_COMMIT, *extra]
     t0 = time.time()
@@ -505,6 +507,11 @@ if __name__ == '__main__':
             p, secs, ex = start_server(4, '0,1,2,3', 8000, 'tp4_8000')
             procs.append(p)
             return {'load_seconds': secs, 'served': SERVED, 'extra_args': ex}
+        h = model_hashes()
+        if h['ok'] and h.get('all_match'):
+            R['verified_revision'] = '52f3f65bc7a02d555763bc923bd1d9094898219d'
+        else:
+            raise SystemExit('served model files do not match HF 52f3f65: refusing to run')
         if up()['ok']:
             phase(f'9_runner_{MODE}')(lambda: run_runner(code, 8000, MODE))()
     finally:

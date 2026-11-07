@@ -40,5 +40,28 @@
   "When the moderation policy service responds slowly for even one flagged post, publish-queue runs crash with an unhandled `PolicyTimeout`. Because the exception propagates out of `process_queue`, the entire run is killed and all requests queued after the slow one remain stuck until the following run. Queue runs should complete cleanly when the policy service times out on a request. The failure is reproduced by `tests/test_queue_run.py::test_queue_run_completes_when_policy_service_times_out`.",
   "A single flagged post that the moderation policy service is slow to answer is enough to make a publish-queue run abort with an unhandled `PolicyTimeout`. The exception isn't contained within `process_queue`, so it takes down the whole run, and every request queued behind the slow one sits there until the next run. Requested outcome: queue runs finish cleanly when the policy service times out on a request. See `tests/test_queue_run.py::test_queue_run_completes_when_policy_service_times_out` for a reproduction.",
   "Problem: an unhandled `PolicyTimeout` aborts publish-queue runs any time the moderation policy service is slow to respond for one flagged post. The exception escapes `process_queue`, killing the full run and leaving every request behind the slow one in the queue until the next run happens. Please ensure queue runs end cleanly when the policy service times out on a request. Reproduced by `tests/test_queue_run.py::test_queue_run_completes_when_policy_service_times_out`."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the trigger, unhandled exception, propagation from process_queue, impact on all later requests, requested outcome, and reproduction test without adding information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original details and the requested outcome; the wording changes add no cause, hint, or suggested fix."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same timeout trigger, exception behavior, queue consequences, clean-completion requirement, and reproduction test."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "46999b7a466ee0900e1d546a544423bbd1b34664a50eab33547b4a3abacb2661",
+  "utc": "2026-11-07T04:43:05.630440+00:00"
+ }
 }

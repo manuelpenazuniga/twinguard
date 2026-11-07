@@ -39,5 +39,28 @@
   "If the energy policy service responds slowly, setpoint runs crash. A timeout in `EnergyPolicyClient.evaluate` causes `PolicyTimeout` to escape from `ActionRequester.run`, so the remaining queue items are never processed and no report gets generated. One slow policy response shouldn't bring down the entire run; instead the run should complete cleanly and report all queued changes. The failure is reproduced by `tests/test_requester.py::test_run_completes_when_policy_times_out`.",
   "Whenever the energy policy service is slow to reply, the setpoint run crashes. `PolicyTimeout`, raised when `EnergyPolicyClient.evaluate` times out, bubbles up out of `ActionRequester.run`; as a result the rest of the queue is left unprocessed and no report is produced. The whole run should not fail because of a single slow policy response \u2014 it should finish cleanly and report every change in the queue. See `tests/test_requester.py::test_run_completes_when_policy_times_out` for a reproduction.",
   "Slow answers from the energy policy service make setpoint runs crash. Once `EnergyPolicyClient.evaluate` hits a timeout, `PolicyTimeout` propagates out of `ActionRequester.run`, which means the remainder of the queue never gets processed and no report is ever produced. Expected behavior: a single slow policy response must not take down the whole run; the run should end cleanly and report each queued change. Reproduced by `tests/test_requester.py::test_run_completes_when_policy_times_out`."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the trigger, exception propagation, unprocessed queue, missing report, expected completion and reporting of every queued change, and reproduction test without additions."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all failure details, the requirement that a single slow response must not fail the run, clean completion with every queued change reported, and the same reproduction test."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same failure conditions and consequences, expected clean completion and reporting of every queued change, and reproduction test without adding causes or fixes."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "6789f073de536209523a3926343f1d6d43d8d0d4657ff2665575cbe070bd6394",
+  "utc": "2026-11-07T04:42:59.102083+00:00"
+ }
 }

@@ -41,5 +41,28 @@
   "Some SKUs lose a cent during bulk price updates: sending a `set` request for 1999 cents results in 1998 being stored. The cause is that `TargetRunner.run_batch` still writes via the deprecated `PriceCatalog.set_price`, which accepts float dollars and truncates. Please move `TargetRunner` (pricing/runner.py) over to the integer-cents `PriceCatalog.apply_changes` API, using the job that has already been migrated in reference/clearance_job.py as the model. The signature of `run_batch` must stay the same, as must its BatchReport output (applied/rejected request ids, floor rejections unchanged). tests/test_runner.py::test_set_price_keeps_exact_cents fails right now and should pass once the migration is done.",
   "`TargetRunner.run_batch` is still writing through the deprecated `PriceCatalog.set_price`, which takes float dollars and truncates, so bulk price updates drop a cent on certain SKUs \u2014 e.g. a `set` request for 1999 cents gets stored as 1998. Migrate `TargetRunner` (pricing/runner.py) to the integer-cents `PriceCatalog.apply_changes` API, following the already migrated job in reference/clearance_job.py. Constraints: `run_batch` keeps its signature and its BatchReport output (applied/rejected request ids, floor rejections unchanged). Currently tests/test_runner.py::test_set_price_keeps_exact_cents fails; it should pass after the migration.",
   "Problem: on some SKUs, bulk price updates come out one cent short \u2014 a `set` request for 1999 cents is persisted as 1998. This happens because `TargetRunner.run_batch` still goes through the deprecated `PriceCatalog.set_price`, which works in float dollars and truncates. Request: migrate `TargetRunner` (pricing/runner.py) to the integer-cents `PriceCatalog.apply_changes` API, taking the already migrated job in reference/clearance_job.py as the pattern to follow. `run_batch` needs to retain its signature and its BatchReport output (applied/rejected request ids, floor rejections unchanged). The test tests/test_runner.py::test_set_price_keeps_exact_cents is failing at the moment and is expected to pass after the migration."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the exact symptom, cause, migration request, reference implementation, compatibility constraints, and failing-test expectation."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Reorders the information without adding or dropping any requested outcome, constraint, quantity, cause, or test expectation."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves all original details, including the cents discrepancy, deprecated API behavior, migration target and reference, unchanged signature and report behavior, and required test result."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "88ef95f96f3782c0f6a2ff41a8e4716a4e15a30f5f53c416fe407a2a46c56a2b",
+  "utc": "2026-11-07T04:43:12.340504+00:00"
+ }
 }

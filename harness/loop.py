@@ -230,7 +230,12 @@ def run_episode(task, workspace, client, budget, log_path, sampling, clock=time.
                     attempt += 1
                     continue
                 if not exc.transient or attempt >= max_retries:
-                    reason = 'context_overflow' if exc.status == 400 else 'infra_error'
+                    if exc.status == 400:
+                        reason = 'context_overflow'
+                    elif exc.status in (401, 403, 404):
+                        reason = 'config_error'   # wrong endpoint/model/key: never retried
+                    else:
+                        reason = 'infra_error'
                     break
                 sleep(min(60.0, 2.0 * 2 ** attempt))
                 attempt += 1

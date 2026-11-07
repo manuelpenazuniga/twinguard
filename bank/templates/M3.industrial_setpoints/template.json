@@ -50,5 +50,28 @@
   "Whenever a setpoint request falls near the edge of the safe operating envelope (while still within it), the batch aborts with `TypeError: 'NoneType' object is not subscriptable`. Such near-limit requests are legitimate and ought to be sent to the controller with a warning severity; instead, the entire batch halts and every request left in the queue goes unprocessed. According to the traceback, the failure is in the safety monitor's report routing. Please fix this so that mixed batches run to completion; the failing tests in tests/ reproduce the issue.",
   "Bug: a setpoint batch dies with `TypeError: 'NoneType' object is not subscriptable` any time one of its requests is close to, but not outside, the safe operating envelope. These near-limit requests are valid and are supposed to be written to the controller with a warning severity. What actually happens is that the whole batch stops and nothing remaining in the queue gets processed. The traceback leads to the safety monitor's report routing. Fix needed so mixed batches complete \u2014 see the failing tests in tests/, which reproduce it.",
   "Requests that sit close to the safe operating envelope's limits, yet still inside it, cause setpoint batches to abort with `TypeError: 'NoneType' object is not subscriptable`. Expected behavior: these near-limit requests are valid and get written to the controller with a warning severity. Actual behavior: the full batch stops, and the rest of the queued requests are never processed. The traceback points to the report routing in the safety monitor. Please make mixed batches complete successfully; the failing tests under tests/ reproduce the problem."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the trigger, exact error, expected warning severity and controller write, queue stoppage, traceback location, requested fix, and reproducing tests."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all original conditions, expected behavior, failure details, diagnostic location, requested outcome, and test information."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves every original detail and constraint without adding a cause, hint, or suggested fix."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "07e7d0960126b99400e88cd371d6bb48a6aa809aedb92e49e3af9284e68300cf",
+  "utc": "2026-11-07T04:43:29.662863+00:00"
+ }
 }

@@ -36,8 +36,31 @@
  },
  "issue_paraphrases": [
   "The nightly high-value release run crashed again at 02:14 with `PolicyTimeout: fraud policy service timed out for order HV-88213`. The exception escapes `run_release_queue`, so every order after the one that timed out stays unprocessed until someone reruns the job by hand. The fraud policy service has short latency spikes a few times a week and we can't keep paging on-call for them. Please make the release run handle a policy-service timeout for a single order and finish cleanly, processing the rest of the queue.",
-  "Our nightly high-value release run fell over again at 02:14, this time with `PolicyTimeout: fraud policy service timed out for order HV-88213`. Because the exception propagates out of `run_release_queue`, all orders queued after the timed-out one are left unprocessed until somebody manually reruns the job. The fraud policy service sees brief latency spikes a few times each week, and paging on-call every time isn't sustainable. Please change the release run so that a policy-service timeout on a single order is handled and the run completes cleanly, still processing the remainder of the queue.",
-  "At 02:14 the nightly high-value release run crashed once more, failing with `PolicyTimeout: fraud policy service timed out for order HV-88213`. That exception isn't caught inside `run_release_queue`, so it escapes and every subsequent order in the queue remains unprocessed until the job is rerun by hand. Short latency spikes on the fraud policy service happen a few times a week, and we can't continue paging on-call over them. Requested: have the release run handle a policy-service timeout for one order and finish cleanly, working through the rest of the queue.",
-  "Another crash of the nightly high-value release run, at 02:14: `PolicyTimeout: fraud policy service timed out for order HV-88213`. The exception escapes `run_release_queue`, which leaves every order after the timed-out one unprocessed until someone manually reruns the job. The fraud policy service has short latency spikes several times a week, and we shouldn't keep paging on-call for these. Please update the release run so it handles a single order's policy-service timeout and finishes cleanly, processing the rest of the queue."
- ]
+  "The nightly high-value release run failed again at 02:14 with `PolicyTimeout: fraud policy service timed out for order HV-88213`. Because the exception propagates out of `run_release_queue`, all orders queued after the timed-out one are left unprocessed until somebody manually reruns the job. The fraud policy service sees brief latency spikes several times a week, and we can't keep paging on-call over them. Please change the release run so that a policy-service timeout on a single order is handled and the run completes cleanly, processing the remainder of the queue.",
+  "At 02:14 the nightly high-value release run crashed once more, raising `PolicyTimeout: fraud policy service timed out for order HV-88213`. That exception isn't caught inside `run_release_queue`, which means every order following the one that timed out remains unprocessed until the job is rerun by hand. A few times a week the fraud policy service has short latency spikes, and paging on-call for each of them isn't sustainable. Requested outcome: the release run should handle a policy-service timeout for one order and finish cleanly, continuing through the rest of the queue.",
+  "Another crash of the nightly high-value release run, this time at 02:14: `PolicyTimeout: fraud policy service timed out for order HV-88213`. The exception escapes `run_release_queue`, so any order after the timed-out one sits unprocessed until someone manually reruns the job. Short latency spikes in the fraud policy service happen a few times weekly, and we can't continue paging on-call for them. Please make the release run deal with a policy-service timeout on an individual order and wrap up cleanly, processing the remaining orders in the queue."
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves the failure details, queue impact, manual rerun requirement, recurring latency spikes, paging concern, and requested timeout handling without adding or dropping information."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves all incident details and the request to handle one order's timeout, process the remaining queue, and finish cleanly."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same failure, consequences, service behavior, paging concern, and requested outcome without additional constraints or suggested fixes."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "a95fdde09d25a0ac93228d8c5de0724ef57f9ce3d0ab96df969db8c0cf65be0b",
+  "utc": "2026-11-07T04:44:09.393551+00:00"
+ }
 }

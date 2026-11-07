@@ -40,5 +40,28 @@
   "When the formulary policy service times out on any single order, the nightly cabinet restock run aborts. The PolicyTimeout propagates out of MonitoredExecutor.process, so RestockQueueRunner.run never returns a report, and all orders queued behind the slow one go unprocessed. Under load the formulary service times out a few times each week, which means the on-call pharmacist keeps getting paged. The run should finish cleanly when the policy service times out on an order: the remaining orders must still be processed and the run report must be produced. Reproduced by tests/test_queue_runner.py::test_run_completes_when_policy_times_out.",
   "Nightly cabinet restock run dies on a single policy timeout. If the formulary policy service times out on one order, the PolicyTimeout escapes MonitoredExecutor.process and RestockQueueRunner.run never returns a report; every order queued after the slow one stays unprocessed. Since the formulary service times out a few times a week under load, the on-call pharmacist keeps getting paged for this. Requested outcome: when the policy service times out on an order, the run should finish cleanly, process the remaining orders, and produce the run report. Repro: tests/test_queue_runner.py::test_run_completes_when_policy_times_out.",
   "A timeout from the formulary policy service on just one order is enough to abort the whole nightly cabinet restock run. The PolicyTimeout is not contained by MonitoredExecutor.process and escapes it; as a result RestockQueueRunner.run never returns a report and every order queued after the slow one is never processed. This happens a few times a week because the formulary service times out under load, and it keeps paging the on-call pharmacist. Please make the run complete cleanly when the policy service times out on an order, so that the rest of the orders get processed and the run report is produced. The test tests/test_queue_runner.py::test_run_completes_when_policy_times_out reproduces the problem."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all reported behavior, timeout frequency and load context, paging impact, requested outcome, and reproducing test."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves every detail and requests the same clean completion, remaining-order processing, and run report without adding guidance."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same timeout behavior, consequences, frequency, paging impact, requested outcome, and reproducing test; no information or constraints change."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "1458da30b4ad0df7e18846aa4c708ff9bfa6800affd30e3734e8d8ba3c9ab441",
+  "utc": "2026-11-07T04:43:08.722000+00:00"
+ }
 }

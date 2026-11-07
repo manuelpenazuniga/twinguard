@@ -7,19 +7,35 @@ template x framing x state (protocol 7.1). Ordering is deterministic: neighbors 
 sorted by node id; subgraph edges by (from, to, type).
 """
 import hashlib
+import shutil
+import tempfile
+from pathlib import Path
 
 from twinguard_graph import build_graph
 
 from harness import contract as C
 
 
-def tree_hash(root):
-    h = hashlib.sha256()
+def own_py_files(root):
+    """Regular .py files physically inside root. Symlinks are ignored, so the controller
+    never reads files outside the workspace on the agent's behalf (e.g. an oracle)."""
+    root = Path(root)
+    out = []
     for p in sorted(root.rglob('*.py')):
         rel = p.relative_to(root)
         if any(part.startswith('.') for part in rel.parts):
             continue
-        h.update(rel.as_posix().encode() + b'\0' + p.read_bytes() + b'\0')
+        if any((root / Path(*rel.parts[:i + 1])).is_symlink() for i in range(len(rel.parts))):
+            continue
+        if p.is_file():
+            out.append(rel)
+    return out
+
+
+def tree_hash(root):
+    h = hashlib.sha256()
+    for rel in own_py_files(root):
+        h.update(rel.as_posix().encode() + b'\0' + (Path(root) / rel).read_bytes() + b'\0')
     return h.hexdigest()
 
 
@@ -33,7 +49,11 @@ class GraphIndex:
     def graph(self):
         key = tree_hash(self.root)
         if key != self._key:
-            self._graph = build_graph(self.root)
+            with tempfile.TemporaryDirectory(prefix='g_') as tmp:
+                for rel in own_py_files(self.root):
+                    (Path(tmp) / rel).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(self.root / rel, Path(tmp) / rel)
+                self._graph = build_graph(tmp)
             self._key = key
             self.builds += 1
         return self._graph

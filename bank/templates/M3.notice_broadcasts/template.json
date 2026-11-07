@@ -50,5 +50,28 @@
   "Whenever an approved notice carries an oversized body, the broadcast queue halts. After the body-length check was introduced in the safety monitor, the report router throws KeyError: 'warning' when processing the report that results; the exception bubbles up through the event bus, and the executor never delivers the remainder of the queue. Oversized notices should still be sent (formatting already truncates them), and the warning should be retained in the monitor journal. The failure is reproduced by tests/test_pipeline.py::test_oversized_notice_is_delivered_with_warning.",
   "An approved notice with an oversized body causes the broadcast queue to stop. Ever since the safety monitor gained the body-length check, handling the resulting report makes the report router raise KeyError: 'warning'. That exception travels up through the event bus, and as a result the executor never delivers what is left in the queue. Expected behavior: oversized notices still go out (truncation is already handled by formatting), and the warning gets kept in the monitor journal. To reproduce, see tests/test_pipeline.py::test_oversized_notice_is_delivered_with_warning.",
   "Broadcast queue stalls if an approved notice has a body that is too large. Since the safety monitor started doing the body-length check, the report router fails with KeyError: 'warning' while it handles the report produced by that check; the exception propagates via the event bus and the executor never gets to deliver the rest of the queue. Desired outcome: oversized notices are still sent out (they are already truncated by formatting) and the warning is preserved in the monitor journal. Reproduced by tests/test_pipeline.py::test_oversized_notice_is_delivered_with_warning."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all failure conditions, exception details, propagation, delivery and journal requirements, existing truncation, and the reproducing test."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Preserves the complete causal sequence, expected behavior, existing formatting truncation, warning retention, and exact reproducing test without adding information."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the trigger, body-length check context, exception and propagation path, queue impact, expected delivery and warning retention, existing truncation, and reproducing test."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "1a1a59827107ee660080699ecdf6475739cfafe7a498a7e09e4fb95c3177426d",
+  "utc": "2026-11-07T04:43:31.617854+00:00"
+ }
 }

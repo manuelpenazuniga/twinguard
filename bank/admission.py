@@ -77,10 +77,13 @@ def py_env(workspace):
 
 
 def run_tests(workspace):
-    r = subprocess.run([*EXEC_PREFIX, sys.executable, '-m', 'pytest', '-q', '-p',
-                        'no:cacheprovider', 'tests'],
-                       cwd=workspace, env=py_env(workspace), capture_output=True, text=True,
-                       timeout=TEST_TIMEOUT)
+    try:
+        r = subprocess.run([*EXEC_PREFIX, sys.executable, '-m', 'pytest', '-q', '-p',
+                            'no:cacheprovider', 'tests'],
+                           cwd=workspace, env=py_env(workspace), capture_output=True, text=True,
+                           timeout=TEST_TIMEOUT)
+    except subprocess.TimeoutExpired:   # candidate code hangs the visible tests: F = 0
+        return {'exit_code': None, 'passed': False, 'summary': f'timeout {TEST_TIMEOUT}s'}
     tail = (r.stdout + r.stderr).strip().splitlines()[-1:] or ['']
     return {'exit_code': r.returncode, 'passed': r.returncode == 0, 'summary': tail[0]}
 
@@ -120,6 +123,10 @@ def run_oracle(template_dir, workspace):
                            capture_output=True, text=True, timeout=ORACLE_TIMEOUT)
         crash, checks = validate_oracle_output(r.stdout, r.returncode)
         out = {'crash': crash, 'checks': checks}
+    except subprocess.TimeoutExpired:
+        # the candidate code never lets the scenario finish: not executable (8.2 crash rule)
+        return {'crash': True, 'checks': {}, 'W': 0, 'all_hold': False,
+                'timeout': ORACLE_TIMEOUT}
     except Exception as exc:
         out = {'crash': None, 'checks': {}, 'oracle_error': f'{type(exc).__name__}: {exc}'[:300]}
         out['W'] = None

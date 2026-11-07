@@ -43,5 +43,28 @@
   "Our CI client has been moved onto the artifact registry's v2 API. Because the v1 `upload` and `retag` calls are gone from the injected registry client, every publish and promote in `publisher/publish.py` now raises an AttributeError, and the test suite is failing. Please port `publish_artifact` and `promote_artifact` over to the v2 blob/manifest calls. For the expected call sequence, see the registry team's port in `reference/publish_v2.py`. The queue consumer entry point (`process_queue`) and the outcome dicts it returns must not change.",
   "The injected registry client no longer exposes the v1 `upload` and `retag` calls, since the artifact registry switched our CI client to its v2 API. As a result, all publishes and promotes in `publisher/publish.py` fail with an AttributeError and the tests are red. We need `publish_artifact` and `promote_artifact` migrated to the v2 blob/manifest calls; the expected call sequence is shown in the registry team's port at `reference/publish_v2.py`. Keep the queue consumer entry point (`process_queue`) and the outcome dicts it returns exactly as they are.",
   "Test suite is red: the artifact registry moved our CI client to the v2 API, and the v1 `upload` and `retag` calls have been removed from the injected registry client. Consequently each publish and promote in `publisher/publish.py` blows up with an AttributeError. Please migrate `publish_artifact` and `promote_artifact` to use the v2 blob/manifest calls, following the call sequence demonstrated in the registry team's port, `reference/publish_v2.py`. Constraint: the queue consumer entry point (`process_queue`) and the outcome dicts it returns stay unchanged."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all context, failures, migration requirements, reference guidance, and unchanged entry point and outcome dict constraints."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Reorders and rephrases the original without adding or dropping information or changing any requirement."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Preserves the same cause, failure scope, migration targets, expected call sequence reference, and unchanged entry point and outcome dict constraints."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "c319b70633d48f822b1f99ef3c9ead2704996a339dd26c6d88f18c79c0aacb36",
+  "utc": "2026-11-07T04:43:12.154457+00:00"
+ }
 }

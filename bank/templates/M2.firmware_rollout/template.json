@@ -42,5 +42,28 @@
   "At the end of the month, the device platform team will turn off the per-device Fleet API v1 endpoints (`group_members`, `send_image`, `send_rollback`). We need `rollout/pusher.py` moved over to the Fleet API v2 group calls (`start_rollout` / `revert_rollout`), using `reference/rollout_v2.py` as the example to follow. When a push or rollback completes, its event should include the `rollout_id` and `status` that v2 returns, and if a rollout comes back as `noop` it must still be published as completed. `tests/test_pusher.py` already uses a v2 fleet client, and those tests are failing right now.",
   "Please port `rollout/pusher.py` from the per-device Fleet API v1 endpoints (`group_members`, `send_image`, `send_rollback`) to the Fleet API v2 group calls (`start_rollout` / `revert_rollout`); the device platform team is shutting v1 down at the end of the month. Follow the example in `reference/rollout_v2.py`. Completed push and rollback events need to carry the `rollout_id` and `status` returned by v2. A rollout returned as `noop` must still be published as completed. Note that the tests in `tests/test_pusher.py` already use a v2 fleet client and currently fail.",
   "Context: the per-device Fleet API v1 endpoints (`group_members`, `send_image`, `send_rollback`) are being shut down by the device platform team at the end of the month. Ask: migrate `rollout/pusher.py` to the Fleet API v2 group calls (`start_rollout` / `revert_rollout`), following the example in `reference/rollout_v2.py`. Requirements: completed push and rollback events should carry the `rollout_id` and `status` returned by v2, and a rollout that comes back as `noop` must still be published as completed. Tests: `tests/test_pusher.py` already uses a v2 fleet client and is currently failing."
- ]
+ ],
+ "paraphrase_semantic": {
+  "pass": true,
+  "verdicts": [
+   {
+    "candidate": 2,
+    "equivalent": true,
+    "reason": "Preserves all migration requirements, endpoint names, timing, event fields, noop handling, and test context."
+   },
+   {
+    "candidate": 3,
+    "equivalent": true,
+    "reason": "Reorders the information while retaining the same migration request, constraints, shutdown timing, and failing-test context."
+   },
+   {
+    "candidate": 4,
+    "equivalent": true,
+    "reason": "Adds organizational labels only; all original facts and requirements remain unchanged."
+   }
+  ],
+  "model": "gpt-6.1-sol",
+  "prompt_sha256": "5fd431bdf7688fed5a27ced386c8afceabb2a0ec9d76b24a9ebba3930b3ca178",
+  "utc": "2026-11-07T04:43:15.962698+00:00"
+ }
 }
