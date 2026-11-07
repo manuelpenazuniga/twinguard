@@ -477,7 +477,9 @@ def isolation(code):
     sh(f'chmod -R go-rwx {code}')                      # harness, bank, oracles: root only
     sh('chmod 0700 /kaggle')                            # /kaggle/src holds the code bundle
     sh('chmod 0700 /root')
-    sh('chmod 1733 /tmp /var/tmp /dev/shm')             # shared scratch: not listable
+    out['chmod_scratch'] = sh('chmod 1733 /tmp /var/tmp /dev/shm && stat -c "%a" /tmp /var/tmp /dev/shm')
+    if out['chmod_scratch'].split() != ['1733'] * 3:      # shared scratch: not listable
+        raise RuntimeError(f"scratch dirs not locked: {out['chmod_scratch']}")
     UDS_DIR.mkdir(parents=True, exist_ok=True)
     UDS_DIR.chmod(0o700)
     work = Path('/tmp/wk'); work.mkdir(exist_ok=True); work.chmod(0o711)
@@ -486,7 +488,8 @@ def isolation(code):
               'inputs_ls': 'ls /kaggle/input', 'working_ls': 'ls /kaggle/working',
               'oracle_cat': f'cat {oracle}', 'bank_ls': f'ls {code}/bank/templates',
               'harness_cat': f'cat {code}/harness/loop.py', 'root_ls': 'ls /root',
-              'uds_dir_ls': f'ls {UDS_DIR}', 'tmp_ls': 'ls /tmp', 'wk_ls': 'ls /tmp/wk'}
+              'uds_dir_ls': f'ls {UDS_DIR}', 'tmp_ls': 'ls /tmp', 'wk_ls': 'ls /tmp/wk',
+              'var_tmp_ls': 'ls /var/tmp', 'shm_ls': 'ls /dev/shm'}
     failures = []
     for u in (AGENTS[0], EVALS[0], AGENTS[-1], EVALS[-1]):
         for k, c in probes.items():
@@ -518,6 +521,23 @@ def server_unreachable():
         if out[f'{u}_uds_rc'] == '0' or out[f'{u}_tcp8000_rc'] == '0':
             failures.append(u)
     out['root_health'] = uds_request('GET', '/health')[0]
+    # engine-internal listeners (NCCL/TCPStore, ZMQ): recorded with their reachability
+    ports = set()
+    for f in ('/proc/net/tcp', '/proc/net/tcp6'):
+        try:
+            for line in Path(f).read_text().splitlines()[1:]:
+                parts = line.split()
+                if parts[3] == '0A':                   # LISTEN
+                    ports.add(int(parts[1].rsplit(':', 1)[1], 16))
+        except Exception:
+            pass
+    reach = {}
+    for port in sorted(ports):
+        probe = (f"{sys.executable} -c \"import socket,sys;s=socket.socket();s.settimeout(2);"
+                 f"sys.exit(0 if s.connect_ex(('127.0.0.1',{port}))==0 else 1)\"")
+        reach[port] = as_user(AGENTS[0], probe) == '0'
+    out['listening_tcp_ports_reachable_by_agent'] = reach
+    out['unix_sockets'] = sh("awk 'NR>1 && $8 ~ /^\\// {print $8}' /proc/net/unix | sort -u | head -40")
     if failures or out['root_health'] != 200:
         raise RuntimeError(f'server reachable by {failures} or unhealthy: {out}')
     return out
@@ -555,11 +575,41 @@ def blind_summary(out_dir):
     return res
 
 
+CHECKPOINT_EVERY_S = 15 * 60
+
+
+def checkpoint():
+    """Atomic sealed snapshot of the results so far (restorable with RESUME_SHA256)."""
+    import tarfile
+    res_dir = Path('/kaggle/working/results')
+    tmp = Path('/kaggle/working/.results_sealed.tmp')
+    with tarfile.open(tmp, 'w:gz') as t:
+        t.add(res_dir, arcname='results')
+    os.replace(tmp, '/kaggle/working/results_sealed.tar.gz')
+    R['last_checkpoint'] = {'utc': time.strftime('%H:%M:%S', time.gmtime()),
+                            'sha256': sha256('/kaggle/working/results_sealed.tar.gz')}
+    save()
+
+
 def run_block(code, mode, name, extra):
     out_dir = Path('/kaggle/working/results') / name
     cmd = runner_cmd(code, mode, out_dir, extra)
     t0 = time.time()
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code))
+    done = threading.Event()
+
+    def loop():
+        while not done.wait(CHECKPOINT_EVERY_S):
+            try:
+                checkpoint()
+            except Exception as exc:
+                R['checkpoint_error'] = f'{type(exc).__name__}: {exc}'
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code))
+    finally:
+        done.set()
+        th.join(60)
     res = {'rc': r.returncode, 'wall_seconds': round(time.time() - t0, 1),
            'stdout_tail': r.stdout[-1500:], 'stderr_tail': r.stderr[-3000:]}
     R.setdefault('blocks', {})[name] = res
@@ -588,7 +638,9 @@ def pilot_gates(code):
                         str(out_dir / 'runs.csv'), '--pilot', '--replicates', '1'],
                        capture_output=True, text=True, cwd=str(code))
     Path('/kaggle/working/pilot_gates.txt').write_text(r.stdout + '\n' + r.stderr[-3000:])
-    return {'rc': r.returncode, 'report': r.stdout[-4000:], 'stderr_tail': r.stderr[-1500:]}
+    if r.returncode != 0:
+        raise RuntimeError(f'pilot analysis failed rc={r.returncode}: {r.stderr[-1500:]}')
+    return {'rc': r.returncode, 'report': r.stdout[-4000:]}
 
 
 def diversity_block(code):
@@ -606,11 +658,11 @@ def diversity_block(code):
             cell = pf.name.split('__')[2]            # framing: used ONLY as a grouping key
             pats.setdefault(cell, []).append(hashlib.sha256(pf.read_bytes()).hexdigest())
     complete = [v for v in pats.values() if len(v) == 1 + DIVERSITY_REPLICATES]
-    distinct = [len(set(v)) for v in complete]
-    res['diversity'] = {'complete_cells': len(complete), 'cells': len(pats),
+    ok = len(pats) == 3 and len(complete) == 3
+    res['diversity'] = {'complete': ok, 'cells': len(pats),
                         'seeds_per_cell': sorted(len(v) for v in pats.values()),
-                        'mean_distinct_patches': (round(sum(distinct) / len(distinct), 2)
-                                                  if distinct else None)}
+                        'mean_distinct_patches': (round(sum(len(set(v)) for v in complete) / 3, 2)
+                                                  if ok else None)}
     return res
 
 
@@ -621,7 +673,12 @@ def seal_results():
     res_dir = Path('/kaggle/working/results')
     for name in ('pilot', 'pilot_diversity', 'runner_smoke'):
         csvp = res_dir / name / 'runs.csv'
-        if csvp.exists():
+        summ = res_dir / name / 'session_summary.json'
+        if csvp.exists() and summ.exists():
+            meta = json.loads(summ.read_text())
+            if meta['completed'] != meta['scheduled']:
+                R.setdefault('blind_csv_withheld', []).append(name)   # incomplete: linkable
+                continue
             rows = list(_csv.DictReader(open(csvp)))
             cols = [c for c in rows[0].keys() if c not in ('framing', 'run_id')] if rows else []
             with open(f'/kaggle/working/runs_blind_{name}.csv', 'w', newline='') as f:

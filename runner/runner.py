@@ -110,11 +110,14 @@ def setpriv(user):
             '--no-new-privs', '--', '/bin/sh', '-c', 'umask 077; exec "$@"', 'sh']
 
 
-def purge_user(user):
-    """Kill every process of `user` and delete what it left in shared scratch areas."""
+def purge_user(user, keep=None):
+    """Kill every process of `user` and delete what it left in shared scratch areas
+    (except under `keep`, the work dir kept for debugging)."""
     subprocess.run(['pkill', '-KILL', '-u', user], capture_output=True)
-    subprocess.run(['find', '/tmp', '/var/tmp', '/dev/shm', '-xdev', '-user', user,
-                    '-delete'], capture_output=True)
+    cmd = ['find', '/tmp', '/var/tmp', '/dev/shm', '-xdev', '-user', user]
+    if keep:
+        cmd += ['-not', '-path', f'{Path(keep).resolve()}/*']
+    subprocess.run(cmd + ['-delete'], capture_output=True)
 
 
 def evaluate(template_dir, framing, patch, work, eval_user=None):
@@ -389,7 +392,7 @@ class Runner:
         finally:
             for u in (agent, evaluator):
                 if u:
-                    purge_user(u)
+                    purge_user(u, self.a.work if self.a.keep_work else None)
             if not self.a.keep_work:
                 shutil.rmtree(base, ignore_errors=True)
             self.slots.put((agent, evaluator))
@@ -408,19 +411,22 @@ class Runner:
     def _patch_path(self, run):
         return self.out / 'patches' / f"{run['run_id'].replace(':', '__')}.patch"
 
+    def _checkpoint_path(self, run):
+        return self.out / 'episodes' / f"{run['run_id'].replace(':', '__')}.json"
+
+    def _checkpoint(self, run):
+        p = self._checkpoint_path(run)
+        return json.loads(p.read_text(encoding='utf-8')) if p.exists() else None
+
     def _episode(self, run, agent, base):
         """Run the agent (at most two tries, the second only after verifiable infrastructure
         failure). Returns (summary, tries, infra). Resumes: an episode already recorded as
         done is never run again."""
         recs = [r for r in self.records() if r['run_id'] == run['run_id']]
-        done = [r for r in recs if r.get('event') == 'episode_done']
         tries = sum(1 for r in recs if r.get('event') == 'start')
-        if done:
-            d = done[-1]
-            patch = self._patch_path(run).read_text(encoding='utf-8')
-            if hashlib.sha256(patch.encode()).hexdigest() != d['patch_sha256']:
-                raise RuntimeError('saved patch does not match its episode record')
-            return {**d['summary'], 'patch': patch}, tries, False
+        ck = self._checkpoint(run)
+        if ck is not None:          # the agent already finished: never run it again
+            return ck['summary'], ck['tries'], False
         tdir = Path(self.a.bank) / run['template_id']
         t, meta = load(tdir)
         summary, infra = {}, True
@@ -457,6 +463,10 @@ class Runner:
             if not infra:
                 break
         if not infra:
+            # ONE durable file (summary + patch): written atomically before the event, so a
+            # crash at any point either has it (episode recovered) or not (try counted)
+            write_durable(self._checkpoint_path(run),
+                          json.dumps({'summary': summary, 'tries': tries}))
             write_durable(self._patch_path(run), summary['patch'] or '')
             self.log({'run_id': run['run_id'], 'event': 'episode_done', 'try': tries,
                       'summary': slim(summary),
@@ -465,9 +475,7 @@ class Runner:
 
     def _run_one(self, run, agent, evaluator, base):
         tries_before = self.tries_started(run['run_id'])
-        has_done = any(r.get('event') == 'episode_done' and r['run_id'] == run['run_id']
-                       for r in self.records())
-        if tries_before >= 2 and not has_done:
+        if tries_before >= 2 and self._checkpoint(run) is None:
             # both tries were spent by crashed sessions: infrastructure, no third episode
             summary, tries, infra = {}, tries_before, True
         else:
@@ -500,6 +508,20 @@ class Runner:
             out.append(row)
         return sorted(out, key=lambda r: r['run_id'])
 
+    def pending_adjudication(self):
+        """Runs that need blind adjudication and have no decision yet (a decision that the
+        run cannot be resolved also counts as decided)."""
+        adj = self.adjudications()
+        return sorted(rid for rid, r in self.done().items()
+                      if r.get('needs_adjudication') and rid not in adj)
+
+    def write_summary(self, runs, extra=None):
+        meta = {'scheduled': len(runs), 'completed': len(self.done()),
+                'needs_adjudication': len(self.pending_adjudication()),
+                'concurrency': self.a.concurrency, **(extra or {})}
+        (self.out / 'session_summary.json').write_text(json.dumps(meta, indent=1))
+        return meta
+
     def write_csv(self):
         rows = self.rows()
         with open(self.out / 'runs.csv', 'w', newline='', encoding='utf-8') as f:
@@ -518,21 +540,17 @@ class Runner:
         for run in runs:
             if run['run_id'] in done:
                 continue
-            if any(r.get('event') == 'episode_done' and r['run_id'] == run['run_id']
-                   for r in self.records()):
-                # the agent finished: evaluate it (CPU only), never discard it
-                agent, evaluator = self.slots.get()
-                try:
-                    self._run_one(run, agent, evaluator,
-                                  Path(self.a.work) / opaque(run['run_id'], self.salt))
-                finally:
-                    self.slots.put((agent, evaluator))
+            if self._checkpoint(run) is not None:
+                # the agent finished: evaluate it (CPU only), never discard it; run_one
+                # gives the run a row even if evaluation fails, and cleans up
+                self.run_one(run)
                 continue
             row = self._row(run, 'infra_failed', None, None, None, None, {},
                             self.tries_started(run['run_id']))
             self.log({'run_id': run['run_id'], 'final': True, 'row': row, 'closed_out': True})
             n += 1
         self.write_csv()
+        self.write_summary(runs, {'closed_out': n})
         return n
 
     def run(self, runs):
@@ -551,14 +569,10 @@ class Runner:
             with ThreadPoolExecutor(self.a.concurrency) as ex:
                 for _ in ex.map(self.run_one, block):
                     self.write_csv()
-        n = self.write_csv()
-        pending_adj = sum(1 for r in self.done().values() if r.get('needs_adjudication'))
-        meta = {'scheduled': len(runs), 'completed': n, 'ran_now': len(todo) - self.skipped,
-                'skipped_by_deadline': self.skipped, 'needs_adjudication': pending_adj,
-                'wall_seconds_this_session': round(time.time() - t0, 1),
-                'concurrency': self.a.concurrency, 'manifest': man}
-        (self.out / 'session_summary.json').write_text(json.dumps(meta, indent=1))
-        return meta
+        self.write_csv()
+        return self.write_summary(runs, {
+            'ran_now': len(todo) - self.skipped, 'skipped_by_deadline': self.skipped,
+            'wall_seconds_this_session': round(time.time() - t0, 1), 'manifest': man})
 
 
 def main(argv=None):

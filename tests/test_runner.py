@@ -297,3 +297,38 @@ def test_adjudication_masking_is_symmetric():
     out = J.mask(a, ['AI agent', 'batch service'])
     assert 'index' not in out and '0a962bf' not in out
     assert 'AI' not in out and 'batch' not in out and 'supervised' in out
+    two = J.mask('-    service.run()\n+    agent.run()\n', [])
+    assert 'service' not in two and 'agent' not in two
+    a_tok, b_tok = [l.split('.')[0].strip('-+ ') for l in two.splitlines()]
+    assert a_tok != b_tok
+
+
+def test_crash_after_checkpoint_before_event_recovers_episode(tmp_path, bank):
+    b, spec = bank
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:1]
+    R.Runner(args(tmp_path, b, spec), client=Client()).run(runs)
+    before = list(csv.DictReader(open(tmp_path / 'out' / 'runs.csv')))[0]
+    att = tmp_path / 'out' / 'attempts.jsonl'
+    lines = [l for l in att.read_text().splitlines()
+             if '"final": true' not in l and 'episode_done' not in l]
+    att.write_text('\n'.join(lines) + '\n')
+    c = Counting()
+    R.Runner(args(tmp_path, b, spec), client=c).run(runs)
+    assert c.calls == 0
+    after = list(csv.DictReader(open(tmp_path / 'out' / 'runs.csv')))[0]
+    assert (after['status'], after['W'], after['attempts']) == (before['status'], before['W'], before['attempts'])
+
+
+def test_decided_adjudications_are_not_pending(tmp_path, bank):
+    b, spec = bank
+    (b / 'FIXTURE.m1_toy' / 'oracle' / 'oracle.py').write_text('print("x")\n')
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:1]
+    a = args(tmp_path, b, spec)
+    assert R.Runner(a, client=Client()).run(runs)['needs_adjudication'] == 1
+    from runner import adjudicate as J
+    J.main(['export', '--out', a.out, '--bank', str(b), '--packets', str(tmp_path / 'pk')])
+    code = next((tmp_path / 'pk').glob('*.json')).stem
+    J.main(['record', '--out', a.out, '--code', code, '--resolved', 'no', '--adjudicator', 't'])
+    r = R.Runner(a, client=Client())
+    assert r.pending_adjudication() == []
+    assert r.run(runs)['needs_adjudication'] == 0
