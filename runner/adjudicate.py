@@ -57,7 +57,7 @@ def mask(text, terms):
     table = {}
 
     def tok(word):
-        key = word.lower()
+        key = word                       # exact spelling: Agent and agent are distinct names
         if key not in table:
             table[key] = f'[T{len(table) + 1}]'
         return table[key]
@@ -99,8 +99,11 @@ def export(a):
         row = rec['row']
         _, meta = load(Path(a.bank) / row['template_id'])
         terms = mask_terms(meta)
-        patch_file = Path(a.out) / 'patches' / f"{rid.replace(':', '__')}.patch"
-        patch = patch_file.read_text(encoding='utf-8') if patch_file.exists() else ''
+        ck = Path(a.out) / 'episodes' / f"{rid.replace(':', '__')}.json"
+        if ck.exists():          # the episode checkpoint is authoritative
+            patch = json.loads(ck.read_text(encoding='utf-8'))['summary'].get('patch') or ''
+        else:
+            raise SystemExit(f'no episode checkpoint for a run needing adjudication: {rid}')
         # one token table per packet: mask patch and evaluation together
         joined = mask(patch + '\n@@EVAL@@\n' + json.dumps(rec.get('evaluation')), terms)
         masked_patch, _, masked_eval = joined.partition('\n@@EVAL@@\n')

@@ -578,16 +578,51 @@ def blind_summary(out_dir):
 CHECKPOINT_EVERY_S = 15 * 60
 
 
-def checkpoint():
-    """Atomic sealed snapshot of the results so far (restorable with RESUME_SHA256)."""
+SEALED = Path('/kaggle/working/results_sealed.tar.gz')
+
+
+def snapshot_and_seal():
+    """Consistent snapshot, then an atomic durable replace of the sealed archive (the previous
+    archive stays valid until the new one is complete).
+    Consistency: every event in attempts.jsonl refers to files written BEFORE the event, so
+    each block's attempts.jsonl is copied FIRST and its other files afterwards: every logged
+    event finds its files in the snapshot (later extra files are harmless checkpoints)."""
     import tarfile
     res_dir = Path('/kaggle/working/results')
+    stage = Path('/root/tgv/snapshot')
+    if stage.exists():
+        shutil.rmtree(stage)
+    stage.mkdir(parents=True)
+    for block in sorted(d for d in res_dir.iterdir() if d.is_dir()):
+        dst = stage / block.name
+        dst.mkdir()
+        if (block / 'attempts.jsonl').exists():
+            shutil.copy2(block / 'attempts.jsonl', dst / 'attempts.jsonl')
+        for item in sorted(block.iterdir()):
+            if item.name == 'attempts.jsonl':
+                continue
+            if item.is_dir():
+                shutil.copytree(item, dst / item.name, ignore=shutil.ignore_patterns('*.tmp'))
+            elif not item.name.endswith('.tmp'):
+                shutil.copy2(item, dst / item.name)
     tmp = Path('/kaggle/working/.results_sealed.tmp')
     with tarfile.open(tmp, 'w:gz') as t:
-        t.add(res_dir, arcname='results')
-    os.replace(tmp, '/kaggle/working/results_sealed.tar.gz')
+        t.add(stage, arcname='results')
+    with open(tmp, 'rb') as f:
+        os.fsync(f.fileno())
+    os.replace(tmp, SEALED)
+    fd = os.open('/kaggle/working', os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    shutil.rmtree(stage, ignore_errors=True)
+    return sha256(SEALED)
+
+
+def checkpoint():
     R['last_checkpoint'] = {'utc': time.strftime('%H:%M:%S', time.gmtime()),
-                            'sha256': sha256('/kaggle/working/results_sealed.tar.gz')}
+                            'sha256': snapshot_and_seal()}
     save()
 
 
@@ -688,11 +723,9 @@ def seal_results():
                 secrets.SystemRandom().shuffle(rows)   # private, unrecorded permutation
                 for i, x in enumerate(rows):
                     w.writerow({'row': i, **{c: x[c] for c in cols if c != 'seed'}})
-    sealed = Path('/kaggle/working/results_sealed.tar.gz')
-    with tarfile.open(sealed, 'w:gz') as t:
-        t.add(res_dir, arcname='results')
+    digest = snapshot_and_seal()          # nothing is writing any more: final and complete
     shutil.rmtree(res_dir)
-    return {'sealed': str(sealed), 'sha256': sha256(sealed), 'bytes': sealed.stat().st_size}
+    return {'sealed': str(SEALED), 'sha256': digest, 'bytes': SEALED.stat().st_size}
 
 
 def restore_previous():

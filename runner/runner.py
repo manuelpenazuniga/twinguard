@@ -370,8 +370,8 @@ class Runner:
         return out
 
     # -------------------------------------------------------------- one run
-    def run_one(self, run):
-        if self.stop_at and time.time() > self.stop_at:
+    def run_one(self, run, ignore_deadline=False):
+        if self.stop_at and time.time() > self.stop_at and not ignore_deadline:
             self.skipped += 1          # not started: no event, resumable in the next session
             return None
         agent, evaluator = self.slots.get()
@@ -414,6 +414,12 @@ class Runner:
     def _checkpoint_path(self, run):
         return self.out / 'episodes' / f"{run['run_id'].replace(':', '__')}.json"
 
+    def _repair_patch(self, run, patch):
+        """The checkpoint is authoritative: (re)write the .patch if missing or different."""
+        pp = self._patch_path(run)
+        if not pp.exists() or pp.read_text(encoding='utf-8') != patch:
+            write_durable(pp, patch)
+
     def _checkpoint(self, run):
         p = self._checkpoint_path(run)
         return json.loads(p.read_text(encoding='utf-8')) if p.exists() else None
@@ -426,6 +432,7 @@ class Runner:
         tries = sum(1 for r in recs if r.get('event') == 'start')
         ck = self._checkpoint(run)
         if ck is not None:          # the agent already finished: never run it again
+            self._repair_patch(run, ck['summary'].get('patch') or '')
             return ck['summary'], ck['tries'], False
         tdir = Path(self.a.bank) / run['template_id']
         t, meta = load(tdir)
@@ -519,7 +526,12 @@ class Runner:
         meta = {'scheduled': len(runs), 'completed': len(self.done()),
                 'needs_adjudication': len(self.pending_adjudication()),
                 'concurrency': self.a.concurrency, **(extra or {})}
-        (self.out / 'session_summary.json').write_text(json.dumps(meta, indent=1))
+        old = self.out / 'session_summary.json'
+        if old.exists():
+            hist = self.out / 'session_history.jsonl'
+            with open(hist, 'a', encoding='utf-8') as f:
+                f.write(old.read_text().replace('\n', ' ') + '\n')
+        write_durable(old, json.dumps(meta, indent=1))
         return meta
 
     def write_csv(self):
@@ -543,7 +555,7 @@ class Runner:
             if self._checkpoint(run) is not None:
                 # the agent finished: evaluate it (CPU only), never discard it; run_one
                 # gives the run a row even if evaluation fails, and cleans up
-                self.run_one(run)
+                self.run_one(run, ignore_deadline=True)   # evaluation only, no agent
                 continue
             row = self._row(run, 'infra_failed', None, None, None, None, {},
                             self.tries_started(run['run_id']))

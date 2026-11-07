@@ -332,3 +332,29 @@ def test_decided_adjudications_are_not_pending(tmp_path, bank):
     r = R.Runner(a, client=Client())
     assert r.pending_adjudication() == []
     assert r.run(runs)['needs_adjudication'] == 0
+
+
+def test_recovery_rebuilds_a_missing_patch_and_close_out_ignores_the_deadline(tmp_path, bank):
+    b, spec = bank
+    runs = R.schedule(b, spec, 'pilot', 1, 1)
+    runs = [r for r in runs if r['issue_paraphrase'] == 2][:1]      # U+: non-empty patch
+    R.Runner(args(tmp_path, b, spec), client=Client()).run(runs)
+    out = tmp_path / 'out'
+    pf = next((out / 'patches').glob('*.patch'))
+    original = pf.read_text()
+    assert original.strip()
+    pf.unlink()
+    _drop_finals(out / 'attempts.jsonl')
+    import time as _t
+    r = R.Runner(args(tmp_path, b, spec, stop_at=_t.time() - 1, close_out=True), client=None)
+    assert r.close_out(runs) == 0
+    assert pf.read_text() == original
+    row = list(csv.DictReader(open(out / 'runs.csv')))[0]
+    assert row['status'] == 'patch' and row['W'] == '1'
+
+
+def test_mask_keeps_case_distinct_names():
+    from runner import adjudicate as J
+    two = J.mask('-    Agent.run()\n+    agent.run()\n', [])
+    a_tok, b_tok = [l.split('.')[0].strip('-+ ') for l in two.splitlines()]
+    assert a_tok != b_tok
