@@ -86,7 +86,7 @@ class GraphIndex:
             if r is not None and r not in resolved:
                 resolved.append(r)
         if not resolved:
-            return C.error(C.NodeNotFound, f'none of the nodes were found: {list(nodes)}')
+            return C.error(C.SubgraphError, f'none of the nodes were found: {list(nodes)}')
         keep = set(resolved)
         edges = sorted({(e['source'], e['target'], e['type']) for e in self.graph()['edges']
                         if e['source'] in keep and e['target'] in keep})

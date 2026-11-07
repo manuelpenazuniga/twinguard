@@ -91,24 +91,28 @@ class ToolBox:
         except (ValueError, TypeError) as exc:
             return C.plugin_error(type(exc).__name__, str(exc))
 
+        # swegemma check_budget order: tool calls, then session time (budget errors never
+        # carry the low-budget warning)
+        if name in COUNTED and self.calls_remaining() <= 0:
+            self.budget_exhausted = True
+            return C.dumps(C.error(C.BudgetExhausted,
+                                   f'Tool call budget exhausted ({self.budget.tool_calls} calls)'))
         if self.time_remaining() <= 0:
             self.budget_exhausted = True
-            return self._finish(C.error(C.BudgetExhausted, 'session time budget exhausted'))
+            return C.dumps(C.error(C.TimeoutExceeded, 'Session time budget exhausted '
+                                   f'({self.budget.time_minutes} minutes)'))
         if name in COUNTED:
-            if self.calls_remaining() <= 0:
-                self.budget_exhausted = True
-                return self._finish(C.error(
-                    C.BudgetExhausted, f'tool call budget exhausted '
-                    f'({self.tool_calls_used}/{self.budget.tool_calls} used); call submit_patch'))
             self.tool_calls_used += 1
         try:
             result = method(**bound)
         except WorkspaceError as exc:
             result = C.error(exc.error_type, str(exc))
+        if name not in COUNTED:
+            return C.dumps(result)
         return self._finish(result)
 
     def _finish(self, result):
-        if self.budget.tool_calls >= C.BUDGET_WARNING_MIN_TOTAL and \
+        if 'budget_warning' not in result and self.budget.tool_calls >= C.BUDGET_WARNING_MIN_TOTAL and \
                 self.calls_remaining() <= C.BUDGET_WARNING_REMAINING:
             result = dict(result)
             result['budget_warning'] = (
@@ -125,10 +129,9 @@ class ToolBox:
         out, _ = C.truncate(r['stdout'])
         err, _ = C.truncate(r['stderr'])
         if r['timed_out']:
-            return C.error(C.TimeoutExceeded, f'command timed out after {timeout} seconds',
-                           stdout=out, stderr=err, exit_code=r['exit_code'])
+            return C.error(C.TimeoutExceeded, f'Command timed out after {timeout} seconds')
         if r['exit_code'] != 0:
-            return C.error(C.CommandError, f'command exited with code {r["exit_code"]}',
+            return C.error(C.CommandError, err if err else out,
                            stdout=out, stderr=err, exit_code=r['exit_code'])
         return {'status': 'ok', 'stdout': out, 'stderr': err, 'exit_code': 0}
 
@@ -143,7 +146,8 @@ class ToolBox:
         if total and s > total:
             return C.error(C.ValidationError, f'start_line {s} exceeds file length {total}')
         if e < s and total:
-            return C.error(C.ValidationError, f'end_line {e} is before start_line {s}')
+            return C.error('ValueError', f'start_line ({s}) cannot be greater than end_line ({e})',
+                           **{})
         chunk, chars, truncated = [], 0, False
         for i in range(s - 1, e):
             if len(chunk) >= C.MAX_FILE_LINES or chars + len(lines[i]) > C.MAX_FILE_CHARS:
@@ -181,23 +185,22 @@ class ToolBox:
     def t_write_file(self, filepath: str, content: str):
         full = self.ws.resolve(filepath)
         if full.is_dir():
-            return C.error(C.ValidationError, f'path is a directory: {filepath}')
+            return C.error(C.FileWriteError, f'[Errno 21] Is a directory: {filepath}')
         full.parent.mkdir(parents=True, exist_ok=True)
         full.write_text(content, encoding='utf-8')
-        return {'status': 'ok', 'filepath': self.ws.rel(full),
-                'size': len(content.encode('utf-8'))}
+        return {'status': 'ok', 'filepath': self.ws.rel(full), 'size': len(content)}
 
     def t_submit_patch(self):
         patch = self.ws.diff()
         self.submitted_patch = patch
         self.patch_submitted = True
-        return {'status': 'ok', 'patch_size': len(patch.encode('utf-8')),
+        return {'status': 'ok', 'patch_size': len(patch),
                 'files_changed': files_changed(patch)}
 
     def t_get_status(self):
         return {'status': 'ok', 'tool_calls_used': self.tool_calls_used,
                 'patch_submitted': self.patch_submitted,
-                'patch_size': len(self.submitted_patch.encode('utf-8')),
+                'patch_size': len(self.submitted_patch),
                 'tool_calls_remaining': max(0, self.calls_remaining()),
                 'max_tool_calls': self.budget.tool_calls,
                 'time_seconds_remaining': round(max(0.0, self.time_remaining()), 1),

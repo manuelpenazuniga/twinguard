@@ -32,16 +32,18 @@ PROTECTED_TEST_DIRS = ('tests', 'test', 'testing')
 GIT_EXCLUDE = ['__pycache__/', '*.pyc', '.pytest_cache/', '*.egg-info/', 'build/', 'dist/',
                '.coverage']
 
-# Error types emitted by tools (README 6). BudgetExhausted is ours: the README does not
-# document what a gated tool returns once the budget is spent.
+# Error types emitted by tools, aligned with the swegemma 0.2.11 wheel (read, not copied).
 CommandError = 'CommandError'
 TimeoutExceeded = 'TimeoutExceeded'
 FileEditError = 'FileEditError'
 ValidationError = 'ValidationError'
-FileNotFound = 'FileNotFoundError'
-NodeNotFound = 'NodeNotFound'
-GraphUnavailable = 'GraphUnavailable'
-BudgetExhausted = 'BudgetExhausted'
+FileReadError = 'FileReadError'
+FileWriteError = 'FileWriteError'
+FileNotFound = FileReadError            # official read_file reports missing files as FileReadError
+NodeNotFound = 'GraphLookupError'       # get_code_neighbors
+SubgraphError = 'SubgraphExtractionError'
+GraphUnavailable = 'MissingRepoContext'
+BudgetExhausted = 'BudgetExceeded'      # as in swegemma context.check_budget (read from the wheel)
 
 
 @dataclass(frozen=True)
@@ -63,7 +65,7 @@ class Budget:
 
 def dumps(obj):
     """Single serialization for every tool response (frozen)."""
-    return json.dumps(obj)
+    return json.dumps(obj, ensure_ascii=False)
 
 
 def ok(**fields):

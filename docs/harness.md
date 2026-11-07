@@ -27,13 +27,20 @@ wheels). Neither the README nor the wheels are copied here.
 - Reasoning: `chat_template_kwargs.enable_thinking` + `thinking_token_budget` (vLLM),
   defaults `max_output_tokens = 16384`, thinking budget 4096.
 
+## Aligned with the swegemma 0.2.11 wheel (2026-11-07, read only)
+Serialization `ensure_ascii=False`; `BudgetExceeded` ("Tool call budget exhausted (N calls)") checked
+before session time (`TimeoutExceeded`, "Session time budget exhausted (X minutes)"); budget warning only
+on counted tools and never on budget errors; `CommandError` message = stderr (or stdout);
+`TimeoutExceeded` "Command timed out after N seconds"; `FileReadError`, `FileWriteError`,
+`GraphLookupError`, `SubgraphExtractionError`; `read_file` start > end → `ValueError`; sizes in
+characters; prompt instructions 0–5 verbatim.
+
 ## Declared differences
 | Area | Official | TwinGuard | Why |
 |---|---|---|---|
 | Tools | 9 | 8: no `search_similar_code` | No embeddings for new repos (P2) |
 | Graph | precomputed competition graphs | `twinguard_graph.build_graph`, same schema, rebuilt when sources change | Repos are ours; freshness after edits |
 | Neighbor order / ties | undocumented | sorted ids; ties resolve to first sorted id | Determinism |
-| Budget-exhausted response | undocumented | `error_type: BudgetExhausted`, call not executed | Needed a defined behaviour |
 | Context compaction | ADK EventsCompaction (LLM summary) at 14,336 tokens | deterministic elision of tool outputs older than the last 5 messages, same threshold | An LLM summary would be a framing-exposed extra model call |
 | Thoughts in history | depends on `include_thoughts` | not carried in history; logged in full by the controller | Context; analysis of §7.2 from the log |
 | Turn | ADK `run_async` turn | one model call; loop ends right after the batch that calls `submit_patch` | Simpler, identical across arms |
