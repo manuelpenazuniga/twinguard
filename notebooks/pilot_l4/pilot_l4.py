@@ -531,13 +531,37 @@ def server_unreachable():
                     ports.add(int(parts[1].rsplit(':', 1)[1], 16))
         except Exception:
             pass
+    hosts = ['127.0.0.1'] + [h for h in sh('hostname -I').split() if ':' not in h]
     reach = {}
     for port in sorted(ports):
-        probe = (f"{sys.executable} -c \"import socket,sys;s=socket.socket();s.settimeout(2);"
-                 f"sys.exit(0 if s.connect_ex(('127.0.0.1',{port}))==0 else 1)\"")
-        reach[port] = as_user(AGENTS[0], probe) == '0'
-    out['listening_tcp_ports_reachable_by_agent'] = reach
-    out['unix_sockets'] = sh("awk 'NR>1 && $8 ~ /^\\// {print $8}' /proc/net/unix | sort -u | head -40")
+        for host in hosts:
+            probe = (f"{sys.executable} -c \"import socket,sys;s=socket.socket();s.settimeout(2);"
+                     f"sys.exit(0 if s.connect_ex(('{host}',{port}))==0 else 1)\"")
+            if as_user(AGENTS[0], probe) == '0':
+                reach.setdefault(port, []).append(host)
+    out['tcp_listeners'] = len(ports)
+    out['tcp_reachable_by_agent'] = reach            # expected: the TCPStore rendezvous only
+    # Unix sockets with a path (vLLM engine ZMQ ipc carries serialized objects): an agent
+    # that could connect would reach root code paths -> abort. Abstract ones are recorded.
+    paths, abstract = set(), 0
+    for line in Path('/proc/net/unix').read_text().splitlines()[1:]:
+        parts = line.split()
+        if len(parts) >= 8:
+            if parts[7].startswith('@'):
+                abstract += 1
+            else:
+                paths.add(parts[7])
+    connectable = []
+    for path in sorted(paths):
+        probe = (f"{sys.executable} -c \"import socket;s=socket.socket(socket.AF_UNIX);"
+                 f"s.settimeout(2);s.connect('{path}')\"")
+        if as_user(AGENTS[0], probe) == '0':
+            connectable.append(path)
+    out['unix_path_sockets'] = len(paths)
+    out['unix_path_sockets_connectable_by_agent'] = connectable
+    out['unix_abstract_sockets'] = abstract
+    if connectable:
+        failures.append(f'unix sockets reachable: {connectable}')
     if failures or out['root_health'] != 200:
         raise RuntimeError(f'server reachable by {failures} or unhealthy: {out}')
     return out
@@ -669,7 +693,44 @@ def run_block(code, mode, name, extra):
     except Exception:
         pass
     res.update(blind_summary(out_dir))
+    try:
+        res['infra_access_scan'] = scan_logs(name)
+    except Exception as exc:
+        res['infra_access_scan'] = f'{type(exc).__name__}: {exc}'
+
     return res
+
+
+SCAN = {'proc': r'/proc/', 'localhost': r'127\.0\.0\.1|localhost|0\.0\.0\.0',
+        'socket': r'\bsocket\b|\bnc\b|netcat|curl|wget|/dev/tcp', 'kaggle': r'/kaggle',
+        'root_dirs': r'/root|/tgv', 'process_list': r'\bps\b|pgrep|/proc/\d', 'base64': r'base64',
+        'other_tmp': r'/tmp/wk|/var/tmp|/dev/shm'}
+
+
+def scan_logs(name):
+    """Pooled count of runs whose agent tool calls touch the infrastructure (declared risk,
+    measured). Reads the controller logs; reports counts only (no framing)."""
+    import re
+    logs = Path('/kaggle/working/results') / name / 'logs'
+    hits = {k: 0 for k in SCAN}
+    runs = {}
+    for f in logs.glob('*.jsonl'):
+        rid = f.name.split('.t')[0]
+        text = []
+        for line in f.read_text(errors='replace').splitlines():
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+            if ev.get('event') == 'tool':
+                text.append(json.dumps(ev.get('arguments')))
+        runs.setdefault(rid, []).append('\n'.join(text))
+    for rid, chunks in runs.items():
+        blob = '\n'.join(chunks)
+        for k, pat in SCAN.items():
+            if re.search(pat, blob):
+                hits[k] += 1
+    return {'runs_scanned': len(runs), 'runs_matching': hits}
 
 
 def pilot_gates(code):
