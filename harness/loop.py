@@ -292,7 +292,9 @@ def run_episode(task, workspace, client, budget, log_path, sampling, clock=time.
                     reason = 'time_budget'
                     break
                 if not exc.transient or attempt >= max_retries:
-                    if exc.status == 400 and ('context' in low or 'token' in low):
+                    if exc.transient:
+                        reason = 'infra_error'    # 408/429/5xx/connection, retries exhausted
+                    elif exc.status == 400 and ('context' in low or 'token' in low):
                         reason = 'context_overflow'
                     elif exc.status in (401, 403, 404, 405):
                         reason = 'config_error'   # wrong endpoint/model/key: never retried

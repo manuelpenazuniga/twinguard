@@ -357,9 +357,12 @@ def test_run_as_wraps_every_agent_process(tmp_path, monkeypatch):
     ws.kill_user_processes()
     assert seen[0][:6] == ['setpriv', '--reuid=tgagent', '--regid=tgagent', '--clear-groups',
                            '--no-new-privs', '--']
-    assert seen[1][:7] == ['setpriv', '--reuid=tgagent', '--regid=tgagent', '--clear-groups',
-                           '--no-new-privs', '--', 'git']
+    umask = ['/bin/sh', '-c', 'umask 077; exec "$@"', 'sh']
+    assert seen[0][6:10] == umask and seen[0][10] == '/bin/bash'
+    assert seen[1][:11] == ['setpriv', '--reuid=tgagent', '--regid=tgagent', '--clear-groups',
+                            '--no-new-privs', '--', *umask, 'git']
     assert seen[2] == ['pkill', '-KILL', '-u', 'tgagent']
+    assert seen[3][:4] == ['find', '/tmp', '/var/tmp', '/dev/shm'] and 'tgagent' in seen[3]
 
 
 def test_symlink_escape_is_rejected(tmp_path):

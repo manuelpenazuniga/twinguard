@@ -47,7 +47,7 @@ elif op == 'dump_py':
                         and not os.path.islink(os.path.join(dp, d)))
         for fn in sorted(fns):
             full = os.path.join(dp, fn)
-            if not fn.endswith('.py') or os.path.islink(full):
+            if not fn.endswith('.py') or fn.startswith('.') or os.path.islink(full):
                 continue
             try:
                 if not stat.S_ISREG(os.lstat(full).st_mode):
@@ -111,19 +111,26 @@ class Workspace:
     def prefix(self):
         if not self.run_as:
             return []
+        # umask 077: whatever the agent creates (also in shared /tmp) is private to its uid
         return ['setpriv', f'--reuid={self.run_as}', f'--regid={self.run_as}', '--clear-groups',
-                '--no-new-privs', '--']
+                '--no-new-privs', '--', '/bin/sh', '-c', 'umask 077; exec "$@"', 'sh']
 
     def kill_user_processes(self):
         """Terminate every process of the agent uid (nothing may survive the run)."""
         if self.run_as:
             subprocess.run(['pkill', '-KILL', '-u', str(self.run_as)], capture_output=True)
+            subprocess.run(['find', '/tmp', '/var/tmp', '/dev/shm', '-xdev', '-user',
+                            str(self.run_as), '-not', '-path', f'{self.root.parent}*',
+                            '-delete'], capture_output=True)
 
     # ------------------------------------------------------------ file access
     def _fs(self, op, path, data=None):
-        r = subprocess.run([*self.prefix(), sys.executable, '-I', '-S', '-c', _FS_HELPER, op,
-                            str(path)], cwd=self.root, env=self.env(), input=data,
-                           capture_output=True, timeout=60)
+        try:
+            r = subprocess.run([*self.prefix(), sys.executable, '-I', '-S', '-c', _FS_HELPER, op,
+                                str(path)], cwd=self.root, env=self.env(), input=data,
+                               capture_output=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            raise OSError('file operation timed out') from None
         if r.returncode != 0:
             msg = r.stderr.decode('utf-8', 'replace').strip().splitlines()[-1:] or ['']
             raise OSError(msg[0])

@@ -38,6 +38,7 @@ EVALS = [f'tgeval{i}' for i in range(8)]
 UDS_DIR = Path('/root/tgv')      # vLLM listens ONLY on a root-only Unix socket
 UDS = UDS_DIR / 'vllm.sock'
 DIVERSITY_REPLICATES = 3         # 9.1 seed diversity: r2..r4 on one pilot template, paraphrase 1
+RESUME_SHA256 = ''               # build --define: expected hash of a previous results_sealed.tar.gz
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -476,6 +477,7 @@ def isolation(code):
     sh(f'chmod -R go-rwx {code}')                      # harness, bank, oracles: root only
     sh('chmod 0700 /kaggle')                            # /kaggle/src holds the code bundle
     sh('chmod 0700 /root')
+    sh('chmod 1733 /tmp /var/tmp /dev/shm')             # shared scratch: not listable
     UDS_DIR.mkdir(parents=True, exist_ok=True)
     UDS_DIR.chmod(0o700)
     work = Path('/tmp/wk'); work.mkdir(exist_ok=True); work.chmod(0o711)
@@ -484,7 +486,7 @@ def isolation(code):
               'inputs_ls': 'ls /kaggle/input', 'working_ls': 'ls /kaggle/working',
               'oracle_cat': f'cat {oracle}', 'bank_ls': f'ls {code}/bank/templates',
               'harness_cat': f'cat {code}/harness/loop.py', 'root_ls': 'ls /root',
-              'uds_dir_ls': f'ls {UDS_DIR}'}
+              'uds_dir_ls': f'ls {UDS_DIR}', 'tmp_ls': 'ls /tmp', 'wk_ls': 'ls /tmp/wk'}
     failures = []
     for u in (AGENTS[0], EVALS[0], AGENTS[-1], EVALS[-1]):
         for k, c in probes.items():
@@ -560,6 +562,9 @@ def run_block(code, mode, name, extra):
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code))
     res = {'rc': r.returncode, 'wall_seconds': round(time.time() - t0, 1),
            'stdout_tail': r.stdout[-1500:], 'stderr_tail': r.stderr[-3000:]}
+    R.setdefault('blocks', {})[name] = res
+    if r.returncode != 0:
+        raise RuntimeError(f'runner block {name} failed rc={r.returncode}: {r.stderr[-1500:]}')
     try:
         meta = json.loads((out_dir / 'session_summary.json').read_text())
         res['session'] = {k: meta.get(k) for k in ('scheduled', 'completed', 'ran_now',
@@ -572,8 +577,13 @@ def run_block(code, mode, name, extra):
 
 
 def pilot_gates(code):
-    """twinguard_analysis.py --pilot: pooled rates and gates only (blind by construction)."""
+    """twinguard_analysis.py --pilot: pooled rates and gates only (blind by construction).
+    Only on a complete pilot with no run awaiting blind adjudication."""
     out_dir = Path('/kaggle/working/results') / 'pilot'
+    meta = json.loads((out_dir / 'session_summary.json').read_text())
+    if meta['completed'] != meta['scheduled'] or meta['needs_adjudication']:
+        return {'deferred': True, 'completed': meta['completed'], 'scheduled': meta['scheduled'],
+                'needs_adjudication': meta['needs_adjudication']}
     r = subprocess.run([sys.executable, str(code / 'twinguard' / 'twinguard_analysis.py'),
                         str(out_dir / 'runs.csv'), '--pilot', '--replicates', '1'],
                        capture_output=True, text=True, cwd=str(code))
@@ -595,9 +605,12 @@ def diversity_block(code):
         for pf in (Path('/kaggle/working/results') / name / 'patches').glob(f'*{tid}*__p1__*.patch'):
             cell = pf.name.split('__')[2]            # framing: used ONLY as a grouping key
             pats.setdefault(cell, []).append(hashlib.sha256(pf.read_bytes()).hexdigest())
-    distinct = [len(set(v)) for v in pats.values() if len(v) >= 2]
-    res['diversity'] = {'cells': len(distinct), 'seeds_per_cell': [len(v) for v in pats.values()],
-                        'mean_distinct_patches': round(sum(distinct) / max(1, len(distinct)), 2)}
+    complete = [v for v in pats.values() if len(v) == 1 + DIVERSITY_REPLICATES]
+    distinct = [len(set(v)) for v in complete]
+    res['diversity'] = {'complete_cells': len(complete), 'cells': len(pats),
+                        'seeds_per_cell': sorted(len(v) for v in pats.values()),
+                        'mean_distinct_patches': (round(sum(distinct) / len(distinct), 2)
+                                                  if distinct else None)}
     return res
 
 
@@ -612,10 +625,12 @@ def seal_results():
             rows = list(_csv.DictReader(open(csvp)))
             cols = [c for c in rows[0].keys() if c not in ('framing', 'run_id')] if rows else []
             with open(f'/kaggle/working/runs_blind_{name}.csv', 'w', newline='') as f:
-                w = _csv.DictWriter(f, fieldnames=['row'] + cols)
+                w = _csv.DictWriter(f, fieldnames=['row'] + [c for c in cols if c != 'seed'])
                 w.writeheader()
-                for i, x in enumerate(sorted(rows, key=lambda x: hashlib.sha256(x['run_id'].encode()).hexdigest())):
-                    w.writerow({'row': i, **{c: x[c] for c in cols}})
+                import secrets
+                secrets.SystemRandom().shuffle(rows)   # private, unrecorded permutation
+                for i, x in enumerate(rows):
+                    w.writerow({'row': i, **{c: x[c] for c in cols if c != 'seed'}})
     sealed = Path('/kaggle/working/results_sealed.tar.gz')
     with tarfile.open(sealed, 'w:gz') as t:
         t.add(res_dir, arcname='results')
@@ -625,13 +640,18 @@ def seal_results():
 
 def restore_previous():
     """Resume: a previous version's sealed results attached as a kernel source."""
-    prev = sorted(glob.glob('/kaggle/input/**/results_sealed.tar.gz', recursive=True))
-    if not prev:
+    prev = glob.glob('/kaggle/input/**/results_sealed.tar.gz', recursive=True)
+    if not RESUME_SHA256:
+        if prev:
+            raise RuntimeError(f'sealed results attached but no RESUME_SHA256 defined: {prev}')
         return {'resumed_from': None}
+    match = [x for x in prev if sha256(x) == RESUME_SHA256]
+    if len(match) != 1:
+        raise RuntimeError(f'expected exactly one sealed archive with sha256 {RESUME_SHA256}: {prev}')
     import tarfile
-    with tarfile.open(prev[-1]) as t:
+    with tarfile.open(match[0]) as t:
         t.extractall('/kaggle/working')
-    return {'resumed_from': prev[-1], 'sha256': sha256(prev[-1])}
+    return {'resumed_from': match[0], 'sha256': RESUME_SHA256}
 
 
 def smoke_block(code):
@@ -663,7 +683,8 @@ if __name__ == '__main__':
         else:
             raise SystemExit('served model files do not match HF 52f3f65: refusing to run')
         Path('/kaggle/working/results').mkdir(parents=True, exist_ok=True)
-        phase('8a_restore')(restore_previous)()
+        if not phase('8a_restore')(restore_previous)()['ok']:
+            raise SystemExit('resume archive check failed: refusing to run')
         if not isolation(code)['ok']:
             raise SystemExit('isolation checks failed: refusing to run')
 

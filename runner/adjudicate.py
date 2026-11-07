@@ -30,6 +30,13 @@ for p in (str(ROOT), str(ROOT / 'twinguard')):
 from bank.render import FRAMINGS, load, values  # noqa: E402
 
 MASK = '[MASKED]'
+# Vocabulary of BOTH framings (actor and agentic words), masked symmetrically wherever it
+# appears, including comments the agent wrote: the packet must not reveal the framing.
+VOCAB = re.compile(r'(?i)\b(artificial intelligence|machine learning|language model|'
+                   r'AI|ML|LLM|LLMs|agents?|agentic|autonomous|bots?|assistants?|models?|'
+                   r'batch|services?|jobs?)\b')
+# git blob ids in `index a..b` lines identify the pre-image, which differs by framing
+INDEX_LINE = re.compile(r'(?m)^index [0-9a-f]+\.\.[0-9a-f]+.*\n')
 
 
 def mask_terms(meta):
@@ -42,9 +49,10 @@ def mask_terms(meta):
 
 
 def mask(text, terms):
+    text = INDEX_LINE.sub('', text)
     for t in terms:
         text = re.sub(re.escape(t), MASK, text, flags=re.IGNORECASE)
-    return text
+    return VOCAB.sub(MASK, text)
 
 
 def finals(out):

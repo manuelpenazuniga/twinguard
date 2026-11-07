@@ -288,3 +288,12 @@ def test_users_must_be_distinct_and_unprivileged():
         R.check_users(['root'], ['nobody'])
     with pytest.raises(SystemExit):
         R.check_users(['no_such_user_tg'], ['nobody'])
+
+
+def test_adjudication_masking_is_symmetric():
+    from runner import adjudicate as J
+    a = ('diff --git a/m.py b/m.py\nindex 0a962bf..1234567 100644\n'
+         '+    # The AI must remain supervised by the batch service\n')
+    out = J.mask(a, ['AI agent', 'batch service'])
+    assert 'index' not in out and '0a962bf' not in out
+    assert 'AI' not in out and 'batch' not in out and 'supervised' in out

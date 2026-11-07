@@ -105,46 +105,66 @@ def schedule(bank_dir, spec_csv, split, replicates, order_seed, only_template=No
 
 # ------------------------------------------------------------------ evaluation
 def setpriv(user):
+    """Run as `user` with umask 077 (files it creates are private to it)."""
     return ['setpriv', f'--reuid={user}', f'--regid={user}', '--clear-groups',
-            '--no-new-privs', '--']
+            '--no-new-privs', '--', '/bin/sh', '-c', 'umask 077; exec "$@"', 'sh']
+
+
+def purge_user(user):
+    """Kill every process of `user` and delete what it left in shared scratch areas."""
+    subprocess.run(['pkill', '-KILL', '-u', user], capture_output=True)
+    subprocess.run(['find', '/tmp', '/var/tmp', '/dev/shm', '-xdev', '-user', user,
+                    '-delete'], capture_output=True)
 
 
 def evaluate(template_dir, framing, patch, work, eval_user=None):
-    """Apply the patch to a clean render; F from visible tests, W/crash from the oracle.
-    Everything the candidate code can touch lives in `work`: a fresh render, a COPY of the
-    oracle and a private scratch dir. With eval_user, candidate code runs only as that
-    unprivileged uid (one per concurrency slot), the bank stays root-only and every process
-    of that uid is killed afterwards."""
+    """F from the visible tests, W/crash from the oracle, each on its OWN fresh render of the
+    patched code. Stages run one after the other as the slot's evaluator uid, and a stage's
+    directory stays root-only until its turn, so candidate code running in one stage can
+    never touch the other. The oracle is a root-owned, read-only copy (group = evaluator)."""
     work = Path(work)
     if work.exists():
         shutil.rmtree(work)
     work.mkdir(parents=True)
-    ws = work / 'eval'
-    render(template_dir, framing, ws)
-    admission.init_repo(ws)
+    work.chmod(0o711)
     patch = strip_protected_files_from_patch(patch or '')
     M = int(bool(patch.strip()))
+    pf = None
     if M:
         pf = work / 'final.patch'
         pf.write_text(patch, encoding='utf-8')
-        ok, err = admission.apply_patch(ws, pf)
-        if not ok:   # the agent's own diff should apply to a clean render: adjudicate
-            return {'M': M, 'apply_error': err, 'tests': None, 'oracle': None}
+        pf.chmod(0o600)
+    stages = {}
+    for name in ('o', 't'):
+        st = work / name
+        render(template_dir, framing, st / 'eval')
+        admission.init_repo(st / 'eval')
+        if pf is not None:
+            ok, err = admission.apply_patch(st / 'eval', pf)
+            if not ok:   # the agent's own diff should apply to a clean render: adjudicate
+                return {'M': M, 'apply_error': err, 'tests': None, 'oracle': None}
+        (st / 'scratch').mkdir()
+        st.chmod(0o700)
+        stages[name] = st
     tpl = work / 'tpl'
     shutil.copytree(Path(template_dir) / 'oracle', tpl / 'oracle')
-    scratch = work / 'scratch'
-    scratch.mkdir()
-    prefix = None
     if eval_user:
-        subprocess.run(['chown', '-R', f'{eval_user}:{eval_user}', str(work)], check=True)
-        work.chmod(0o700)
-        prefix = setpriv(eval_user)
-    try:
-        tests = admission.run_tests(ws, prefix, scratch)
-        oracle = admission.run_oracle(tpl, ws, prefix, scratch)
-    finally:
+        subprocess.run(['chown', '-R', f'root:{eval_user}', str(tpl)], check=True)
+        subprocess.run(['chmod', '-R', 'u=rwX,g=rX,o=', str(tpl)], check=True)
+
+    def stage(name, fn):
+        st = stages[name]
+        prefix = None
         if eval_user:
-            subprocess.run(['pkill', '-KILL', '-u', eval_user], capture_output=True)
+            subprocess.run(['chown', '-R', f'{eval_user}:{eval_user}', str(st)], check=True)
+            prefix = setpriv(eval_user)
+        try:
+            return fn(st, prefix)
+        finally:
+            if eval_user:
+                purge_user(eval_user)
+    oracle = stage('o', lambda st, pre: admission.run_oracle(tpl, st / 'eval', pre, st / 'scratch'))
+    tests = stage('t', lambda st, pre: admission.run_tests(st / 'eval', pre, st / 'scratch'))
     return {'M': M, 'tests': tests, 'oracle': oracle}
 
 
@@ -178,6 +198,28 @@ def outcome(summary, ev, adjudication=None):
 # ------------------------------------------------------------------ runner
 class ConfigError(RuntimeError):
     """Wrong endpoint/model/manifest: abort the session, never retry or record as a run."""
+
+
+class Deferred(Exception):
+    """Session deadline reached before a (re)try could start: the run stays open and is
+    resumed by the next session (no final record)."""
+
+
+def write_durable(path, text):
+    import os
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + '.tmp')
+    with open(tmp, 'w', encoding='utf-8') as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def bank_hash(bank_dir, template_ids):
@@ -224,9 +266,12 @@ class Runner:
         self.out.mkdir(parents=True, exist_ok=True)
         self.attempts = self.out / 'attempts.jsonl'
         self.lock = threading.Lock()
-        self.client = client or OpenAICompatClient(args.base_url, args.model, timeout=900)
+        self.client = client or (None if getattr(args, 'close_out', False) else
+                                 OpenAICompatClient(args.base_url, args.model, timeout=900))
         self.served = None
-        if client is None:
+        if client is None and getattr(args, 'close_out', False):
+            self.client = None          # close-out never calls the model
+        elif client is None:
             served = self.client.models()['data']
             if args.model not in [m['id'] for m in served]:
                 raise ConfigError(f'model {args.model!r} not served by {args.base_url}: {served}')
@@ -285,11 +330,12 @@ class Runner:
                 f.flush()
                 os.fsync(f.fileno())
 
-    def check_manifest(self, runs):
+    def check_manifest(self, runs, offline=False):
         man = {'split': self.a.split, 'replicates': self.a.replicates,
                'order_seed': self.a.order_seed, 'code_commit': self.a.code_commit,
-               'model': self.a.model, 'model_revision': self.a.model_revision,
-               'served': self.served,
+               'model': self.a.model, 'model_id': MODEL_ID,
+               'model_revision': self.a.model_revision, 'served': self.served,
+               'concurrency': self.a.concurrency,
                'environment_id': self.a.environment_id, 'budget': self.budget.as_dict(),
                'sampling': SAMPLING, 'contract_hash': C.contract_hash(),
                'bank_hash': bank_hash(self.a.bank, [r['template_id'] for r in runs]),
@@ -298,6 +344,8 @@ class Runner:
         path = self.out / 'manifest.json'
         if path.exists():
             old = json.loads(path.read_text())
+            if offline:   # close-out without a server: the served model is not re-checked
+                man['served'] = old.get('served')
             if old != man:
                 diff = sorted(k for k in man if old.get(k) != man[k])
                 raise ConfigError(f'resume with a different configuration: {diff}')
@@ -329,6 +377,9 @@ class Runner:
             return self._run_one(run, agent, evaluator, base)
         except ConfigError:
             raise
+        except Deferred:
+            self.skipped += 1
+            return None
         except Exception as exc:   # controller failure: the run still gets its row
             row = self._row(run, 'infra_failed', None, None, None, None, {},
                             self.tries_started(run['run_id']))
@@ -338,7 +389,7 @@ class Runner:
         finally:
             for u in (agent, evaluator):
                 if u:
-                    subprocess.run(['pkill', '-KILL', '-u', u], capture_output=True)
+                    purge_user(u)
             if not self.a.keep_work:
                 shutil.rmtree(base, ignore_errors=True)
             self.slots.put((agent, evaluator))
@@ -374,6 +425,8 @@ class Runner:
         t, meta = load(tdir)
         summary, infra = {}, True
         while tries < 2:
+            if self.stop_at and time.time() > self.stop_at:
+                raise Deferred(run['run_id'])
             tries += 1
             work = base / f't{tries}'
             if work.exists():
@@ -404,9 +457,7 @@ class Runner:
             if not infra:
                 break
         if not infra:
-            pp = self._patch_path(run)
-            pp.parent.mkdir(exist_ok=True)
-            pp.write_text(summary['patch'] or '', encoding='utf-8')
+            write_durable(self._patch_path(run), summary['patch'] or '')
             self.log({'run_id': run['run_id'], 'event': 'episode_done', 'try': tries,
                       'summary': slim(summary),
                       'patch_sha256': hashlib.sha256((summary['patch'] or '').encode()).hexdigest()})
@@ -461,14 +512,26 @@ class Runner:
     def close_out(self, runs):
         """Give every scheduled run without a final record an `infra_failed` row (used only
         when the study stops; every scheduled run appears in the data, Annex A)."""
+        self.check_manifest(runs, offline=True)
         done = self.done()
         n = 0
         for run in runs:
-            if run['run_id'] not in done:
-                row = self._row(run, 'infra_failed', None, None, None, None, {},
-                                self.tries_started(run['run_id']))
-                self.log({'run_id': run['run_id'], 'final': True, 'row': row, 'closed_out': True})
-                n += 1
+            if run['run_id'] in done:
+                continue
+            if any(r.get('event') == 'episode_done' and r['run_id'] == run['run_id']
+                   for r in self.records()):
+                # the agent finished: evaluate it (CPU only), never discard it
+                agent, evaluator = self.slots.get()
+                try:
+                    self._run_one(run, agent, evaluator,
+                                  Path(self.a.work) / opaque(run['run_id'], self.salt))
+                finally:
+                    self.slots.put((agent, evaluator))
+                continue
+            row = self._row(run, 'infra_failed', None, None, None, None, {},
+                            self.tries_started(run['run_id']))
+            self.log({'run_id': run['run_id'], 'final': True, 'row': row, 'closed_out': True})
+            n += 1
         self.write_csv()
         return n
 
