@@ -45,7 +45,8 @@ characters; prompt instructions 0–5 verbatim.
 | Thoughts in history | depends on `include_thoughts` | not carried in history; logged in full by the controller | Context; analysis of §7.2 from the log |
 | Turn | ADK `run_async` turn | one model call; loop ends right after the batch that calls `submit_patch` | Simpler, identical across arms |
 | Agent instruction | competitor `agent.yaml` | fixed one-line instruction (`loop.AGENT_INSTRUCTION`) | No agent design is studied |
-| Sandbox | Docker, `network_mode=none`, 4 GiB, 2 vCPU | subprocess backend (as the official one), scrubbed env; network off by the platform (Kaggle L4x4) | No Docker on Kaggle |
+| Sandbox | Docker, `network_mode=none`, 4 GiB, 2 vCPU | subprocess backend (as the official one), scrubbed env; network off by the platform (Kaggle L4x4); commands, file tools and graph source reads as an unprivileged uid per slot | No Docker on Kaggle |
+| Model call limits | ADK defaults | each model call (and its retries) bounded by the remaining session time; 4xx other than auth/not-found ends the episode as `bad_request` | Keeps every run inside its time budget |
 
 ## Frozen before the pilot
 `harness.contract.contract_hash()` hashes every `harness/*.py`; it is logged in every

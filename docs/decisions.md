@@ -63,3 +63,27 @@ manipulation or estimand. All six pilots regenerated again with the final prompt
 - Pending author decisions before the pilot: D3 items (template overlay, replica harness, graph
   updated after edits as in §7.1, isolation as implemented) and the go-ahead for the 72-run pilot
   (default budget: 100 tool calls, 60 min, reasoning on, concurrency 8).
+
+### D5. Isolation and runner after Astra's second review (agent; stricter only)
+Astra (2026-11-07, docs/advice) found that D4's residual risks were not residual: the
+world-readable `/kaggle/src/script.py` carries the whole code bundle (37 oracles, solutions,
+all framings) in reversible base64, and the evaluator uid owned the bank. Commit a51a561:
+- `/kaggle` is chmod 0700 by root before any agent process exists: kernel source, inputs and
+  working dir are denied to agent/evaluator uids (CPU probe `twinguard-isolation-probe2`,
+  pinned image: all four denied; python/pytest still usable by the agent).
+- vLLM listens only on a Unix socket in `/root/tgv` (0700); no TCP. An API key was rejected:
+  vLLM 0.19.1 checks it only on `/v1` routes, `/invocations` stays open.
+- The kernel aborts unless every denial check passes (sources, inputs, working dir, oracles,
+  bank, harness, socket dir; the socket and TCP 8000 after the server starts).
+- Agent file tools and graph source reads run as the agent uid (no controller reads on the
+  agent's behalf). One evaluator uid per slot; evaluation on a private copy of the oracle;
+  the bank is root-only; evaluator processes killed after each evaluation.
+- Runner arguments travel in a root-only @file (the process list is visible to all uids).
+- Resume never re-runs a finished episode; oracle errors go to blind adjudication
+  (`runner/adjudicate.py`); `--stop-at` keeps every run inside the 12 h session.
+- Pilot blinding: the kernel runs `twinguard_analysis.py --pilot` and writes a framing-free
+  CSV; raw results (framings, logs) are sealed in `results_sealed.tar.gz` whose SHA-256 is
+  reported, and are not opened before the authorized decoding except to debug a failure,
+  with the reason logged.
+Remaining, declared: `ps` shows command lines of all processes (the vLLM model path and the
+runner path, no study terms); engine-internal local sockets of vLLM workers.
