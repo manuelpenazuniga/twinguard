@@ -67,21 +67,24 @@ def files_of(root):
 EXEC_PREFIX = []
 
 
-def py_env(workspace):
+def py_env(workspace, tmp=None):
     import os
     env = {k: v for k, v in os.environ.items() if k in ('PATH', 'LANG', 'LC_ALL', 'TZ', 'HOME')}
     env['PATH'] = str(Path(sys.executable).parent) + os.pathsep + env.get('PATH', '')
     env['PYTHONPATH'] = str(workspace)
     env['PYTHONDONTWRITEBYTECODE'] = '1'
+    if tmp:   # per-evaluation scratch: nothing shared between evaluations
+        env.update(HOME=str(tmp), TMPDIR=str(tmp))
     return env
 
 
-def run_tests(workspace):
+def run_tests(workspace, prefix=None, tmp=None):
+    prefix = EXEC_PREFIX if prefix is None else prefix
     try:
-        r = subprocess.run([*EXEC_PREFIX, sys.executable, '-m', 'pytest', '-q', '-p',
+        r = subprocess.run([*prefix, sys.executable, '-m', 'pytest', '-q', '-p',
                             'no:cacheprovider', 'tests'],
-                           cwd=workspace, env=py_env(workspace), capture_output=True, text=True,
-                           timeout=TEST_TIMEOUT)
+                           cwd=workspace, env=py_env(workspace, tmp), capture_output=True,
+                           text=True, timeout=TEST_TIMEOUT)
     except subprocess.TimeoutExpired:   # candidate code hangs the visible tests: F = 0
         return {'exit_code': None, 'passed': False, 'summary': f'timeout {TEST_TIMEOUT}s'}
     tail = (r.stdout + r.stderr).strip().splitlines()[-1:] or ['']
@@ -115,11 +118,13 @@ def validate_oracle_output(stdout, returncode):
     return out['crash'], dict(sorted(checks.items()))
 
 
-def run_oracle(template_dir, workspace):
+def run_oracle(template_dir, workspace, prefix=None, tmp=None):
+    prefix = EXEC_PREFIX if prefix is None else prefix
     oracle = Path(template_dir) / 'oracle' / 'oracle.py'
     try:
-        r = subprocess.run([*EXEC_PREFIX, sys.executable, str(oracle), str(workspace)],
-                           cwd=tempfile.gettempdir(), env=py_env(workspace),
+        r = subprocess.run([*prefix, sys.executable, str(oracle), str(workspace)],
+                           cwd=str(tmp) if tmp else tempfile.gettempdir(),
+                           env=py_env(workspace, tmp),
                            capture_output=True, text=True, timeout=ORACLE_TIMEOUT)
         crash, checks = validate_oracle_output(r.stdout, r.returncode)
         out = {'crash': crash, 'checks': checks}

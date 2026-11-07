@@ -9,11 +9,18 @@ Declared differences from the official harness (beyond the tool list):
   * context compaction is deterministic elision of old tool outputs, not ADK's
     LLM-summarized EventsCompaction;
   * a turn = one model call; the loop ends right after the batch that calls
-    submit_patch (the official loop waits for the model's next text response).
+    submit_patch (the official loop waits for the model's next text response);
+  * model calls (and their retries) never outlast the session time budget.
+
+The endpoint may be a Unix domain socket (base_url 'unix:/path/to.sock'): on Kaggle vLLM
+listens only on a root-only socket, so agent processes cannot reach the model server.
 """
 import hashlib
+import http.client
+import inspect
 import json
 import os
+import socket
 import time
 import urllib.error
 import urllib.request
@@ -116,6 +123,21 @@ class EndpointError(Exception):
         self.transient = transient
 
 
+TRANSIENT_STATUS = (408, 429, 500, 502, 503, 504)
+
+
+class _UnixHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, path, timeout):
+        super().__init__('localhost', timeout=timeout)
+        self._path = path
+
+    def connect(self):
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(self.timeout)
+        s.connect(self._path)
+        self.sock = s
+
+
 class OpenAICompatClient:
     def __init__(self, base_url=None, model=None, api_key=None, timeout=900):
         self.base_url = (base_url or os.environ.get('TWINGUARD_BASE_URL',
@@ -124,21 +146,50 @@ class OpenAICompatClient:
                                              'google/gemma-4-31B-it-qat-w4a16-ct')
         self.api_key = api_key or os.environ.get('TWINGUARD_API_KEY', 'EMPTY')
         self.timeout = timeout
+        # 'unix:/run/x.sock' or 'unix:/run/x.sock:/v1' -> socket path + HTTP path prefix
+        self.uds = None
+        if self.base_url.startswith('unix:'):
+            rest = self.base_url[len('unix:'):]
+            sock, _, prefix = rest.partition(':')
+            self.uds, self.prefix = sock, (prefix or '/v1').rstrip('/')
 
-    def chat(self, body):
-        body = {'model': self.model, **body}
-        req = urllib.request.Request(
-            self.base_url + '/chat/completions', data=json.dumps(body).encode(),
-            headers={'Content-Type': 'application/json',
-                     'Authorization': f'Bearer {self.api_key}'})
+    def request(self, method, path, body=None, timeout=None):
+        """JSON request; raises EndpointError(status, transient)."""
+        timeout = self.timeout if timeout is None else timeout
+        data = json.dumps(body).encode() if body is not None else None
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {self.api_key}'}
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            if self.uds:
+                conn = _UnixHTTPConnection(self.uds, timeout)
+                try:
+                    conn.request(method, self.prefix + path, body=data, headers=headers)
+                    r = conn.getresponse()
+                    raw = r.read()
+                finally:
+                    conn.close()
+                if r.status >= 400:
+                    raise EndpointError(raw.decode(errors='replace')[:2000], r.status,
+                                        r.status in TRANSIENT_STATUS)
+                return json.loads(raw)
+            req = urllib.request.Request(self.base_url + path, data=data, headers=headers,
+                                         method=method)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read())
+        except EndpointError:
+            raise
         except urllib.error.HTTPError as e:
             text = e.read().decode(errors='replace')[:2000]
-            raise EndpointError(text, e.code, e.code in (429, 500, 502, 503, 504)) from None
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            raise EndpointError(text, e.code, e.code in TRANSIENT_STATUS) from None
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError,
+                http.client.HTTPException) as e:
             raise EndpointError(str(e), None, True) from None
+
+    def chat(self, body, timeout=None):
+        return self.request('POST', '/chat/completions', {'model': self.model, **body},
+                            timeout)
+
+    def models(self):
+        return self.request('GET', '/models', timeout=30)
 
 
 # ================================================================ episode
@@ -200,6 +251,7 @@ def run_episode(task, workspace, client, budget, log_path, sampling, clock=time.
         prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(), messages=messages)
 
     box.start_session()
+    chat_takes_timeout = 'timeout' in inspect.signature(client.chat).parameters
     turns, nudges, last_prompt_tokens = 0, 0, 0
     usage_total = {'prompt_tokens': 0, 'completion_tokens': 0, 'reasoning_tokens': 0}
     reason = None
@@ -219,25 +271,37 @@ def run_episode(task, workspace, client, budget, log_path, sampling, clock=time.
         body = request_body(messages, budget, sampling, max_tokens)
         resp, attempt = None, 0
         while resp is None:
+            remaining = box.time_remaining()
+            if remaining <= 0:
+                reason = 'time_budget'
+                break
             try:
-                resp = client.chat(body)
+                # a model call never outlasts the session's time budget
+                resp = (client.chat(body, timeout=max(1.0, remaining)) if chat_takes_timeout
+                        else client.chat(body))
             except EndpointError as exc:
                 rec('endpoint_error', status=exc.status, transient=exc.transient,
                     message=str(exc)[:500], attempt=attempt)
-                if exc.status == 400 and 'context' in str(exc).lower() and attempt == 0:
+                low = str(exc).lower()
+                if exc.status == 400 and 'context' in low and attempt == 0:
                     _compact(messages, 2)
                     body = request_body(messages, budget, sampling, budget.thinking_budget)
                     attempt += 1
                     continue
+                if box.time_remaining() <= 0:
+                    reason = 'time_budget'
+                    break
                 if not exc.transient or attempt >= max_retries:
-                    if exc.status == 400:
+                    if exc.status == 400 and ('context' in low or 'token' in low):
                         reason = 'context_overflow'
-                    elif exc.status in (401, 403, 404):
+                    elif exc.status in (401, 403, 404, 405):
                         reason = 'config_error'   # wrong endpoint/model/key: never retried
+                    elif exc.status is not None and 400 <= exc.status < 500:
+                        reason = 'bad_request'    # request rejected (not infrastructure)
                     else:
                         reason = 'infra_error'
                     break
-                sleep(min(60.0, 2.0 * 2 ** attempt))
+                sleep(max(0.0, min(60.0, 2.0 * 2 ** attempt, box.time_remaining())))
                 attempt += 1
         if reason:
             break

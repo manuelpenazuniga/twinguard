@@ -36,7 +36,7 @@ def args(tmp_path, bank, spec, **kw):
              out=str(tmp_path / 'out'), work=str(tmp_path / 'work'), base_url=None, model='fake',
              concurrency=2, budget_json='{"tool_calls": 10, "time_minutes": 5}', run_as=None,
              eval_user=None, model_revision='52f3f65', allow_unisolated=True, environment_id='test-env', code_commit='abc', limit=0,
-             keep_work=False)
+             keep_work=False, stop_at=0)
     a.update(kw)
     return argparse.Namespace(**a)
 
@@ -172,3 +172,119 @@ def test_config_error_aborts(tmp_path, bank):
     with pytest.raises(R.ConfigError):
         R.Runner(args(tmp_path, b, spec, concurrency=1), client=Wrong()).run(
             R.schedule(b, spec, 'pilot', 1, 1)[:1])
+
+
+# ---------------------------------------------------------------- Astra review 2026-11-07
+class Counting(Client):
+    def __init__(self):
+        self.calls = 0
+
+    def chat(self, body):
+        self.calls += 1
+        return super().chat(body)
+
+
+def _drop_finals(path):
+    lines = [l for l in path.read_text().splitlines() if '"final": true' not in l]
+    path.write_text('\n'.join(lines) + '\n')
+
+
+def test_resume_after_episode_done_never_reruns_the_agent(tmp_path, bank):
+    b, spec = bank
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:2]
+    R.Runner(args(tmp_path, b, spec), client=Client()).run(runs)
+    att = tmp_path / 'out' / 'attempts.jsonl'
+    before = list(csv.DictReader(open(tmp_path / 'out' / 'runs.csv')))
+    _drop_finals(att)                      # crash after the episode, before evaluation
+    c = Counting()
+    R.Runner(args(tmp_path, b, spec), client=c).run(runs)
+    assert c.calls == 0
+    after = list(csv.DictReader(open(tmp_path / 'out' / 'runs.csv')))
+    key = lambda r: (r['run_id'], r['status'], r['W'], r['F'], r['M'], r['attempts'])
+    assert sorted(map(key, after)) == sorted(map(key, before))
+
+
+def test_two_crashed_tries_become_infra_failed_without_a_third(tmp_path, bank):
+    b, spec = bank
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:1]
+    out = tmp_path / 'out'
+    r = R.Runner(args(tmp_path, b, spec), client=Client())
+    r.check_manifest(runs)
+    for t in (1, 2):
+        r.log({'run_id': runs[0]['run_id'], 'event': 'start', 'try': t})
+    c = Counting()
+    R.Runner(args(tmp_path, b, spec), client=c).run(runs)
+    row = list(csv.DictReader(open(out / 'runs.csv')))[0]
+    assert c.calls == 0 and row['status'] == 'infra_failed' and row['attempts'] == '2'
+
+
+def test_truncated_last_line_is_tolerated_and_new_events_start_clean(tmp_path, bank):
+    b, spec = bank
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:1]
+    r = R.Runner(args(tmp_path, b, spec), client=Client())
+    r.check_manifest(runs)
+    att = tmp_path / 'out' / 'attempts.jsonl'
+    att.write_text('{"run_id": "x", "event": "start"}\n{"run_id": "x", "ev')
+    assert len(r.records()) == 1
+    r.log({'run_id': 'y', 'event': 'start'})
+    assert [x['run_id'] for x in r.records()] == ['x', 'y']
+    att.write_text('{"run_id": "x", "ev\n{"run_id": "y", "event": "start"}\n')
+    with pytest.raises(R.ConfigError):
+        r.records()
+
+
+def test_oracle_error_needs_blind_adjudication(tmp_path, bank):
+    b, spec = bank
+    oracle = b / 'FIXTURE.m1_toy' / 'oracle' / 'oracle.py'
+    oracle.write_text('import sys\nprint("not json")\n')
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:1]
+    a = args(tmp_path, b, spec)
+    r = R.Runner(a, client=Client())
+    r.run(runs)
+    row = list(csv.DictReader(open(tmp_path / 'out' / 'runs.csv')))[0]
+    assert row['status'] == 'indeterminate'
+    rec = list(r.done().values())[0]
+    assert rec['needs_adjudication'] is True
+    from runner import adjudicate as J
+    J.main(['export', '--out', a.out, '--bank', str(b), '--packets', str(tmp_path / 'pk')])
+    packets = list((tmp_path / 'pk').glob('*.json'))
+    assert len(packets) == 1
+    pk = json.loads(packets[0].read_text())
+    assert 'run_id' not in pk and 'framing' not in pk
+    assert 'batch service' not in json.dumps(pk) and 'AI agent' not in json.dumps(pk)
+    J.main(['record', '--out', a.out, '--code', pk['code'], '--resolved', 'yes', '--W', '0',
+            '--F', '1', '--crash', '0', '--adjudicator', 'test'])
+    R.Runner(a, client=Client()).write_csv()
+    row = list(csv.DictReader(open(tmp_path / 'out' / 'runs.csv')))[0]
+    assert row['status'] in ('patch', 'no_patch') and row['W'] in ('0', '')
+
+
+def test_deadline_skips_unstarted_runs_and_close_out_gives_every_run_a_row(tmp_path, bank):
+    b, spec = bank
+    import time as _t
+    runs = R.schedule(b, spec, 'pilot', 1, 1)
+    meta = R.Runner(args(tmp_path, b, spec, stop_at=_t.time() - 1), client=Client()).run(runs)
+    assert meta['completed'] == 0 and meta['skipped_by_deadline'] == len(runs)
+    r = R.Runner(args(tmp_path, b, spec), client=Client())
+    assert r.close_out(runs) == len(runs)
+    rows = list(csv.DictReader(open(tmp_path / 'out' / 'runs.csv')))
+    assert len(rows) == len(runs) and {x['status'] for x in rows} == {'infra_failed'}
+
+
+def test_evaluation_uses_a_private_oracle_copy(tmp_path, bank):
+    b, spec = bank
+    tdir = b / 'FIXTURE.m1_toy'
+    ev = R.evaluate(tdir, 'N', '', tmp_path / 'ev')
+    assert (tmp_path / 'ev' / 'tpl' / 'oracle' / 'oracle.py').exists()
+    assert ev['oracle'] and 'oracle_error' not in ev['oracle']
+
+
+def test_users_must_be_distinct_and_unprivileged():
+    import getpass
+    me = getpass.getuser()
+    with pytest.raises(SystemExit):
+        R.check_users([me], [me])
+    with pytest.raises(SystemExit):
+        R.check_users(['root'], ['nobody'])
+    with pytest.raises(SystemExit):
+        R.check_users(['no_such_user_tg'], ['nobody'])

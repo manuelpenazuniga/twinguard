@@ -39,20 +39,40 @@ def tree_hash(root):
     return h.hexdigest()
 
 
+def sources_hash(sources):
+    h = hashlib.sha256()
+    for rel in sorted(sources):
+        h.update(rel.encode() + b'\0' + sources[rel].encode('utf-8', 'replace') + b'\0')
+    return h.hexdigest()
+
+
 class GraphIndex:
-    def __init__(self, root):
-        self.root = root
+    def __init__(self, root, workspace=None):
+        self.root = Path(root)
+        # with an unprivileged workspace, sources are read AS THE AGENT UID (no controller
+        # reads on the agent's behalf; closes symlink and check/use races)
+        self.ws = workspace if workspace is not None and workspace.run_as else None
         self._key = None
         self._graph = None
         self.builds = 0
 
     def graph(self):
-        key = tree_hash(self.root)
+        if self.ws is not None:
+            sources = self.ws.py_sources()
+            key = sources_hash(sources)
+        else:
+            sources = None
+            key = tree_hash(self.root)
         if key != self._key:
             with tempfile.TemporaryDirectory(prefix='g_') as tmp:
-                for rel in own_py_files(self.root):
-                    (Path(tmp) / rel).parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copyfile(self.root / rel, Path(tmp) / rel)
+                if sources is not None:
+                    for rel, text in sources.items():
+                        (Path(tmp) / rel).parent.mkdir(parents=True, exist_ok=True)
+                        (Path(tmp) / rel).write_text(text, encoding='utf-8')
+                else:
+                    for rel in own_py_files(self.root):
+                        (Path(tmp) / rel).parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(self.root / rel, Path(tmp) / rel)
                 self._graph = build_graph(tmp)
             self._key = key
             self.builds += 1

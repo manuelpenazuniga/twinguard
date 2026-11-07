@@ -47,7 +47,7 @@ class ToolBox:
         self.ws = workspace
         self.budget = budget
         self.clock = clock
-        self.graph = GraphIndex(workspace.root)
+        self.graph = GraphIndex(workspace.root, workspace)
         self.tool_calls_used = 0
         self.patch_submitted = False
         self.submitted_patch = ''
@@ -137,9 +137,12 @@ class ToolBox:
 
     def t_read_file(self, filepath: str, start_line: int = None, end_line: int = None):
         full = self.ws.resolve(filepath)
-        if not full.is_file():
+        if self.ws.kind(full) != 'file':
             return C.error(C.FileNotFound, f'file not found: {filepath}')
-        lines = full.read_text(encoding='utf-8', errors='replace').splitlines(keepends=True)
+        try:
+            lines = self.ws.read_text(full).splitlines(keepends=True)
+        except OSError as exc:
+            return C.error(C.FileReadError, f'cannot read {filepath}: {exc}')
         total = len(lines)
         s = max(1, start_line or 1)
         e = total if end_line is None else min(end_line, total)
@@ -163,9 +166,12 @@ class ToolBox:
     def t_edit_file(self, filepath: str, old_string: str, new_string: str,
                     allow_multiple: bool = False):
         full = self.ws.resolve(filepath)
-        if not full.is_file():
+        if self.ws.kind(full) != 'file':
             return C.error(C.FileEditError, f'file not found: {filepath}')
-        before = full.read_text(encoding='utf-8', errors='replace')
+        try:
+            before = self.ws.read_text(full)
+        except OSError as exc:
+            return C.error(C.FileEditError, f'cannot read {filepath}: {exc}')
         if before == '':
             return C.error(C.FileEditError, f'file is empty: {filepath}')
         try:
@@ -173,7 +179,10 @@ class ToolBox:
                                                    allow_multiple)
         except EditError as exc:
             return C.error(C.FileEditError, str(exc))
-        full.write_text(after, encoding='utf-8')
+        try:
+            self.ws.write_text(full, after)
+        except OSError as exc:
+            return C.error(C.FileEditError, f'cannot write {filepath}: {exc}')
         rel = self.ws.rel(full)
         diff = ''.join(difflib.unified_diff(
             before.replace('\r\n', '\n').splitlines(keepends=True),
@@ -184,10 +193,12 @@ class ToolBox:
 
     def t_write_file(self, filepath: str, content: str):
         full = self.ws.resolve(filepath)
-        if full.is_dir():
+        if self.ws.kind(full) == 'dir':
             return C.error(C.FileWriteError, f'[Errno 21] Is a directory: {filepath}')
-        full.parent.mkdir(parents=True, exist_ok=True)
-        full.write_text(content, encoding='utf-8')
+        try:
+            self.ws.write_text(full, content)
+        except OSError as exc:
+            return C.error(C.FileWriteError, f'cannot write {filepath}: {exc}')
         return {'status': 'ok', 'filepath': self.ws.rel(full), 'size': len(content)}
 
     def t_submit_patch(self):

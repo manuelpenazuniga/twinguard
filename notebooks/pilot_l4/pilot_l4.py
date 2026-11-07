@@ -29,7 +29,15 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 OUT = Path('/kaggle/working/pilot_results.json')
-MODE = 'runner_smoke'   # 'runner_smoke' (toy fixture, 6 runs) or 'pilot' (72 runs); set at build time
+MODE = 'runner_smoke'   # 'runner_smoke' (toy fixture, 6 runs) or 'pilot' (72 + 9 runs); build --define
+KERNEL_T0 = time.time()
+SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
+STOP_MARGIN_S = 90 * 60          # no run starts later than this before the limit (60 min budget + eval)
+AGENTS = [f'tgagent{i}' for i in range(8)]
+EVALS = [f'tgeval{i}' for i in range(8)]
+UDS_DIR = Path('/root/tgv')      # vLLM listens ONLY on a root-only Unix socket
+UDS = UDS_DIR / 'vllm.sock'
+DIVERSITY_REPLICATES = 3         # 9.1 seed diversity: r2..r4 on one pilot template, paraphrase 1
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -141,6 +149,25 @@ def model_path():
 SERVED = {}   # port -> served model id
 
 
+def uds_request(method, path, body=None, timeout=10):
+    import http.client, socket
+
+    class Conn(http.client.HTTPConnection):
+        def connect(self):
+            so = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            so.settimeout(timeout)
+            so.connect(str(UDS))
+            self.sock = so
+    c = Conn('localhost', timeout=timeout)
+    try:
+        c.request(method, path, body=json.dumps(body).encode() if body is not None else None,
+                  headers={'Content-Type': 'application/json'})
+        r = c.getresponse()
+        return r.status, r.read()
+    finally:
+        c.close()
+
+
 def start_server(tp, gpus, port, tag, extra=()):
     """Official adk_submission.VllmServer with the getting-started notebook's VllmConfig."""
     os.environ.update(CUDA_VISIBLE_DEVICES=gpus, VLLM_NO_USAGE_STATS='1',
@@ -149,13 +176,23 @@ def start_server(tp, gpus, port, tag, extra=()):
                       VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS='1', NCCL_DEBUG='WARN',
                       PYTORCH_CUDA_ALLOC_CONF='expandable_segments:True')
     from adk_submission import VllmConfig, VllmServer
+    use_uds = '--uds' in extra
+
+    class Server(VllmServer):
+        def is_healthy(self):
+            if not use_uds:
+                return super().is_healthy()
+            try:
+                return uds_request('GET', '/health', timeout=2)[0] == 200
+            except Exception:
+                return False
     cfg = VllmConfig(model=str(MODEL), port=port, host='127.0.0.1', tool_call_parser='gemma4',
                      reasoning_parser='gemma4', max_model_len=32768, dtype='bfloat16',
                      gpu_memory_utilization=0.90, enable_auto_tool_choice=True,
                      enable_lora=False, scheduler_reserve_full_isl=False,
                      tensor_parallel_size=tp, startup_timeout=60 * 20, extra_args=tuple(extra))
     t0 = time.time()
-    srv = VllmServer(cfg)
+    srv = Server(cfg)
     box = {}
 
     def run():
@@ -182,8 +219,12 @@ def start_server(tp, gpus, port, tag, extra=()):
                 raise RuntimeError('engine failed: ' + text[-1500:])
     if 'err' in box:
         raise box['err']
-    with urllib.request.urlopen(f'http://127.0.0.1:{port}/v1/models', timeout=10) as r:
-        SERVED[port] = json.loads(r.read())['data'][0]['id']
+    if use_uds:
+        st, raw = uds_request('GET', '/v1/models')
+        SERVED[port] = json.loads(raw)['data'][0]['id']
+    else:
+        with urllib.request.urlopen(f'http://127.0.0.1:{port}/v1/models', timeout=10) as r:
+            SERVED[port] = json.loads(r.read())['data'][0]['id']
     return srv, round(time.time() - t0, 1), list(extra)
 
 
@@ -419,78 +460,193 @@ def run_config(tag, layout):
 ISO = {}
 
 
+def as_user(u, cmd):
+    return sh(f'setpriv --reuid={u} --regid={u} --clear-groups --no-new-privs -- '
+              f'bash -c {json.dumps(cmd)} >/dev/null 2>&1; echo $?')
+
+
 @phase('8_isolation')
 def isolation(code):
-    """Unprivileged agent and evaluator uids; controller dirs 0700 (docs/decisions.md D3)."""
+    """Unprivileged agent/evaluator uid per slot; /kaggle (kernel source with the bundled bank,
+    inputs, working dir) closed to them; bank root-only; vLLM on a root-only Unix socket.
+    Every denial is CHECKED and the kernel aborts if any is missing (docs/decisions.md D5)."""
     out = {}
-    for u in [f'tgagent{i}' for i in range(8)] + ['tgeval']:
-        out[f'useradd_{u}'] = sh(f'id {u} || useradd -M -s /bin/bash {u}; id {u}')
-    # experiment code and kernel source readable by root only; the running script is already
-    # in memory, so its source file is removed when possible
-    out['src_before'] = sh('ls -la /kaggle/src 2>&1 | head -5')
-    out['src_remove'] = sh('chmod -R go-rwx /kaggle/src 2>&1; rm -f /kaggle/src/*.py 2>&1; ls -la /kaggle/src 2>&1 | head -5')
-    sh(f'chmod -R go-rwx {code}; chmod 711 /kaggle/working')
-    bank = code / 'bank'
-    # the evaluator uid needs the oracles; give it the bank but keep everything else root-only
-    sh(f'chown -R tgeval:tgeval {bank} && chmod -R go-rwx {bank} && chmod 711 {code}')
-    for d in ('/kaggle/working/results', '/kaggle/working/code'):
-        sh(f'mkdir -p {d}')
-    sh('chmod 700 /kaggle/working/results')
+    for u in AGENTS + EVALS:
+        out[f'useradd_{u}'] = sh(f'id {u} >/dev/null 2>&1 || useradd -M -s /bin/bash {u}; id -u {u}')
+    sh(f'chmod -R go-rwx {code}')                      # harness, bank, oracles: root only
+    sh('chmod 0700 /kaggle')                            # /kaggle/src holds the code bundle
+    sh('chmod 0700 /root')
+    UDS_DIR.mkdir(parents=True, exist_ok=True)
+    UDS_DIR.chmod(0o700)
     work = Path('/tmp/wk'); work.mkdir(exist_ok=True); work.chmod(0o711)
-    sp = 'setpriv --reuid=tgagent0 --regid=tgagent0 --clear-groups --no-new-privs --'
     oracle = next((code / 'bank' / 'templates').glob('*/oracle/oracle.py'))
-    out['agent_reads_oracle'] = sh(f'{sp} cat {oracle} >/dev/null 2>&1; echo rc=$?')
-    out['agent_lists_results'] = sh(f'{sp} ls /kaggle/working/results >/dev/null 2>&1; echo rc=$?')
-    out['agent_lists_bank'] = sh(f'{sp} ls {bank} >/dev/null 2>&1; echo rc=$?')
-    out['agent_reads_harness'] = sh(f'{sp} cat {code}/harness/loop.py >/dev/null 2>&1; echo rc=$?')
-    out['agent_reads_kernel_src'] = sh(f'{sp} ls /kaggle/src >/dev/null 2>&1; echo rc=$?')
-    out['iptables'] = sh('for u in tgagent0 tgagent1 tgagent2 tgagent3 tgagent4 tgagent5 tgagent6 tgagent7 tgeval; do iptables -A OUTPUT -o lo -p tcp --dport 8000 -m owner --uid-owner $u -j REJECT; done 2>&1; echo rc=$?')
+    probes = {'kernel_src_ls': 'ls /kaggle/src', 'kernel_src_cat': 'cat /kaggle/src/script.py',
+              'inputs_ls': 'ls /kaggle/input', 'working_ls': 'ls /kaggle/working',
+              'oracle_cat': f'cat {oracle}', 'bank_ls': f'ls {code}/bank/templates',
+              'harness_cat': f'cat {code}/harness/loop.py', 'root_ls': 'ls /root',
+              'uds_dir_ls': f'ls {UDS_DIR}'}
+    failures = []
+    for u in (AGENTS[0], EVALS[0], AGENTS[-1], EVALS[-1]):
+        for k, c in probes.items():
+            rc = as_user(u, c)
+            out[f'{u}_{k}_rc'] = rc
+            if rc == '0':
+                failures.append(f'{u}:{k}')
+    out['python_ok_as_agent'] = as_user(AGENTS[0], f'{sys.executable} -c "import pytest"')
+    if out['python_ok_as_agent'] != '0':
+        failures.append('agent cannot run python/pytest')
+    out['failures'] = failures
     ISO.update(out)
+    if failures:
+        raise RuntimeError(f'isolation checks failed: {failures}')
     return out
 
 
-def run_runner(code, port, mode):
-    import shlex
+@phase('8b_server_unreachable')
+def server_unreachable():
+    """After vLLM is up: no agent/evaluator uid can reach it (socket or TCP)."""
+    probe_uds = (f"{sys.executable} -c \"import socket;s=socket.socket(socket.AF_UNIX);"
+                 f"s.connect('{UDS}')\"")
+    probe_tcp = (f"{sys.executable} -c \"import socket,sys;s=socket.socket();s.settimeout(2);"
+                 f"sys.exit(0 if s.connect_ex(('127.0.0.1',8000))==0 else 1)\"")
+    out, failures = {}, []
+    for u in (AGENTS[0], EVALS[0]):
+        out[f'{u}_uds_rc'] = as_user(u, probe_uds)
+        out[f'{u}_tcp8000_rc'] = as_user(u, probe_tcp)
+        if out[f'{u}_uds_rc'] == '0' or out[f'{u}_tcp8000_rc'] == '0':
+            failures.append(u)
+    out['root_health'] = uds_request('GET', '/health')[0]
+    if failures or out['root_health'] != 200:
+        raise RuntimeError(f'server reachable by {failures} or unhealthy: {out}')
+    return out
+
+
+def runner_cmd(code, mode, out_dir, extra):
     env_id = ('kaggle-L4x4|' + sh("nvidia-smi --query-gpu=name --format=csv,noheader | sort | uniq -c | tr -s ' '")
               + '|img:37c64f7d|vllm0.19.1|tp4|model:52f3f65-overlay')
-    out_dir = Path('/kaggle/working/results') / mode
-    if mode == 'runner_smoke':
-        spec = Path('/tmp/fixture_spec.csv')
-        fb = Path('/tmp/fixture_bank'); fb.mkdir(exist_ok=True)
-        dst = fb / 'FIXTURE.m1_toy'
-        if not dst.exists():
-            shutil.copytree(code / 'tests' / 'fixtures' / 'tpl_m1', dst)
-            m = json.loads((dst / 'template.json').read_text())
-            m['issue_paraphrases'] = [m['problem_statement']] * 4
-            (dst / 'template.json').write_text(json.dumps(m))
-            sh(f'chown -R tgeval:tgeval {fb} && chmod -R go-rwx {fb}')
-        spec.write_text('template_id,split,family,mechanism\nFIXTURE.m1_toy,pilot,logistics,M1\n')
-        extra = ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--concurrency', '3']
-    else:
-        extra = ['--concurrency', '8']
-    cmd = [sys.executable, str(code / 'runner' / 'runner.py'), '--split', 'pilot',
-           '--replicates', '1', '--out', str(out_dir), '--work', '/tmp/wk',
-           '--base-url', f'http://127.0.0.1:{port}/v1', '--model', SERVED[port],
-           '--model-revision', R['verified_revision'],
-           '--run-as', ','.join(f'tgagent{i}' for i in range(8)), '--eval-user', 'tgeval', '--environment-id', env_id,
-           '--code-commit', CODE_COMMIT, *extra]
+    args = ['--split', 'pilot', '--out', str(out_dir), '--work', '/tmp/wk',
+            '--base-url', f'unix:{UDS}', '--model', SERVED[8000],
+            '--model-revision', R['verified_revision'],
+            '--run-as', ','.join(AGENTS), '--eval-user', ','.join(EVALS),
+            '--concurrency', str(len(AGENTS)), '--environment-id', env_id,
+            '--code-commit', CODE_COMMIT,
+            '--stop-at', str(KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S), *extra]
+    # arguments go through a root-only file: the process list is visible to every uid
+    argf = UDS_DIR / f'args_{out_dir.name}'
+    argf.write_text('\n'.join(args) + '\n')
+    return [sys.executable, str(code / 'runner' / 'runner.py'), f'@{argf}']
+
+
+def blind_summary(out_dir):
+    """Pooled, framing-free numbers only (9.2)."""
+    import csv as _csv
+    csvp = out_dir / 'runs.csv'
+    if not csvp.exists():
+        return {}
+    rows = list(_csv.DictReader(open(csvp)))
+    res = {'n_rows': len(rows),
+           'status_counts': {s: sum(1 for x in rows if x['status'] == s) for s in {x['status'] for x in rows}},
+           'termination_counts': {s: sum(1 for x in rows if x['termination'] == s) for s in {x['termination'] for x in rows}}}
+    el = [float(x['elapsed_seconds']) for x in rows if x['elapsed_seconds']]
+    res['mean_elapsed_s'] = round(sum(el) / max(1, len(el)), 1)
+    res['max_elapsed_s'] = round(max(el or [0]), 1)
+    return res
+
+
+def run_block(code, mode, name, extra):
+    out_dir = Path('/kaggle/working/results') / name
+    cmd = runner_cmd(code, mode, out_dir, extra)
     t0 = time.time()
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code))
-    res = {'cmd': ' '.join(shlex.quote(c) for c in cmd), 'rc': r.returncode,
-           'wall_seconds': round(time.time() - t0, 1), 'stdout_tail': r.stdout[-2000:],
-           'stderr_tail': r.stderr[-3000:]}
-    csvp = out_dir / 'runs.csv'
-    if csvp.exists():
-        import csv as _csv
-        rows = list(_csv.DictReader(open(csvp)))
-        res['n_rows'] = len(rows)
-        res['status_counts'] = {s: sum(1 for x in rows if x['status'] == s)
-                                for s in {x['status'] for x in rows}}
-        res['mean_elapsed_s'] = round(sum(float(x['elapsed_seconds'] or 0) for x in rows) / max(1, len(rows)), 1)
-        res['mean_turns'] = round(sum(float(x['turns'] or 0) for x in rows) / max(1, len(rows)), 1)
-        # BLIND: no W/F by framing is printed here (protocol 9.2); pooled rates only via --pilot.
-    shutil.copytree(out_dir, f'/kaggle/working/out_{mode}', dirs_exist_ok=True)
+    res = {'rc': r.returncode, 'wall_seconds': round(time.time() - t0, 1),
+           'stdout_tail': r.stdout[-1500:], 'stderr_tail': r.stderr[-3000:]}
+    try:
+        meta = json.loads((out_dir / 'session_summary.json').read_text())
+        res['session'] = {k: meta.get(k) for k in ('scheduled', 'completed', 'ran_now',
+                                                   'skipped_by_deadline', 'needs_adjudication',
+                                                   'wall_seconds_this_session', 'concurrency')}
+    except Exception:
+        pass
+    res.update(blind_summary(out_dir))
     return res
+
+
+def pilot_gates(code):
+    """twinguard_analysis.py --pilot: pooled rates and gates only (blind by construction)."""
+    out_dir = Path('/kaggle/working/results') / 'pilot'
+    r = subprocess.run([sys.executable, str(code / 'twinguard' / 'twinguard_analysis.py'),
+                        str(out_dir / 'runs.csv'), '--pilot', '--replicates', '1'],
+                       capture_output=True, text=True, cwd=str(code))
+    Path('/kaggle/working/pilot_gates.txt').write_text(r.stdout + '\n' + r.stderr[-3000:])
+    return {'rc': r.returncode, 'report': r.stdout[-4000:], 'stderr_tail': r.stderr[-1500:]}
+
+
+def diversity_block(code):
+    """9.1: extra seeds (r2..r4) on one pilot template, paraphrase 1, all framings. Reported
+    pooled: mean number of distinct patches among the 4 seeds of a cell."""
+    import csv as _csv
+    tid = sorted(r['template_id'] for r in _csv.DictReader(open(code / 'bank' / 'spec_matrix.csv'))
+                 if r['split'] == 'pilot')[0]
+    res = run_block(code, 'pilot', 'pilot_diversity',
+                    ['--only-template', tid, '--only-paraphrase', '1', '--first-replicate', '2',
+                     '--replicates', str(DIVERSITY_REPLICATES)])
+    pats = {}
+    for name in ('pilot', 'pilot_diversity'):
+        for pf in (Path('/kaggle/working/results') / name / 'patches').glob(f'*{tid}*__p1__*.patch'):
+            cell = pf.name.split('__')[2]            # framing: used ONLY as a grouping key
+            pats.setdefault(cell, []).append(hashlib.sha256(pf.read_bytes()).hexdigest())
+    distinct = [len(set(v)) for v in pats.values() if len(v) >= 2]
+    res['diversity'] = {'cells': len(distinct), 'seeds_per_cell': [len(v) for v in pats.values()],
+                        'mean_distinct_patches': round(sum(distinct) / max(1, len(distinct)), 2)}
+    return res
+
+
+def seal_results():
+    """Raw results (framings, logs) go into one archive whose hash is reported; only pooled
+    numbers and the blind CSV are left in the open (9.2)."""
+    import csv as _csv, tarfile
+    res_dir = Path('/kaggle/working/results')
+    for name in ('pilot', 'pilot_diversity', 'runner_smoke'):
+        csvp = res_dir / name / 'runs.csv'
+        if csvp.exists():
+            rows = list(_csv.DictReader(open(csvp)))
+            cols = [c for c in rows[0].keys() if c not in ('framing', 'run_id')] if rows else []
+            with open(f'/kaggle/working/runs_blind_{name}.csv', 'w', newline='') as f:
+                w = _csv.DictWriter(f, fieldnames=['row'] + cols)
+                w.writeheader()
+                for i, x in enumerate(sorted(rows, key=lambda x: hashlib.sha256(x['run_id'].encode()).hexdigest())):
+                    w.writerow({'row': i, **{c: x[c] for c in cols}})
+    sealed = Path('/kaggle/working/results_sealed.tar.gz')
+    with tarfile.open(sealed, 'w:gz') as t:
+        t.add(res_dir, arcname='results')
+    shutil.rmtree(res_dir)
+    return {'sealed': str(sealed), 'sha256': sha256(sealed), 'bytes': sealed.stat().st_size}
+
+
+def restore_previous():
+    """Resume: a previous version's sealed results attached as a kernel source."""
+    prev = sorted(glob.glob('/kaggle/input/**/results_sealed.tar.gz', recursive=True))
+    if not prev:
+        return {'resumed_from': None}
+    import tarfile
+    with tarfile.open(prev[-1]) as t:
+        t.extractall('/kaggle/working')
+    return {'resumed_from': prev[-1], 'sha256': sha256(prev[-1])}
+
+
+def smoke_block(code):
+    spec = UDS_DIR / 'fixture_spec.csv'
+    fb = UDS_DIR / 'fixture_bank'
+    fb.mkdir(exist_ok=True)
+    dst = fb / 'FIXTURE.m1_toy'
+    if not dst.exists():
+        shutil.copytree(code / 'tests' / 'fixtures' / 'tpl_m1', dst)
+        m = json.loads((dst / 'template.json').read_text())
+        m['issue_paraphrases'] = [m['problem_statement']] * 4
+        (dst / 'template.json').write_text(json.dumps(m))
+    spec.write_text('template_id,split,family,mechanism\nFIXTURE.m1_toy,pilot,logistics,M1\n')
+    return run_block(code, 'runner_smoke', 'runner_smoke',
+                     ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'])
 
 
 if __name__ == '__main__':
@@ -499,33 +655,40 @@ if __name__ == '__main__':
     procs = []
     try:
         code = code_dir()
-        isolation(code)
         MODEL = model_path()
         R['model_path'] = str(MODEL)
-
-        @phase('2_server_tp4')
-        def up():
-            p, secs, ex = start_server(4, '0,1,2,3', 8000, 'tp4_8000')
-            procs.append(p)
-            return {'load_seconds': secs, 'served': SERVED, 'extra_args': ex}
         h = model_hashes()
         if h['ok'] and h.get('all_match'):
             R['verified_revision'] = '52f3f65bc7a02d555763bc923bd1d9094898219d'
         else:
             raise SystemExit('served model files do not match HF 52f3f65: refusing to run')
-        if up()['ok']:
-            def port_checks():
-                probe = ("python3 -c \"import socket;s=socket.socket();s.settimeout(2);"
-                         "print(s.connect_ex(('127.0.0.1',8000)))\" 2>&1")
-                res = {}
-                for u in ('tgagent0', 'tgeval'):
-                    res[f'{u}_connect_rc'] = sh(f'setpriv --reuid={u} --regid={u} '
-                                                f'--clear-groups --no-new-privs -- {probe}')
-                return res
-            phase('8b_port_after_server')(port_checks)()
-            phase(f'9_runner_{MODE}')(lambda: run_runner(code, 8000, MODE))()
+        Path('/kaggle/working/results').mkdir(parents=True, exist_ok=True)
+        phase('8a_restore')(restore_previous)()
+        if not isolation(code)['ok']:
+            raise SystemExit('isolation checks failed: refusing to run')
+
+        @phase('2_server_tp4')
+        def up():
+            p, secs, ex = start_server(4, '0,1,2,3', 8000, 'tp4_8000', ('--uds', str(UDS)))
+            procs.append(p)
+            return {'load_seconds': secs, 'served': SERVED, 'extra_args': ex}
+        if up()['ok'] and server_unreachable()['ok']:
+            if MODE == 'pilot':
+                main = phase('9_runner_pilot')(lambda: run_block(code, 'pilot', 'pilot', ['--replicates', '1']))()
+                if main['ok']:
+                    phase('9b_pilot_gates')(lambda: pilot_gates(code))()
+                if time.time() < KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S:
+                    phase('9c_seed_diversity')(lambda: diversity_block(code))()
+            else:
+                phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:
         stop(procs)
+        try:
+            phase('10_seal')(seal_results)()
+        except Exception:
+            pass
+        sh('chmod 0755 /kaggle')
+        shutil.rmtree('/kaggle/working/code', ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         save()
         print('DONE', flush=True)

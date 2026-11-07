@@ -18,6 +18,47 @@ _WS_RE = re.compile(r'(?<![\w./-])/workspace(?=/|\b|$)')
 _TMP_RE = re.compile(r'(?<![\w./-])/tmp(?=/|\b|$)')
 SAFE_ENV_KEYS = ('PATH', 'LANG', 'LC_ALL', 'TZ')
 
+# File access on the agent's behalf runs AS THE AGENT UID when run_as is set, so a symlink
+# (or a file swapped for one between check and use) can never make the controller read or
+# write anything the agent itself could not (Astra pre-pilot review 2026-11-07).
+_FS_HELPER = r'''
+import json, os, stat, sys
+op, p = sys.argv[1], sys.argv[2]
+if op == 'stat':
+    try:
+        m = os.stat(p).st_mode
+        print('file' if stat.S_ISREG(m) else 'dir' if stat.S_ISDIR(m) else 'other')
+    except OSError:
+        print('none')
+elif op == 'read':
+    with open(p, 'rb') as f:
+        sys.stdout.buffer.write(f.read())
+elif op == 'write':
+    d = os.path.dirname(p)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    data = sys.stdin.buffer.read()
+    with open(p, 'wb') as f:
+        f.write(data)
+elif op == 'dump_py':
+    out = {}
+    for dp, dns, fns in os.walk(p):
+        dns[:] = sorted(d for d in dns if not d.startswith('.')
+                        and not os.path.islink(os.path.join(dp, d)))
+        for fn in sorted(fns):
+            full = os.path.join(dp, fn)
+            if not fn.endswith('.py') or os.path.islink(full):
+                continue
+            try:
+                if not stat.S_ISREG(os.lstat(full).st_mode):
+                    continue
+                with open(full, 'rb') as f:
+                    out[os.path.relpath(full, p)] = f.read().decode('utf-8', 'replace')
+            except OSError:
+                continue
+    sys.stdout.write(json.dumps(out))
+'''
+
 
 class WorkspaceError(Exception):
     def __init__(self, error_type, message):
@@ -77,6 +118,43 @@ class Workspace:
         """Terminate every process of the agent uid (nothing may survive the run)."""
         if self.run_as:
             subprocess.run(['pkill', '-KILL', '-u', str(self.run_as)], capture_output=True)
+
+    # ------------------------------------------------------------ file access
+    def _fs(self, op, path, data=None):
+        r = subprocess.run([*self.prefix(), sys.executable, '-I', '-S', '-c', _FS_HELPER, op,
+                            str(path)], cwd=self.root, env=self.env(), input=data,
+                           capture_output=True, timeout=60)
+        if r.returncode != 0:
+            msg = r.stderr.decode('utf-8', 'replace').strip().splitlines()[-1:] or ['']
+            raise OSError(msg[0])
+        return r.stdout
+
+    def kind(self, full):
+        """'file' | 'dir' | 'other' | 'none' as seen by the agent uid."""
+        if not self.run_as:
+            full = Path(full)
+            return 'file' if full.is_file() else 'dir' if full.is_dir() else \
+                ('other' if full.exists() else 'none')
+        return self._fs('stat', full).decode().strip()
+
+    def read_text(self, full):
+        if not self.run_as:
+            return Path(full).read_text(encoding='utf-8', errors='replace')
+        return self._fs('read', full).decode('utf-8', errors='replace')
+
+    def write_text(self, full, text):
+        if not self.run_as:
+            Path(full).parent.mkdir(parents=True, exist_ok=True)
+            Path(full).write_text(text, encoding='utf-8')
+            return
+        self._fs('write', full, text.encode('utf-8'))
+
+    def py_sources(self):
+        """{relative path: text} of regular, non-symlinked *.py files outside hidden dirs."""
+        if not self.run_as:
+            return None
+        import json
+        return json.loads(self._fs('dump_py', self.root))
 
     def rewrite(self, command):
         command = _WS_RE.sub(str(self.root), command)
