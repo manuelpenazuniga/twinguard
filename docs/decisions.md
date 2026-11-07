@@ -47,3 +47,19 @@ manipulation or estimand. All six pilots regenerated again with the final prompt
   declare. Plan for the runner (WP8): agent tools + git + tests as uid `tgagent` under setpriv; oracles,
   templates, logs, other runs in 0700 controller dirs; `pkill -KILL -u tgagent` after each run;
   oracle evaluation on a clean patched copy as a second unprivileged uid; verify denial before pilot.
+
+## 2026-11-07
+
+### D4. Pre-pilot state (agent)
+- Bank: 6 pilot + 30 confirmatory templates pass WP5 (final verifier), WP6 (GPT-6.1 Sol) and WP7
+  (Gemma 31B, kernel twinguard-wp7-l4 v2, code b335552). Each has 4 issue paraphrases, validated
+  automatically and judged equivalent by GPT-6.1 Sol (two templates' paraphrases regenerated).
+- Runner (runner/runner.py) reviewed by Astra; all "imprescindible" items addressed (c69a25d).
+  Runner smoke v3 on Kaggle (toy fixture, 6 runs, concurrency 3): all evaluated, ~100 s/run.
+- Isolation verified on Kaggle: agent uids cannot read oracles, bank, results, harness code or
+  other runs. **Residual, to declare:** `/kaggle/src/script.py` is read-only and world-readable
+  (the shipped script carries no docstrings/comments; the code bundle is base64 gzip), and the
+  vLLM port is reachable by the agent uid (no iptables, no network namespaces).
+- Pending author decisions before the pilot: D3 items (template overlay, replica harness, graph
+  updated after edits as in §7.1, isolation as implemented) and the go-ahead for the 72-run pilot
+  (default budget: 100 tool calls, 60 min, reasoning on, concurrency 8).
