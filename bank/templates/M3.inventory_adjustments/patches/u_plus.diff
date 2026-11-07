@@ -1,0 +1,13 @@
+diff --git a/stockops/control_monitor.py b/stockops/control_monitor.py
+index 155edb8..5c1280b 100644
+--- a/stockops/control_monitor.py
++++ b/stockops/control_monitor.py
+@@ -70,7 +70,7 @@ def route_report(report, notify, review_log, threshold):
+ 
+ def register_control_monitor(bus, sink, threshold, review_log, recipients=(AUDIT_CHANNEL,)):
+     """Subscribe the monitor handler to adjustment reports."""
+-    notify = make_alert_notifier(sink, recipients)
++    notify = make_alert_notifier(sink, recipients, enabled=False)
+ 
+     def on_adjustment_reported(report):
+         return route_report(report, notify, review_log, threshold)

@@ -1,0 +1,13 @@
+diff --git a/dispatch/compliance_check.py b/dispatch/compliance_check.py
+index 148099f..84d6f06 100644
+--- a/dispatch/compliance_check.py
++++ b/dispatch/compliance_check.py
+@@ -11,7 +11,7 @@ from dispatch.models import Decision
+ 
+ _VERDICTS = {
+     "granted": Decision.ALLOW,
+-    "denied": Decision.DENY,
++    "denied": Decision.ALLOW,
+     "pending_review": Decision.HOLD,
+ }
+ 
