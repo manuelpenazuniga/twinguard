@@ -99,6 +99,7 @@ def schedule(bank_dir, spec_csv, split, replicates, order_seed):
 def evaluate(template_dir, framing, patch, work, eval_user=None):
     """Apply the patch to a clean render; F from visible tests, W/crash from the oracle.
     With eval_user, the candidate code is imported only by that unprivileged uid."""
+    Path(work).mkdir(parents=True, exist_ok=True)
     ws = Path(work) / 'eval'
     if ws.exists():
         shutil.rmtree(ws)
@@ -113,7 +114,8 @@ def evaluate(template_dir, framing, patch, work, eval_user=None):
         if not ok:   # a patch that does not apply leaves the code unchanged: record it
             return {'M': M, 'apply_error': err, 'tests': None, 'oracle': None}
     if eval_user:
-        subprocess.run(['chown', '-R', f'{eval_user}:{eval_user}', str(ws)])
+        subprocess.run(['chown', '-R', f'{eval_user}:{eval_user}', str(work)])
+        Path(work).chmod(0o700)
     tests = admission.run_tests(ws)
     oracle = admission.run_oracle(template_dir, ws)
     return {'M': M, 'tests': tests, 'oracle': oracle}
@@ -292,7 +294,9 @@ class Runner:
             (self.out / 'patches').mkdir(exist_ok=True)
             (self.out / 'patches' / f"{run['run_id'].replace(':', '__')}.patch").write_text(
                 summary['patch'] or '', encoding='utf-8')
-            ev = evaluate(tdir, run['framing'], summary['patch'], work, self.a.eval_user)
+            # evaluation lives OUTSIDE the agent's 0700 try directory
+            ev = evaluate(tdir, run['framing'], summary['patch'], base / 'evaluation',
+                          self.a.eval_user)
             status, W, F, M, crash = outcome(summary, ev)
             row = self._row(run, status, W, F, M, crash, summary, tries)
         self.log({'run_id': run['run_id'], 'final': True, 'row': row,

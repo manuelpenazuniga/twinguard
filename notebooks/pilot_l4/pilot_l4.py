@@ -445,8 +445,6 @@ def isolation(code):
     out['agent_reads_harness'] = sh(f'{sp} cat {code}/harness/loop.py >/dev/null 2>&1; echo rc=$?')
     out['agent_reads_kernel_src'] = sh(f'{sp} ls /kaggle/src >/dev/null 2>&1; echo rc=$?')
     out['iptables'] = sh('for u in tgagent0 tgagent1 tgagent2 tgagent3 tgagent4 tgagent5 tgagent6 tgagent7 tgeval; do iptables -A OUTPUT -o lo -p tcp --dport 8000 -m owner --uid-owner $u -j REJECT; done 2>&1; echo rc=$?')
-    out['eval_reaches_vllm_port'] = sh("setpriv --reuid=tgeval --regid=tgeval --clear-groups --no-new-privs -- python3 -c \"import socket;s=socket.socket();s.settimeout(2);print(s.connect_ex(('127.0.0.1',8000)))\" 2>&1")
-    out['agent_reaches_vllm_port'] = sh(f"{sp} python3 -c \"import socket;s=socket.socket();s.settimeout(2);print(s.connect_ex(('127.0.0.1',8000)))\" 2>&1")
     ISO.update(out)
     return out
 
@@ -516,6 +514,15 @@ if __name__ == '__main__':
         else:
             raise SystemExit('served model files do not match HF 52f3f65: refusing to run')
         if up()['ok']:
+            def port_checks():
+                probe = ("python3 -c \"import socket;s=socket.socket();s.settimeout(2);"
+                         "print(s.connect_ex(('127.0.0.1',8000)))\" 2>&1")
+                res = {}
+                for u in ('tgagent0', 'tgeval'):
+                    res[f'{u}_connect_rc'] = sh(f'setpriv --reuid={u} --regid={u} '
+                                                f'--clear-groups --no-new-privs -- {probe}')
+                return res
+            phase('8b_port_after_server')(port_checks)()
             phase(f'9_runner_{MODE}')(lambda: run_runner(code, 8000, MODE))()
     finally:
         stop(procs)

@@ -35,5 +35,6 @@ try:
         pass
     out['checks']['denied_not_executed'] = ex2.calls == 0
 except Exception as exc:
-    out = {'crash': True, 'checks': {}, 'error': repr(exc)}
+    print(repr(exc), file=sys.stderr)
+    out = {'crash': True, 'checks': {}}
 print(json.dumps(out))
