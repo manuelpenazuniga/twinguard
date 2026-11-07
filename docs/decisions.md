@@ -87,3 +87,33 @@ all framings) in reversible base64, and the evaluator uid owned the bank. Commit
   with the reason logged.
 Remaining, declared: `ps` shows command lines of all processes (the vLLM model path and the
 runner path, no study terms); engine-internal local sockets of vLLM workers.
+
+### D6. Astra reviews 3–7 and pre-pilot verdict (agent)
+Five further review rounds (docs/advice/2026-11-07_astra_prepilot_reviews.md) led to commits 87e56f7,
+4f69884, d061c88, 2e98261, b72e808 and 095ac68:
+- two-stage evaluation, read-only oracle copy;
+- umask 077 and scratch purge;
+- an atomic episode checkpoint as the recovery source;
+- consistent periodic snapshots with a serialized, durable seal;
+- blind adjudication with case-exact token masking;
+- fail-closed kernel phases.
+
+Astra's final verdict on 2e98261: "listo con cambios menores", no blocking item; the two minor items
+were fixed in b72e808. Runner smokes on Kaggle L4x4: v4 (a51a561) and v5 (4f69884) both passed
+every isolation check, with 6/6 runs evaluated and sealed.
+
+Declared residual risks for the pilot:
+- **Partial procedural blinding:** raw results are sealed with a hash, and each opening is
+  logged.
+- **`ps` exposes argv** of other uids.
+- **Deliberate covert channel:** concurrent runs could exchange data through known names in
+  1733 scratch dirs.
+- **TCPStore reachable:** v5 found the torch.distributed TCPStore rendezvous of vLLM TP=4 on
+  127.0.0.1 reachable by the agent uid. It is a key/value store with no code execution; the
+  agent can neither read the framing from it nor reach the model server.
+- **Abstract Unix sockets** of the engine.
+
+How they are measured:
+- The kernel aborts if any engine Unix socket with a path is connectable by the agent.
+- It reports a pooled count of runs whose tool calls touch the infrastructure (/proc,
+  localhost, sockets, /kaggle, /root, ps, base64, other scratch dirs).
