@@ -97,8 +97,9 @@ def schedule(bank_dir, spec_csv, split, replicates, order_seed):
 
 
 # ------------------------------------------------------------------ evaluation
-def evaluate(template_dir, framing, patch, work):
-    """Apply the patch to a clean render; F from visible tests, W/crash from the oracle."""
+def evaluate(template_dir, framing, patch, work, eval_user=None):
+    """Apply the patch to a clean render; F from visible tests, W/crash from the oracle.
+    With eval_user, the candidate code is imported only by that unprivileged uid."""
     ws = Path(work) / 'eval'
     if ws.exists():
         shutil.rmtree(ws)
@@ -112,6 +113,8 @@ def evaluate(template_dir, framing, patch, work):
         ok, err = admission.apply_patch(ws, pf)
         if not ok:   # a patch that does not apply leaves the code unchanged: record it
             return {'M': M, 'apply_error': err, 'tests': None, 'oracle': None}
+    if eval_user:
+        subprocess.run(['chown', '-R', f'{eval_user}:{eval_user}', str(ws)])
     tests = admission.run_tests(ws)
     oracle = admission.run_oracle(template_dir, ws)
     return {'M': M, 'tests': tests, 'oracle': oracle}
@@ -145,8 +148,16 @@ class Runner:
         self.lock = threading.Lock()
         self.client = client or OpenAICompatClient(args.base_url, args.model, timeout=900)
         self.budget = C.Budget(**json.loads(args.budget_json or '{}'))
-        if args.exec_prefix:
-            admission.EXEC_PREFIX = args.exec_prefix.split()
+        # One unprivileged uid per concurrency slot, so concurrent runs (possibly other
+        # framings of the same template) can never read each other's workspaces.
+        import queue
+        self.uids = queue.Queue()
+        for u in (args.run_as.split(',') if args.run_as else [None] * args.concurrency):
+            self.uids.put(u)
+        if args.eval_user:
+            admission.EXEC_PREFIX = ['setpriv', f'--reuid={args.eval_user}',
+                                     f'--regid={args.eval_user}', '--clear-groups',
+                                     '--no-new-privs', '--']
 
     def done(self):
         if not self.attempts.exists():
@@ -163,6 +174,13 @@ class Runner:
             f.write(json.dumps(rec) + '\n')
 
     def run_one(self, run):
+        uid = self.uids.get()
+        try:
+            return self._run_one(run, uid)
+        finally:
+            self.uids.put(uid)
+
+    def _run_one(self, run, uid):
         tdir = Path(self.a.bank) / run['template_id']
         t, meta = load(tdir)
         tries = 0
@@ -172,10 +190,12 @@ class Runner:
             if work.exists():
                 shutil.rmtree(work)
             root = render(tdir, run['framing'], work / 'workspace')
-            ws = Workspace(root, work / 'tmp', run_as=self.a.run_as)
+            ws = Workspace(root, work / 'tmp', run_as=uid)
             ws.init_baseline()
-            if self.a.run_as:
-                subprocess.run(['chown', '-R', f'{self.a.run_as}:{self.a.run_as}', str(work)])
+            if uid:
+                subprocess.run(['chown', '-R', f'{uid}:{uid}', str(work)])
+                (work.parent).chmod(0o711)
+                work.chmod(0o700)
             t0 = time.time()
             try:
                 summary = run_episode(task_for(meta, run['issue_paraphrase']), ws, self.client,
@@ -192,7 +212,7 @@ class Runner:
         if infra:
             status, W, F, M, crash, ev = 'infra_failed', None, None, None, None, None
         else:
-            ev = evaluate(tdir, run['framing'], summary['patch'], work)
+            ev = evaluate(tdir, run['framing'], summary['patch'], work, self.a.eval_user)
             status, W, F, M, crash = outcome(summary, ev)
         row = {**{k: run[k] for k in ('run_id', 'template_id', 'family', 'mechanism', 'split',
                                       'framing', 'issue_paraphrase', 'replicate_id', 'seed')},
@@ -251,13 +271,16 @@ def main(argv=None):
     ap.add_argument('--model')
     ap.add_argument('--concurrency', type=int, default=8)
     ap.add_argument('--budget-json', default='')
-    ap.add_argument('--run-as', default=None)
-    ap.add_argument('--exec-prefix', default='')
+    ap.add_argument('--run-as', default=None,
+                    help='comma-separated unprivileged uids, one per concurrency slot')
+    ap.add_argument('--eval-user', default=None)
     ap.add_argument('--environment-id', required=True)
     ap.add_argument('--code-commit', required=True)
     ap.add_argument('--limit', type=int, default=0, help='run only the first N scheduled (smoke)')
     ap.add_argument('--keep-work', action='store_true')
     a = ap.parse_args(argv)
+    if a.run_as and len(a.run_as.split(',')) < a.concurrency:
+        raise SystemExit('need one --run-as uid per concurrency slot')
     runs = schedule(a.bank, a.spec, a.split, a.replicates, a.order_seed)
     if a.limit:
         runs = runs[:a.limit]

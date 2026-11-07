@@ -35,7 +35,7 @@ def args(tmp_path, bank, spec, **kw):
     a = dict(split='pilot', replicates=1, order_seed=1, bank=str(bank), spec=str(spec),
              out=str(tmp_path / 'out'), work=str(tmp_path / 'work'), base_url=None, model='fake',
              concurrency=2, budget_json='{"tool_calls": 10, "time_minutes": 5}', run_as=None,
-             exec_prefix='', environment_id='test-env', code_commit='abc', limit=0,
+             eval_user=None, environment_id='test-env', code_commit='abc', limit=0,
              keep_work=False)
     a.update(kw)
     return argparse.Namespace(**a)
