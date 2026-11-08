@@ -157,10 +157,11 @@ def runs_mode(a):
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT / 'twinguard'))
     (out / 'gate_output.json').write_text(r.stdout)
     (out / 'gate_stderr.txt').write_text(r.stderr)
-    digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-              for p in sorted(out.iterdir()) if p.is_file()}
-    (out / 'secondary_hashes.json').write_text(json.dumps({'cmd': cmd[1:], 'rc': r.returncode,
-                                                          'sha256': digest}, indent=1))
+    if getattr(a, 'hashes', True):      # analyze.py hashes the whole directory itself
+        digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in sorted(out.iterdir()) if p.is_file()}
+        (out / 'secondary_hashes.json').write_text(json.dumps(
+            {'cmd': cmd[1:], 'rc': r.returncode, 'sha256': digest}, indent=1))
     print(json.dumps({'runs': len(jobs), 'gate_rc': r.returncode}))
     return r.returncode
 

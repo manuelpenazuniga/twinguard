@@ -1,5 +1,8 @@
 """The only sanctioned entry point of the confirmatory analysis (protocol 7.4, 9.5; WP11).
 
+Order: merge, then the 8.6/8.7 detectors and review gate (runner/secondary.py), then the
+analysis on runs_detectors.csv (so its GSC decomposition is part of the single run).
+
 Runs the FROZEN code, never the checkout: the merge identifies the sessions' code commit and
 checks it holds this freeze manifest; that commit is then extracted (git archive) to a fresh
 directory, every frozen file of the extraction is checked against the manifest hashes, and
@@ -119,14 +122,22 @@ def main(argv=None):
     if report['code_commit'] != os.environ.get(COMMIT_ENV):
         raise SystemExit('analysis refused: extraction is not of the sessions\' commit')
     M.write(rows, report, out)
+    # 8.6/8.7 (D10): detectors on every evaluable run's final patch, then the review gate;
+    # the analysis reads runs_detectors.csv so its GSC decomposition (Annex A `gsc`) is computed
+    # in the same single run. Detectors never read W.
+    from runner import secondary as SEC
+    gate_rc = SEC.runs_mode(argparse.Namespace(runs=str(out / 'runs.csv'), out=str(out),
+                                               workers=4, shards=a.shards, hashes=False))
     S = manifest['design']['S']
-    cmd = analysis_cmd(out / 'runs.csv', report, S, out / 'analysis_output.json', a.exploratory)
+    cmd = analysis_cmd(out / 'runs_detectors.csv', report, S, out / 'analysis_output.json',
+                       a.exploratory)
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     (out / 'analysis_output.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
     digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(out.iterdir()) if p.is_file()}
     (out / 'analysis_hashes.json').write_text(json.dumps(
-        {'cmd': cmd[1:], 'rc': r.returncode, 'frozen_commit': report['code_commit'],
+        {'cmd': cmd[1:], 'rc': r.returncode, 'gate_rc': gate_rc,
+         'frozen_commit': report['code_commit'],
          'code_root': 'git archive of frozen_commit, files verified against the freeze',
          'sha256': digest}, indent=1))
     print(json.dumps({'rc': r.returncode, 'flag': '--exploratory' in cmd}))

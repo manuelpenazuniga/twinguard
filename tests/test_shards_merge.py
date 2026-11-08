@@ -290,7 +290,7 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     git = lambda *a: subprocess.run(['git', *a], cwd=repo, check=True, capture_output=True,
                                     text=True).stdout.strip()
     import shutil
-    for rel in ('runner/analyze.py', 'runner/merge.py', 'runner/runner.py'):
+    for rel in ('runner/analyze.py', 'runner/merge.py', 'runner/runner.py', 'runner/secondary.py'):
         shutil.copyfile(ROOT / rel, repo / rel)      # the working-tree code under test
     runs = full()
     shards = {f'{i}/2': {'schedule_sha256': R.schedule_digest(R.shard_runs(runs, (i, 2)))}
@@ -299,7 +299,8 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
              for p in ('runner/merge.py', 'runner/analyze.py', 'twinguard/twinguard_analysis.py')}
     fz = {'design': {'S': 1, 'K': 30, 'schedule_sha256': R.schedule_digest(runs),
                      'block_order': blocks_of(runs), 'shards': shards},
-          'seeds': {'order_seed': 20261107}, 'model': FZ_MODEL, 'environment_id': 'env',
+          'seeds': {'order_seed': 20261107}, 'environment_id': 'env',
+          'model': {'id': R.MODEL_ID, 'revision': 'v'},
           'files': {'g': files}, 'templates': {}}
     (repo / 'freeze').mkdir(exist_ok=True)
     (repo / 'freeze' / 'manifest.json').write_text(json.dumps(fz))
@@ -309,8 +310,9 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     sha = hashlib.sha256((repo / 'freeze' / 'manifest.json').read_bytes()).hexdigest()
     s1, s2 = R.shard_runs(runs, (1, 2)), R.shard_runs(runs, (2, 2))
     last = {r['run_id'] for r in s2 if r['family'] == blocks_of(s2)[-1]}
-    write_shard(tmp_path / 'a', s1, '1/2', sha, commit=commit)
-    write_shard(tmp_path / 'b', s2, '2/2', sha, commit=commit, closed=last)
+    real = lambda row: row.update(model_id=R.MODEL_ID)
+    write_shard(tmp_path / 'a', s1, '1/2', sha, commit=commit, mutate=real)
+    write_shard(tmp_path / 'b', s2, '2/2', sha, commit=commit, closed=last, mutate=real)
     out = tmp_path / 'out'
     r = subprocess.run([sys.executable, str(repo / 'runner' / 'analyze.py'), '--freeze',
                         str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
@@ -322,6 +324,11 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     assert 'twinguard_frozen_' in hashes['cmd'][0]           # the extraction, not the checkout
     assert json.loads((out / 'truncation_report.json').read_text())['exploratory_required']
     assert (out / 'analysis_output.txt').exists()
+    res = json.loads((out / 'analysis_output.json').read_text())
+    assert res['analysis_status'] != 'CONFIRMATORY'                  # truncated: exploratory
+    assert 'no gsc column' not in json.dumps(res['EXPLORATORY_gsc_decomposition'])
+    assert hashes['gate_rc'] == 0 and (out / 'gate_output.json').exists()
+    assert not (out / 'secondary_hashes.json').exists()              # one hash file: analyze's
     # resource contract (17): the published labels and tables reproduce from the results dir
     rep = subprocess.run([sys.executable, str(ROOT / 'resource' / 'cli.py'), 'reproduce',
                           '--results', str(out)], capture_output=True, text=True)

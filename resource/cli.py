@@ -146,12 +146,12 @@ def reproduce(a):
                                                or sha256((res / n).read_bytes()) != d)]
     report['hashes'] = {'checked': len(h['sha256']), 'mismatch': bad}
     import twinguard_analysis as ta
-    ta.load(res / 'runs.csv', 'confirmatory', model='')
+    ta.load(res / Path(h['cmd'][1]).name, 'confirmatory', model='')
     report['schema'] = 'ok'
     args = list(h['cmd'][1:])          # [csv, --replicates, S, --output, out, (--exploratory)]
     with tempfile.TemporaryDirectory(prefix='tg_repro_') as tmp:
         out = Path(tmp) / 'analysis_output.json'
-        args[0] = str(res / 'runs.csv')
+        args[0] = str(res / Path(args[0]).name)
         args[args.index('--output') + 1] = str(out)
         cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'), *args]
         r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
@@ -163,8 +163,8 @@ def reproduce(a):
         else:
             report['analysis_output'] = {'identical': not pub.exists() and not out.exists(),
                                          'note': 'no JSON output on one side'}
-    if a.secondary:
-        sec = Path(a.secondary)
+    sec = Path(a.secondary) if a.secondary else (res if (res / 'gate_output.json').exists() else None)
+    if sec:
         cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_gate.py'),
                str(sec / 'runs_detectors.csv'), '--detectors', *SEC.DETECTORS,
                '--compare', 'gsc', 'ast']

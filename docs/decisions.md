@@ -402,6 +402,16 @@ It is frozen with the runner. These choices are fixed now, before any confirmato
   - `except_local` is the fall-through baseline.
 - **Gate:** the frozen `twinguard_gate.py` runs once, with all five detectors and the paired
   sector-bootstrap difference `gsc` − `ast`.
+- **Order inside `runner/analyze.py`:**
+  1. merge;
+  2. detectors and gate;
+  3. the single run of the frozen analysis on `runs_detectors.csv`.
+
+  This way its exploratory GSC decomposition (Annex A `gsc`) is part of that single run.
+  Without it, the analysis would have read a CSV with no `gsc` column. One
+  `analysis_hashes.json` covers every output.
+- **Resource:** `resource/cli.py reproduce` re-runs the analysis and the gate and compares
+  them field by field.
 - **Witnesses (8.6, "Sobre testigos"):** the same detectors are applied to S+, U+, alt_safe,
   weak_variant and canary_break of every template, framing N. The results are published and
   never used to admit.
