@@ -70,8 +70,8 @@ def phase(name):
                 R['phases'][name] = {'ok': True, 'seconds': round(time.time() - t0, 1), **(res or {})}
             except Exception as exc:
                 R['phases'][name] = {'ok': False, 'seconds': round(time.time() - t0, 1),
-                                     'error': f'{type(exc).__name__}: {exc}',
-                                     'trace': traceback.format_exc()[-3000:]}
+                                     'error': redact(f'{type(exc).__name__}: {exc}'),
+                                     'trace': redact(traceback.format_exc()[-3000:])}
             save()
             print(f'== {name}: ', json.dumps(R['phases'][name], default=str)[:1500], flush=True)
             return R['phases'][name]
@@ -574,12 +574,31 @@ def server_unreachable():
     return out
 
 
+def served_model():
+    """Served model id; after stop() (close-out, CPU only) the id recorded at start-up or
+    the one in the resumed manifest."""
+    if 8000 in SERVED:
+        return SERVED[8000]
+    if R.get('served_model'):
+        return R['served_model']
+    man = RESULTS_DIR / 'confirmatory' / 'manifest.json'
+    if man.exists():
+        return json.loads(man.read_text())['model']
+    raise RuntimeError('no served model id known')
+
+
+def environment_id():
+    return ('kaggle-L4x4|' + sh("nvidia-smi --query-gpu=name --format=csv,noheader | sort | uniq -c | tr -s ' '")
+            + '|img:37c64f7d|vllm0.19.1|tp4|model:52f3f65-overlay')
+
+
 def runner_cmd(code, mode, out_dir, extra):
-    env_id = ('kaggle-L4x4|' + sh("nvidia-smi --query-gpu=name --format=csv,noheader | sort | uniq -c | tr -s ' '")
-              + '|img:37c64f7d|vllm0.19.1|tp4|model:52f3f65-overlay')
+    env_id = environment_id()
+    if mode == 'confirmatory' and env_id != FREEZE['environment_id']:
+        raise RuntimeError(f'environment {env_id!r} differs from the frozen {FREEZE["environment_id"]!r}')
     split = 'confirmatory' if mode == 'confirmatory' else 'pilot'
     args = ['--split', split, '--out', str(out_dir), '--work', '/tmp/wk',
-            '--base-url', f'unix:{UDS}', '--model', SERVED[8000],
+            '--base-url', f'unix:{UDS}', '--model', served_model(),
             '--model-revision', R['verified_revision'],
             '--run-as', ','.join(AGENTS), '--eval-user', ','.join(EVALS),
             '--concurrency', str(len(AGENTS)), '--environment-id', env_id,
@@ -591,6 +610,15 @@ def runner_cmd(code, mode, out_dir, extra):
     argf = UDS_DIR / f'args_{out_dir.name}'
     argf.write_text('\n'.join(args) + '\n')
     return [sys.executable, str(code / 'runner' / 'runner.py'), f'@{argf}']
+
+
+RUN_ID_RE = re.compile(r'(pilot|confirmatory|runner_smoke):[\w.]+:[NPA]:p\d+:r\d+'
+                       r'|(pilot|confirmatory|runner_smoke)__[\w.]+__[NPA]__p\d+__r\d+')
+
+
+def redact(text):
+    """Open outputs never carry run ids (they contain the framing)."""
+    return RUN_ID_RE.sub('<run>', text or '')
 
 
 def blind_summary(out_dir):
@@ -692,11 +720,14 @@ def run_block(code, mode, name, extra):
     finally:
         done.set()
         th.join()        # a checkpoint in progress always finishes before anything else
+    # full output sealed with the results; only redacted tails stay in the open
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f'runner_output_{int(t0)}.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
     res = {'rc': r.returncode, 'wall_seconds': round(time.time() - t0, 1),
-           'stdout_tail': r.stdout[-1500:], 'stderr_tail': r.stderr[-3000:]}
+           'stdout_tail': redact(r.stdout[-1500:]), 'stderr_tail': redact(r.stderr[-3000:])}
     R.setdefault('blocks', {})[name] = res
     if r.returncode != 0:
-        raise RuntimeError(f'runner block {name} failed rc={r.returncode}: {r.stderr[-1500:]}')
+        raise RuntimeError(f'runner block {name} failed rc={r.returncode}: {redact(r.stderr[-1500:])}')
     try:
         meta = json.loads((out_dir / 'session_summary.json').read_text())
         res['session'] = {k: meta.get(k) for k in ('scheduled', 'completed', 'ran_now',
@@ -898,6 +929,8 @@ def verify_freeze(code):
     m = json.loads(mpath.read_text())
     if m['design']['S'] != int(S_REPLICATES):
         raise RuntimeError(f"S_REPLICATES {S_REPLICATES} != frozen S {m['design']['S']}")
+    if SHARD not in m['design']['shards'] or int(SHARD.split('/')[1]) != len(m['design']['shards']):
+        raise RuntimeError(f"shard {SHARD} is not one of the frozen shards {sorted(m['design']['shards'])}")
     frozen = {}
     for files in m['files'].values():
         frozen.update(files)
@@ -936,8 +969,14 @@ def stop_at():
 
 
 def last_session():
-    """Time alone decides the cut (7.4): the session that reaches the frozen deadline closes."""
+    """This session's stop time is the frozen deadline (logged in sessions.jsonl)."""
     return MODE == 'confirmatory' and deadline() <= KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S
+
+
+def deadline_reached():
+    """Time alone decides the cut (7.4): close only once the frozen deadline has passed. A
+    session that ends earlier (server failure, crash) is resumed by the next session."""
+    return MODE == 'confirmatory' and time.time() >= deadline()
 
 
 def confirmatory_block(code):
@@ -1005,6 +1044,7 @@ if __name__ == '__main__':
         def up():
             p, secs, ex = start_server(4, '0,1,2,3', 8000, 'tp4_8000', ('--uds', str(UDS)))
             procs.append(p)
+            R['served_model'] = SERVED[8000]
             return {'load_seconds': secs, 'served': dict(SERVED), 'extra_args': ex}
         if up()['ok'] and server_unreachable()['ok']:
             if MODE == 'pilot':
@@ -1019,16 +1059,17 @@ if __name__ == '__main__':
                 phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:
         stop(procs)
-        if verified and last_session():
-            # the deadline session closes even if the server or the main block failed
-            phase('9d_close_out')(lambda: confirmatory_close_out(code))()
+        closed = {'ok': True}
+        if verified and deadline_reached():
+            # past the deadline: close even if the server or the main block failed (CPU only)
+            closed = phase('9d_close_out')(lambda: confirmatory_close_out(code))()
         seal = phase('10_seal')(seal_results)()
         sh('chmod 0755 /kaggle')
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
         shutil.rmtree('/kaggle/working/model_52f3f65', ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         save()
-        if not seal['ok']:
-            print('SEAL FAILED', flush=True)
+        if not seal['ok'] or not closed['ok']:
+            print('SEAL FAILED' if not seal['ok'] else 'CLOSE-OUT FAILED', flush=True)
             sys.exit(1)
         print('DONE', flush=True)

@@ -58,7 +58,8 @@ def frozen_bundle(tmp_path, k):
         (code / rel).parent.mkdir(parents=True, exist_ok=True)
         (code / rel).write_bytes(data)
     h = {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
-    man = {'design': {'S': 4}, 'confirmatory_deadline_utc': 'x', 'confirmatory_deadline_epoch': 1,
+    man = {'design': {'S': 4, 'shards': {'1/2': {}, '2/2': {}}}, 'environment_id': 'env',
+           'confirmatory_deadline_utc': 'x', 'confirmatory_deadline_epoch': 1,
            'files': {'harness': {'harness/a.py': h['harness/a.py']},
                      'runner': {'runner/r.py': h['runner/r.py']},
                      'kernel': {'notebooks/pilot_l4/pilot_l4.py': h['notebooks/pilot_l4/pilot_l4.py'],
@@ -95,6 +96,11 @@ def test_verify_freeze(tmp_path):
     k5.SCRIPT_SHA256 = '1' * 64
     with pytest.raises(RuntimeError):                       # kernel script is not frozen
         k5.verify_freeze(c5)
+    k6 = confirmatory_kernel()
+    c6 = frozen_bundle(tmp_path / 'f', k6)
+    k6.SHARD = '1/3'
+    with pytest.raises(RuntimeError):                       # shard not in the freeze
+        k6.verify_freeze(c6)
 
 
 def test_session_chain(tmp_path):
@@ -121,14 +127,36 @@ def test_deadline_caps_stop_and_closes():
     k = confirmatory_kernel()
     k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 + 3600})
     assert k.stop_at() == k.KERNEL_T0 + 3600 and k.last_session()
+    assert not k.deadline_reached()          # an early failure in the last session: no close
+    k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 - 1})
+    assert k.deadline_reached()
     k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 + 99 * 3600})
     assert k.stop_at() == k.KERNEL_T0 + k.SESSION_LIMIT_S - k.STOP_MARGIN_S
     assert not k.last_session()
 
 
+def test_close_out_after_stop_and_redaction(tmp_path):
+    k = confirmatory_kernel()
+    k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 - 1, 'environment_id': k.environment_id()})
+    k.UDS_DIR, k.RESULTS_DIR = tmp_path, tmp_path
+    k.R['verified_revision'] = 'r'
+    k.SERVED.clear()                                         # server already stopped
+    (tmp_path / 'confirmatory').mkdir()
+    (tmp_path / 'confirmatory' / 'manifest.json').write_text('{"model": "served-id"}')
+    cmd = k.runner_cmd(ROOT, 'confirmatory', tmp_path / 'confirmatory', ['--close-out'])
+    args = Path(cmd[-1][1:]).read_text().split('\n')
+    assert args[args.index('--model') + 1] == 'served-id' and '--close-out' in args
+    k.FREEZE['environment_id'] = 'other'
+    with pytest.raises(RuntimeError):                        # not the frozen environment
+        k.runner_cmd(ROOT, 'confirmatory', tmp_path / 'confirmatory', [])
+    t = 'failed confirmatory:M1.x_y:A:p2:r3 and file confirmatory__M1.x_y__N__p1__r1.t1'
+    assert 'A:p2' not in k.redact(t) and '__N__' not in k.redact(t)
+
+
 def test_runner_cmd_split(tmp_path):
     k = confirmatory_kernel()
-    k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 + 99 * 3600})
+    k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 + 99 * 3600,
+                     'environment_id': k.environment_id()})
     k.UDS_DIR = tmp_path
     k.SERVED[8000] = 'm'
     k.R['verified_revision'] = 'r'
@@ -188,4 +216,5 @@ def test_freeze_k_rule_counts_admission():
     import make_freeze as mf
     kr = mf.k_rule('HEAD', None)
     assert kr['K'] == 30 and kr['complete_sectors'] == 10 and not kr['resource_mode']
+    assert kr['scheduled_but_not_selected'] == [] and kr['not_admitted'] == []
     assert kr['k_by_mechanism'] == {'M1': 10, 'M2': 10, 'M3': 10}

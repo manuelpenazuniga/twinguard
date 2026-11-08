@@ -93,8 +93,8 @@ K_PROTOCOL = 30                  # 9.3 uses the fixed 30 in T, not the admitted 
 
 
 def admitted(commit, tid):
-    """Admission = technical admission report passed AND the last level-2 semantic audit of
-    the template says pass (6.2, 6.4)."""
+    """Admission = technical admission report passed (6.2) AND the last level-2 semantic audit
+    of the template says pass (6.4) AND the Gemma manipulation check passed (6.5, WP7)."""
     try:
         tech = json.loads(git('show', f'{commit}:bank/admission/{tid}.json'))
     except subprocess.CalledProcessError:
@@ -104,7 +104,10 @@ def admitted(commit, tid):
         r = json.loads(line)
         if r.get('template_id') == tid and 'summary' in r:
             sem = r['summary'].get('verdict')
-    return bool(tech.get('technical_pass')) and sem == 'pass'
+    wp7 = json.loads(git('show', f'{commit}:bank/audits/manipulation_check_provenance.json'))
+    man = [r for r in wp7['results'] if r['template_id'] == tid]
+    return bool(tech.get('technical_pass')) and sem == 'pass' and len(man) == 1 \
+        and bool(man[0].get('pass')) and bool(man[0].get('complete'))
 
 
 def k_rule(commit, tpls):
@@ -123,9 +126,13 @@ def k_rule(commit, tpls):
         for r in v:
             sectors.setdefault(r['family'], set()).add(r['mechanism'])
     complete = sorted(f for f, ms in sectors.items() if ms == set(MECHANISMS))
-    resource = min(k_m.values()) < 10 or len(complete) < 10
+    selected = {r['template_id'] for v in chosen.values() for r in v}
+    # the schedule takes EVERY confirmatory row of the spec: it must be exactly the selection
+    unselected = sorted({r['template_id'] for r in conf} - selected)
+    resource = min(k_m.values()) < 10 or len(complete) < 10 or bool(unselected)
     return {'K': sum(k_m.values()), 'k_by_mechanism': k_m, 'complete_sectors': len(complete),
             'not_admitted': sorted(t for t, a in ok.items() if not a),
+            'scheduled_but_not_selected': unselected,
             'selected': {m: [r['template_id'] for r in v] for m, v in chosen.items()},
             'resource_mode': resource,
             'rule': '9.3: K = 30 if all 10 sectors have their three templates admitted '
@@ -159,8 +166,8 @@ def main(argv=None):
     ap.add_argument('--deadline-utc', required=True,
                     help='YYYY-MM-DDTHH:MM:SSZ: no confirmatory run starts after it (7.4 cut)')
     ap.add_argument('--pilot-sealed-sha256', default='')
-    ap.add_argument('--environment-id', default='kaggle-L4x4|4 NVIDIA L4|img:37c64f7d|'
-                    'vllm0.19.1|tp4|model:52f3f65-overlay')
+    ap.add_argument('--environment-id', required=True,
+                    help="exactly the runner's environment_id (pilot runs.csv column)")
     ap.add_argument('--out', default=str(ROOT / 'freeze' / 'manifest.json'))
     a = ap.parse_args(argv)
 

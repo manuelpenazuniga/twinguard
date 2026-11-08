@@ -192,3 +192,38 @@ Written while the pilot kernel was still running, before any of its output was r
 - The kernel script and metadata are built from that commit, never from the working tree.
 - No blind CSV is produced for the confirmatory runs: with the public order and a time cut,
   their rows could reveal framings.
+
+**D8 additions after Astra's second review (still before reading the pilot output).**
+- **Deadline:** Manuel chose Tue Nov 10, 12:00 Chile (`2026-11-10T15:00:00Z`). It is frozen
+  in the manifest.
+- **Closing out:** a session closes its shard only once that time has actually passed. A
+  session that ends earlier (server failure, crash) is resumed by the next one.
+- **Departure from 7.4 (declared):** with two parallel shards, each shard keeps its blocks in
+  the published order, but the two run at once. A time cut can therefore remove blocks that
+  are not a suffix of the global order. The merge reports the cut per shard and states
+  whether it is a global suffix. It never claims equivalence with one sequential run.
+- **Analysis entry point:** `runner/analyze.py` is the only sanctioned way to run the
+  confirmatory analysis. It validates the shards (`runner/merge.py`) and passes
+  `--exploratory` whenever a block is not complete; the flag can be added but never removed.
+  It runs once and hashes the output.
+- **Merge checks:**
+  - every row against the frozen cell (seed included) and its own shard;
+  - one final event per row;
+  - model, revision and environment against the freeze;
+  - harness and oracle commit against the commit holding the manifest.
+- **Server down:** if the model server stops answering after an infrastructure failure, the
+  runner aborts the session without writing rows, and the next session resumes. A dead
+  endpoint therefore cannot turn the remaining runs into `infra_failed`.
+- **t_a with a resumed pilot:** the sum of `wall_seconds` of the pilot block over its
+  sessions, divided by its completed runs.
+- **Q in L4x4 notebook hours:** Q is the remaining quota divided by m. The multiplier m is
+  the drop in the quota meter during the pilot divided by the pilot kernel's wall hours, both
+  read by Manuel.
+- **Frozen components:** t_a, O, Q, m, the number of sessions and B all go into the manifest
+  justification.
+- **Snapshot age:** "at most 15 min" holds only while checkpoints succeed. The parent seal's
+  time is logged, so the real age is reported.
+- **Open outputs:** runner output tails and error traces left in the open are redacted (no
+  run ids). The full text is sealed with the results.
+- **K rule:** an admitted template also needs a WP7 manipulation check pass. The confirmatory
+  rows of the spec must be exactly the selected templates.

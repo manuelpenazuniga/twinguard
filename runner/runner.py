@@ -238,6 +238,11 @@ class ConfigError(RuntimeError):
     """Wrong endpoint/model/manifest: abort the session, never retry or record as a run."""
 
 
+class ServerDown(ConfigError):
+    """The model server stopped answering: abort the session instead of spending the
+    remaining runs' tries on a dead endpoint (the next session resumes them)."""
+
+
 class Deferred(Exception):
     """Session deadline reached before a (re)try could start: the run stays open and is
     resumed by the next session (no final record)."""
@@ -507,6 +512,7 @@ class Runner:
             infra = summary['termination'] == 'infra_error'
             if not infra:
                 break
+            self._require_server(run)
         if not infra:
             # ONE durable file (summary + patch): written atomically before the event, so a
             # crash at any point either has it (episode recovered) or not (try counted)
@@ -517,6 +523,18 @@ class Runner:
                       'summary': slim(summary),
                       'patch_sha256': hashlib.sha256((summary['patch'] or '').encode()).hexdigest()})
         return summary, tries, infra
+
+    def _require_server(self, run):
+        """After an infrastructure failure: if the server itself is gone, stop the session
+        (no final row; the started try stays counted) rather than fail every remaining run."""
+        probe = getattr(self.client, 'models', None)
+        if probe is None:
+            return
+        try:
+            probe()
+        except Exception as exc:
+            raise ServerDown(f"model server unreachable after {run['run_id']}: "
+                             f"{type(exc).__name__}") from exc
 
     def _run_one(self, run, agent, evaluator, base):
         tries_before = self.tries_started(run['run_id'])
