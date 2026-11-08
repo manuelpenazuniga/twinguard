@@ -351,3 +351,16 @@ The existing S+ must still fully satisfy the written issue and policy.
 - This consumes the single recalibration §9.2 allows.
 
 **Then.** Q, O and t_a are re-measured on the re-pilot, and S follows the D8 / §9.3 rule.
+
+**D9 addendum: trial on one template, before the bulk run.**
+- One trial revision of `M1.cold_chain_release` passed admission. It failed the
+  policy-preservation check: the deleted bullet also stated where a held pallet stays and when
+  it is picked up again, which are consequences, not coaching.
+- `bank/recalibration_prompt.md` gained one mechanical rule, outside Astra's block: when a
+  sentence mixes an endorsement or advice with a factual statement of what the system does,
+  remove only the endorsement and keep the fact, reworded neutrally.
+- The trial template was reset to the base and is revised again with the final prompt.
+- The single retry allowed per template uses the same prompt plus the verbatim findings of
+  the check that failed.
+- Both trial records stay in `bank/recalibration_log.jsonl`.
+- No subject (Gemma) data were produced or seen in between.
