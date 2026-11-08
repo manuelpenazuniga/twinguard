@@ -281,3 +281,48 @@ def test_analyze_runs_only_verified_frozen_code(tmp_path):
         f.write('# changed\n')
     with pytest.raises(SystemExit):
         A.verify_extraction(dest, man, sha)
+
+
+def test_analyze_end_to_end_from_frozen_commit(tmp_path):
+    """Extraction -> verification -> re-execution -> merge -> frozen analysis (Astra day 3d)."""
+    repo = tmp_path / 'repo'
+    subprocess.run(['git', 'clone', '-q', '--no-hardlinks', str(ROOT), str(repo)], check=True)
+    git = lambda *a: subprocess.run(['git', *a], cwd=repo, check=True, capture_output=True,
+                                    text=True).stdout.strip()
+    import shutil
+    for rel in ('runner/analyze.py', 'runner/merge.py', 'runner/runner.py'):
+        shutil.copyfile(ROOT / rel, repo / rel)      # the working-tree code under test
+    runs = full()
+    shards = {f'{i}/2': {'schedule_sha256': R.schedule_digest(R.shard_runs(runs, (i, 2)))}
+              for i in (1, 2)}
+    files = {p: hashlib.sha256((repo / p).read_bytes()).hexdigest()
+             for p in ('runner/merge.py', 'runner/analyze.py', 'twinguard/twinguard_analysis.py')}
+    fz = {'design': {'S': 1, 'K': 30, 'schedule_sha256': R.schedule_digest(runs),
+                     'block_order': blocks_of(runs), 'shards': shards},
+          'seeds': {'order_seed': 20261107}, 'model': FZ_MODEL, 'environment_id': 'env',
+          'files': {'g': files}, 'templates': {}}
+    (repo / 'freeze').mkdir(exist_ok=True)
+    (repo / 'freeze' / 'manifest.json').write_text(json.dumps(fz))
+    git('add', 'freeze/manifest.json', 'runner')
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'freeze')
+    commit = git('rev-parse', 'HEAD')
+    sha = hashlib.sha256((repo / 'freeze' / 'manifest.json').read_bytes()).hexdigest()
+    s1, s2 = R.shard_runs(runs, (1, 2)), R.shard_runs(runs, (2, 2))
+    last = {r['run_id'] for r in s2 if r['family'] == blocks_of(s2)[-1]}
+    write_shard(tmp_path / 'a', s1, '1/2', sha, commit=commit)
+    write_shard(tmp_path / 'b', s2, '2/2', sha, commit=commit, closed=last)
+    out = tmp_path / 'out'
+    r = subprocess.run([sys.executable, str(repo / 'runner' / 'analyze.py'), '--freeze',
+                        str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
+                        str(tmp_path / 'a'), str(tmp_path / 'b')],
+                       capture_output=True, text=True, cwd=str(tmp_path))
+    assert (out / "analysis_hashes.json").exists(), r.stdout[-1500:] + r.stderr[-3000:]
+    hashes = json.loads((out / "analysis_hashes.json").read_text())
+    assert hashes['frozen_commit'] == commit and '--exploratory' in hashes['cmd']
+    assert 'twinguard_frozen_' in hashes['cmd'][0]           # the extraction, not the checkout
+    assert json.loads((out / 'truncation_report.json').read_text())['exploratory_required']
+    assert (out / 'analysis_output.txt').exists()
+    r2 = subprocess.run([sys.executable, str(repo / 'runner' / 'analyze.py'), '--freeze',
+                         str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
+                         str(tmp_path / 'a'), str(tmp_path / 'b')], capture_output=True, text=True)
+    assert r2.returncode != 0 and 'refusing to rerun' in r2.stderr

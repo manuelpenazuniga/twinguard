@@ -79,7 +79,7 @@ def launch_frozen(a, argv):
     manifest = json.loads(freeze_text)
     _, report = M.merge(a.freeze, a.shards)
     commit = report['code_commit']
-    dest = Path(tempfile.mkdtemp(prefix=f'twinguard_frozen_{commit[:12]}_'))
+    dest = Path(tempfile.mkdtemp(prefix=f'twinguard_frozen_{commit[:12]}_')).resolve()
     extract(commit, ROOT, dest)
     n = verify_extraction(dest, manifest, hashlib.sha256(freeze_text).hexdigest())
     env = {**os.environ, FROZEN_ENV: str(dest), REPO_ENV: str(ROOT), COMMIT_ENV: commit}
@@ -102,7 +102,10 @@ def main(argv=None):
     out = Path(a.out)
     if (out / 'analysis_output.txt').exists():
         raise SystemExit('the confirmatory analysis already ran once (9.5): refusing to rerun')
-    if os.environ.get(FROZEN_ENV) != str(ROOT):
+    frozen_root = os.environ.get(FROZEN_ENV)
+    if frozen_root and Path(frozen_root).resolve() != ROOT:
+        raise SystemExit('analysis refused: frozen root and this script disagree')
+    if not frozen_root:
         rc = launch_frozen(a, argv)
         if rc:
             raise SystemExit(rc)
