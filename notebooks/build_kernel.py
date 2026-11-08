@@ -39,6 +39,8 @@ def main(argv=None):
     ap.add_argument('kernel_dir')
     ap.add_argument('--commit', default='HEAD')
     ap.add_argument('--kernel-id', default=None, help='override the metadata id/title')
+    ap.add_argument('--kernel-source', action='append', default=[],
+                    help='attach another kernel\'s output (resume: the previous session)')
     ap.add_argument('--define', action='append', default=[],
                     help="NAME=VALUE: replace the script's top-level `NAME = ...` line")
     a = ap.parse_args(argv)
@@ -66,6 +68,8 @@ def main(argv=None):
     if a.kernel_id:
         meta['id'] = a.kernel_id
         meta['title'] = a.kernel_id.split('/')[-1]
+    if a.kernel_source:
+        meta['kernel_sources'] = list(a.kernel_source)
     meta['dataset_sources'] = [d for d in meta.get('dataset_sources', [])
                                if not d.endswith('/twinguard-code')]
     (out / 'kernel-metadata.json').write_text(json.dumps(meta, indent=2) + '\n')

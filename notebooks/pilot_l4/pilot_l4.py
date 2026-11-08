@@ -29,7 +29,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 OUT = Path('/kaggle/working/pilot_results.json')
-MODE = 'runner_smoke'   # 'runner_smoke' (toy fixture, 6 runs) or 'pilot' (72 + 9 runs); build --define
+MODE = 'runner_smoke'   # 'runner_smoke' (toy fixture, 6 runs), 'pilot' (72 + 9) or 'confirmatory'; build --define
+# confirmatory only (build --define; fail closed when missing):
+S_REPLICATES = ''        # seeds per paraphrase S from the 9.3 rule, frozen ('2', '3' or '4')
+FROZEN_COMMIT = ''       # commit sealed in the freeze package: the bundle must be built from it
+CLOSE_OUT = ''           # '1' in the last session: unfinished runs become infra_failed rows
 KERNEL_T0 = time.time()
 SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
 STOP_MARGIN_S = 90 * 60          # no run starts later than this before the limit (60 min budget + eval)
@@ -570,7 +574,8 @@ def server_unreachable():
 def runner_cmd(code, mode, out_dir, extra):
     env_id = ('kaggle-L4x4|' + sh("nvidia-smi --query-gpu=name --format=csv,noheader | sort | uniq -c | tr -s ' '")
               + '|img:37c64f7d|vllm0.19.1|tp4|model:52f3f65-overlay')
-    args = ['--split', 'pilot', '--out', str(out_dir), '--work', '/tmp/wk',
+    split = 'confirmatory' if mode == 'confirmatory' else 'pilot'
+    args = ['--split', split, '--out', str(out_dir), '--work', '/tmp/wk',
             '--base-url', f'unix:{UDS}', '--model', SERVED[8000],
             '--model-revision', R['verified_revision'],
             '--run-as', ','.join(AGENTS), '--eval-user', ','.join(EVALS),
@@ -778,7 +783,7 @@ def seal_results():
     numbers and the blind CSV are left in the open (9.2)."""
     import csv as _csv, tarfile
     res_dir = Path('/kaggle/working/results')
-    for name in ('pilot', 'pilot_diversity', 'runner_smoke'):
+    for name in ('pilot', 'pilot_diversity', 'runner_smoke', 'confirmatory'):
         csvp = res_dir / name / 'runs.csv'
         summ = res_dir / name / 'session_summary.json'
         if csvp.exists() and summ.exists():
@@ -816,6 +821,29 @@ def restore_previous():
     return {'resumed_from': match[0], 'sha256': RESUME_SHA256}
 
 
+def confirmatory_guard():
+    """Fail closed before any GPU work: S frozen, bundle built from the frozen commit."""
+    if S_REPLICATES not in ('2', '3', '4'):
+        raise SystemExit(f'confirmatory: S_REPLICATES must be 2, 3 or 4, got {S_REPLICATES!r}')
+    if not FROZEN_COMMIT or CODE_COMMIT != FROZEN_COMMIT:
+        raise SystemExit(f'confirmatory: bundle {CODE_COMMIT} is not the frozen commit {FROZEN_COMMIT!r}')
+    return {'S': int(S_REPLICATES), 'frozen_commit': FROZEN_COMMIT, 'close_out': CLOSE_OUT == '1'}
+
+
+def confirmatory_block(code):
+    """7.4: the runner schedules 10 sector blocks in the published order (order seed default)
+    with interleaved cells; resume skips finished runs; --stop-at defers the rest to the next
+    session (a new kernel that attaches this one's sealed archive, RESUME_SHA256)."""
+    return run_block(code, 'confirmatory', 'confirmatory', ['--replicates', S_REPLICATES])
+
+
+def confirmatory_close_out(code):
+    """Last session only: evaluate finished episodes and give every unfinished scheduled run an
+    infra_failed row (7.4 truncation responds to time only)."""
+    return run_block(code, 'confirmatory', 'confirmatory',
+                     ['--replicates', S_REPLICATES, '--close-out'])
+
+
 def smoke_block(code):
     spec = UDS_DIR / 'fixture_spec.csv'
     fb = UDS_DIR / 'fixture_bank'
@@ -832,6 +860,8 @@ def smoke_block(code):
 
 
 if __name__ == '__main__':
+    if MODE == 'confirmatory':
+        R['confirmatory'] = confirmatory_guard()
     gpu_guard()
     install_wheels()
     procs = []
@@ -862,6 +892,10 @@ if __name__ == '__main__':
                     phase('9b_pilot_gates')(lambda: pilot_gates(code))()
                 if time.time() < KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S:
                     phase('9c_seed_diversity')(lambda: diversity_block(code))()
+            elif MODE == 'confirmatory':
+                main = phase('9_runner_confirmatory')(lambda: confirmatory_block(code))()
+                if CLOSE_OUT == '1' and main['ok']:
+                    phase('9d_close_out')(lambda: confirmatory_close_out(code))()
             else:
                 phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:

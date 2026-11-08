@@ -1,6 +1,7 @@
 """WP2 contract tests (protocol 7.1): tool semantics, errors, truncation and budget are
 identical across framings, and match the replicated official API (README 5-8)."""
 import json
+import re
 import subprocess
 import sys
 
@@ -102,6 +103,7 @@ def run_script(box):
 
 def normalize(outputs, framing):
     text = json.dumps(outputs).replace(WORDS[framing], '<W>')
+    text = re.sub(r'in \d+\.\d+s', 'in <T>s', text)   # pytest wall time is not semantics
     return json.loads(text)
 
 
