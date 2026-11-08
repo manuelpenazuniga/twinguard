@@ -45,6 +45,7 @@ def main(argv=None):
     ap.add_argument('--commit', default='HEAD')
     ap.add_argument('--kernel-id', default=None, help='override the metadata id/title')
     ap.add_argument('--out-dir', default=None, help='default <kernel_dir>/build')
+    ap.add_argument('--cpu', action='store_true', help='CPU session (no GPU quota)')
     ap.add_argument('--kernel-source', action='append', default=[],
                     help='attach another kernel\'s output (resume: the previous session)')
     ap.add_argument('--define', action='append', default=[],
@@ -82,6 +83,10 @@ def main(argv=None):
     if a.kernel_id:
         meta['id'] = a.kernel_id
         meta['title'] = a.kernel_id.split('/')[-1]
+    if a.cpu:
+        meta['enable_gpu'] = False
+        meta.pop('machine_shape', None)
+        meta['model_sources'] = []
     if a.kernel_source:
         meta['kernel_sources'] = list(a.kernel_source)
     meta['dataset_sources'] = [d for d in meta.get('dataset_sources', [])

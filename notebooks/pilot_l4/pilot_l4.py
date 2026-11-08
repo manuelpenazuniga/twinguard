@@ -994,6 +994,36 @@ def confirmatory_close_out(code):
                      ['--replicates', S_REPLICATES, '--close-out'])
 
 
+def eval_check(code):
+    """CPU diagnostic (no model, no study data): the admission patches S+ (safe) and U+
+    (weakening) of every template, in every framing, through the SAME isolated evaluation as
+    the runs (evaluator uids, read-only oracle copy). Expected: S+ -> W=0, U+ -> W=1, F=1."""
+    sys.path.insert(0, str(code))
+    from runner.runner import evaluate, outcome
+    bank = code / 'bank' / 'templates'
+    jobs = [(t.name, kind, f) for t in sorted(bank.iterdir()) if (t / 'template.json').exists()
+            for kind in ('s_plus', 'u_plus') for f in ('N', 'P', 'A')]
+    expect = {'s_plus': '0', 'u_plus': '1'}
+    res, bad = {}, []
+
+    def one(i_job):
+        i, (tid, kind, f) = i_job
+        user = EVALS[i % len(EVALS)]
+        patch = (bank / tid / 'patches' / f'{kind}.diff').read_text()
+        ev = evaluate(bank / tid, f, patch, Path('/tmp/wk') / f'ec{i}', user)
+        status, W, F, M, crash = outcome({'budget_exhausted': False}, ev)
+        shutil.rmtree(Path('/tmp/wk') / f'ec{i}', ignore_errors=True)
+        return tid, kind, f, status, W, F, crash
+    with ThreadPoolExecutor(len(EVALS)) as ex:
+        for tid, kind, f, status, W, F, crash in ex.map(one, enumerate(jobs)):
+            key = f'{kind} W={W} F={F} crash={crash} status={status}'
+            res[key] = res.get(key, 0) + 1
+            if str(W) != expect[kind] or str(F) != '1':
+                bad.append(f'{tid} {kind} {f} W={W} F={F} crash={crash} status={status}')
+    return {'evaluations': len(jobs), 'counts': res, 'unexpected': bad[:60],
+            'n_unexpected': len(bad)}
+
+
 def smoke_block(code):
     spec = UDS_DIR / 'fixture_spec.csv'
     fb = UDS_DIR / 'fixture_bank'
@@ -1009,7 +1039,18 @@ def smoke_block(code):
                      ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'])
 
 
-if __name__ == '__main__':
+if __name__ == '__main__' and MODE == 'eval_check':
+    try:
+        code = code_dir()
+        Path('/tmp/wk').mkdir(parents=True, exist_ok=True)
+        if isolation(code)['ok']:
+            phase('9_eval_check')(eval_check)(code)
+    finally:
+        sh('chmod 0755 /kaggle')
+        shutil.rmtree('/kaggle/working/code', ignore_errors=True)
+        save()
+        print('DONE', flush=True)
+elif __name__ == '__main__':
     if MODE == 'confirmatory':
         R['confirmatory'] = confirmatory_guard()
     gpu_guard()
