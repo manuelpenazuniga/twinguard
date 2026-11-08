@@ -108,12 +108,30 @@ Declared residual risks for the pilot:
 - **`ps` exposes argv** of other uids.
 - **Deliberate covert channel:** concurrent runs could exchange data through known names in
   1733 scratch dirs.
-- **TCPStore reachable:** v5 found the torch.distributed TCPStore rendezvous of vLLM TP=4 on
-  127.0.0.1 reachable by the agent uid. It is a key/value store with no code execution; the
-  agent can neither read the framing from it nor reach the model server.
+- **Engine TCP ports reachable:** v5 and v6 (095ac68) found the torch.distributed TCPStore
+  rendezvous of vLLM TP=4 on 127.0.0.1 (v6: port 54333) and the NCCL/gloo transport ports on
+  the container IP reachable by the agent uid (v6: 53 of 55 TCP listeners). They carry
+  key/value rendezvous and tensor transport, with no code execution; the agent can neither
+  read the framing from them nor reach the model API. Interfering with them could crash the
+  engine, which would surface as infrastructure failures, not as outcomes.
 - **Abstract Unix sockets** of the engine.
 
 How they are measured:
 - The kernel aborts if any engine Unix socket with a path is connectable by the agent.
 - It reports a pooled count of runs whose tool calls touch the infrastructure (/proc,
   localhost, sockets, /kaggle, /root, ps, base64, other scratch dirs).
+
+### D7. Pre-pilot decisions (Manuel, 2026-11-08)
+Manuel approved, on the agent's recommendation and Astra's opinion:
+1. **Chat template overlay:** serve the Kaggle weights with the chat template and tokenizer
+   config of the Hugging Face revision 52f3f65 (all six hashes verified at load); the Kaggle
+   copy ships the older ca9d525 template.
+2. **Own harness instead of the official one:** the official harness cannot carry the M3
+   history; ours replicates its tool API and limits (docs/harness.md).
+3. **Call graph rebuilt after every edit,** as §7.1 states; no amendment needed.
+4. **Isolation as implemented,** with the residual risks declared in D6.
+5. **Pilot launch:** 72 runs plus 9 seed-diversity runs (§9.1), 100 tool calls and 60 min per
+   run, reasoning on, concurrency 8, on Kaggle L4x4 (kernel built from 64daa76 code).
+
+The freeze target (Sat Nov 7, 23:59) passed before the launch; the new freeze time follows
+from the pilot's measured time, as CLAUDE.md allows.
