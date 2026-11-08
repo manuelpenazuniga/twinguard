@@ -103,6 +103,41 @@ def schedule(bank_dir, spec_csv, split, replicates, order_seed, only_template=No
     return runs
 
 
+def schedule_digest(runs):
+    """One digest of a schedule (run_id, seed, global order), shared with the freeze manifest."""
+    return hashlib.sha256(json.dumps(
+        [(r['run_id'], r['seed'], r['order']) for r in runs]).encode()).hexdigest()
+
+
+def parse_shard(text):
+    """'i/N' -> (i, N) with 1 <= i <= N; '' -> None."""
+    if not text:
+        return None
+    i, _, n = text.partition('/')
+    i, n = int(i), int(n)
+    if not 1 <= i <= n:
+        raise ValueError(f'bad shard {text!r}')
+    return i, n
+
+
+def shard_runs(runs, shard):
+    """Parallel sessions (two Kaggle kernels at once): sector blocks are dealt in the published
+    order, block j (0-based) to shard j % N + 1. Each shard runs its blocks in that same order,
+    so a time cut removes the LAST blocks of the published order in every shard. The global
+    `order` is kept."""
+    if shard is None:
+        return runs
+    i, n = shard
+    fams = []
+    for r in runs:
+        if not fams or fams[-1] != r['family']:
+            if r['family'] in fams:
+                raise ValueError('sector blocks are not contiguous: cannot shard')
+            fams.append(r['family'])
+    mine = {f for j, f in enumerate(fams) if j % n == i - 1}
+    return [r for r in runs if r['family'] in mine]
+
+
 # ------------------------------------------------------------------ evaluation
 def setpriv(user):
     """Run as `user` with umask 077 (files it creates are private to it)."""
@@ -342,9 +377,12 @@ class Runner:
                'environment_id': self.a.environment_id, 'budget': self.budget.as_dict(),
                'sampling': SAMPLING, 'contract_hash': C.contract_hash(),
                'bank_hash': bank_hash(self.a.bank, [r['template_id'] for r in runs]),
-               'schedule_sha256': hashlib.sha256(json.dumps(
-                   [(r['run_id'], r['seed'], r['order']) for r in runs]).encode()).hexdigest()}
+               'shard': getattr(self.a, 'shard', '') or '',
+               'schedule_sha256': schedule_digest(runs)}
         path = self.out / 'manifest.json'
+        if not path.exists() and (self.attempts.exists() or (self.out / 'episodes').exists()):
+            # records without the manifest that produced them: never adopt them silently
+            raise ConfigError('results exist without manifest.json: refusing to resume')
         if path.exists():
             old = json.loads(path.read_text())
             if offline:   # close-out without a server: the served model is not re-checked
@@ -560,8 +598,8 @@ class Runner:
                 # gives the run a row even if evaluation fails, and cleans up
                 self.run_one(run, ignore_deadline=True)   # evaluation only, no agent
                 continue
-            row = self._row(run, 'infra_failed', None, None, None, None, {},
-                            self.tries_started(run['run_id']))
+            row = self._row(run, 'infra_failed', None, None, None, None,
+                            {'termination': 'closed_out'}, self.tries_started(run['run_id']))
             self.log({'run_id': run['run_id'], 'final': True, 'row': row, 'closed_out': True})
             n += 1
         self.write_csv()
@@ -619,6 +657,8 @@ def main(argv=None):
     ap.add_argument('--only-template', default=None, help='9.1 seed-diversity block')
     ap.add_argument('--only-paraphrase', type=int, default=0)
     ap.add_argument('--first-replicate', type=int, default=1)
+    ap.add_argument('--shard', default='',
+                    help="confirmatory only, 'i/N': this session runs sector blocks i, i+N, ...")
     ap.add_argument('--stop-at', type=float, default=0,
                     help='epoch seconds: no run starts after this (Kaggle session limit)')
     ap.add_argument('--close-out', action='store_true',
@@ -633,6 +673,10 @@ def main(argv=None):
             raise SystemExit('need exactly one (--run-as, --eval-user) pair per slot')
     runs = schedule(a.bank, a.spec, a.split, a.replicates, a.order_seed,
                     a.only_template, a.only_paraphrase, a.first_replicate)
+    if a.shard:
+        if a.split != 'confirmatory':
+            raise SystemExit('--shard is for the confirmatory split')
+        runs = shard_runs(runs, parse_shard(a.shard))
     if a.limit:
         runs = runs[:a.limit]
     r = Runner(a)

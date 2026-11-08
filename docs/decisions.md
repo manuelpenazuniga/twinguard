@@ -135,3 +135,60 @@ Manuel approved, on the agent's recommendation and Astra's opinion:
 
 The freeze target (Sat Nov 7, 23:59) passed before the launch; the new freeze time follows
 from the pilot's measured time, as CLAUDE.md allows.
+
+### D8. Confirmatory execution: parallel shards, t_a, budget and the time cut (agent, 2026-11-08)
+Written while the pilot kernel was still running, before any of its output was read.
+
+**Parallel shards (Manuel: two Kaggle notebooks can run at once).**
+- The confirmatory schedule (published order seed 20261107) has 10 sector blocks in a
+  fixed order. Block j (0-based) goes to shard j mod 2 + 1.
+- Each shard runs its blocks in the published order, as one chain of 12 h sessions. Session
+  k resumes the sealed archive of session k-1 of the same shard and freeze.
+- A time cut therefore removes the last blocks of the published order in both shards.
+- Both shards use the same image, model files, code commit and `environment_id`.
+- `runner/merge.py` refuses any mixture of environments, models or commits, any duplicate,
+  and anything that is not exactly the frozen schedule.
+
+**t_a (9.3).**
+- Computed only from the pilot's main 72-run block: its wall time divided by the number of
+  distinct runs with a final record. The wall time runs from runner start to end, at
+  concurrency 8, and includes agent episodes, evaluation and retries. It appears as
+  `blocks.pilot.wall_seconds` and `session.completed` in `pilot_results.json`.
+- Not divided by 8 again.
+- The seed-diversity block is excluded, since it is not part of the prespecified cohort.
+
+**Budget (9.3).**
+- B = Q − 4·O.
+- Q is the remaining weekly Kaggle GPU quota reported after the pilot kernel ends. Manuel's
+  estimate is 38–39 h; the next weekly reset falls after the confirmatory deadline.
+- O is the pilot's per-session overhead: kernel wall time minus the runner and diversity
+  blocks (wheels, hashes, isolation, server load, seal).
+- 4 = 2 shards × 2 sessions, the planned session count.
+- Calendar capacity, 2 × (deadline − start) − 4·O, is also checked. B is the smaller of the
+  two.
+- S follows mechanically: T = 30·3·4·S·t_a, with S = 4 if T ≤ 0.6·B, else 3, else 2.
+
+**Time cut.**
+- A confirmatory deadline (UTC) is frozen in the manifest. No run starts after it.
+- The session whose stop time reaches the deadline closes its shard automatically, without a
+  manual flag: finished episodes are evaluated, and every unstarted run gets an
+  `infra_failed` row with termination `closed_out`.
+- If any block is not complete, `runner/merge.py` reports the blocks (complete, partial or
+  not started), K scheduled and K in complete blocks, and requires `--exploratory`. K
+  evaluable per contrast comes from the analysis.
+
+**Resume from a periodic snapshot (declared).**
+- Normally a session ends with its final seal. If a kernel dies without it, the next session
+  resumes from the last periodic snapshot, which is at most 15 min old.
+- Runs whose events came after that snapshot are then run again, because their outcome was
+  never recorded nor seen.
+- The parent's seal kind (`final` or `periodic`) is logged in `sessions.jsonl` and reported.
+
+**Binding to the freeze.**
+- The confirmatory kernel checks that it was built from the commit holding
+  `freeze/manifest.json`, and that the manifest has the stamped SHA-256.
+- S, the kernel script, and every frozen code and template file in the bundle must match the
+  manifest, with no extra files.
+- The kernel script and metadata are built from that commit, never from the working tree.
+- No blind CSV is produced for the confirmatory runs: with the public order and a time cut,
+  their rows could reveal framings.

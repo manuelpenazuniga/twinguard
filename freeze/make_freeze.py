@@ -3,20 +3,25 @@
 Everything is read from the commit with `git show`, never from the working tree, so anyone
 with the repo can rebuild the same manifest and hash:
 
-  python freeze/make_freeze.py --commit HEAD --S 4 --t-a 61.2 --budget-hours 30 \
-      --justification "pilot: 81 runs in 1.38 h at concurrency 8 ..." --pilot-sealed-sha256 ...
+  python freeze/make_freeze.py --S 4 --t-a 61.2 --budget-hours 30.1 --shards 2 \
+      --deadline-utc 2026-11-10T15:00:00Z --justification "..." --pilot-sealed-sha256 ...
+
+t_a and the budget follow docs/decisions.md D8, fixed before the pilot output was read.
 
 Writes freeze/manifest.json and freeze/manifest.json.sha256. The SHA-256 is then stamped
 with OpenTimestamps (`ots stamp freeze/manifest.json`), which is a separate, explicit step.
 The manifest holds hashes and configuration only: no results and no competition data.
 """
 import argparse
+import calendar
 import csv
 import hashlib
 import io
 import json
+import math
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -83,25 +88,60 @@ def templates(commit):
     return res
 
 
-def k_rule(tpls):
-    """9.3: K = 30 when every mechanism has its 10 confirmatory templates admitted."""
-    k_m = {}
-    for t in tpls.values():
-        if t['split'] == 'confirmatory':
-            k_m[t['mechanism']] = k_m.get(t['mechanism'], 0) + 1
-    K = sum(k_m.values())
-    return {'K': K, 'k_by_mechanism': dict(sorted(k_m.items())),
-            'resource_mode': min(k_m.values() or [0]) < 10,
-            'rule': '9.3: K = 30 if all 10 sectors have their three templates admitted; '
-                    'min_m k_m < 10 -> resource mode, --exploratory'}
+MECHANISMS = ('M1', 'M2', 'M3')
+K_PROTOCOL = 30                  # 9.3 uses the fixed 30 in T, not the admitted count
 
 
-def s_rule(t_a, budget_hours, K):
-    """9.3: T = K x 3 x 4 x S x t_a; the largest S in (4, 3, 2) with T <= 0.6 budget."""
+def admitted(commit, tid):
+    """Admission = technical admission report passed AND the last level-2 semantic audit of
+    the template says pass (6.2, 6.4)."""
+    try:
+        tech = json.loads(git('show', f'{commit}:bank/admission/{tid}.json'))
+    except subprocess.CalledProcessError:
+        return False
+    sem = None
+    for line in git('show', f'{commit}:bank/audits/semantic_audit_level2.jsonl').splitlines():
+        r = json.loads(line)
+        if r.get('template_id') == tid and 'summary' in r:
+            sem = r['summary'].get('verdict')
+    return bool(tech.get('technical_pass')) and sem == 'pass'
+
+
+def k_rule(commit, tpls):
+    """9.3: K = 30 if the 10 sectors have their three templates (one per mechanism) admitted,
+    taking within each mechanism the first by creation order; min_m k_m < 10 -> resource
+    mode (--exploratory). Missing mechanisms count as 0."""
+    spec = list(csv.DictReader(io.StringIO(git('show', f'{commit}:bank/spec_matrix.csv'))))
+    conf = sorted((r for r in spec if r['split'] == 'confirmatory'),
+                  key=lambda r: int(r['creation_order']))
+    ok = {r['template_id']: admitted(commit, r['template_id']) for r in conf}
+    chosen = {m: [r for r in conf if r['mechanism'] == m and ok[r['template_id']]][:10]
+              for m in MECHANISMS}
+    k_m = {m: len(v) for m, v in chosen.items()}
+    sectors = {}
+    for v in chosen.values():
+        for r in v:
+            sectors.setdefault(r['family'], set()).add(r['mechanism'])
+    complete = sorted(f for f, ms in sectors.items() if ms == set(MECHANISMS))
+    resource = min(k_m.values()) < 10 or len(complete) < 10
+    return {'K': sum(k_m.values()), 'k_by_mechanism': k_m, 'complete_sectors': len(complete),
+            'not_admitted': sorted(t for t, a in ok.items() if not a),
+            'selected': {m: [r['template_id'] for r in v] for m, v in chosen.items()},
+            'resource_mode': resource,
+            'rule': '9.3: K = 30 if all 10 sectors have their three templates admitted '
+                    '(first by creation order per mechanism); min_m k_m < 10 -> resource '
+                    'mode, --exploratory'}
+
+
+def s_rule(t_a, budget_hours):
+    """9.3: T = 30 x 3 x 4 x S x t_a; S = 4 if T <= 0.6 budget, else 3, else 2 (declared)."""
+    for v, name in ((t_a, 't_a'), (budget_hours, 'budget')):
+        if not (isinstance(v, (int, float)) and math.isfinite(v) and v > 0):
+            raise SystemExit(f'{name} must be a positive finite number, got {v!r}')
     rows = []
     for S in (4, 3, 2):
-        T = K * len(FRAMINGS) * PARAPHRASES * S * t_a / 3600
-        rows.append({'S': S, 'T_hours': round(T, 2), 'fits': T <= 0.6 * budget_hours})
+        T = K_PROTOCOL * len(FRAMINGS) * PARAPHRASES * S * t_a / 3600
+        rows.append({'S': S, 'T_hours': round(T, 3), 'fits': T <= 0.6 * budget_hours})
     chosen = next((r['S'] for r in rows if r['fits']), 2)
     return chosen, rows
 
@@ -115,6 +155,9 @@ def main(argv=None):
     ap.add_argument('--budget-hours', type=float, required=True,
                     help='GPU hours available for the confirmatory runs (9.3)')
     ap.add_argument('--justification', required=True)
+    ap.add_argument('--shards', type=int, default=2, help='parallel kernels (D8)')
+    ap.add_argument('--deadline-utc', required=True,
+                    help='YYYY-MM-DDTHH:MM:SSZ: no confirmatory run starts after it (7.4 cut)')
     ap.add_argument('--pilot-sealed-sha256', default='')
     ap.add_argument('--environment-id', default='kaggle-L4x4|4 NVIDIA L4|img:37c64f7d|'
                     'vllm0.19.1|tp4|model:52f3f65-overlay')
@@ -126,22 +169,30 @@ def main(argv=None):
     if commit != git('rev-parse', 'HEAD') or git('status', '--porcelain', '--untracked-files=no'):
         raise SystemExit('freeze from a clean checkout of the frozen commit (HEAD, no changes)')
     tpls = templates(commit)
-    kr = k_rule(tpls)
-    s_rule_S, s_rows = s_rule(a.t_a, a.budget_hours, kr['K'])
+    kr = k_rule(commit, tpls)
+    if kr['resource_mode']:
+        raise SystemExit(f'resource mode (9.3): {kr}')
+    s_rule_S, s_rows = s_rule(a.t_a, a.budget_hours)
+    deadline = calendar.timegm(time.strptime(a.deadline_utc, '%Y-%m-%dT%H:%M:%SZ'))
     if a.S != s_rule_S:
         raise SystemExit(f'--S {a.S} disagrees with the 9.3 rule, which gives S = {s_rule_S}: {s_rows}')
 
     sys.path.insert(0, str(ROOT))
-    from runner.runner import schedule, run_seed  # noqa: E402  (same code as the commit)
+    from runner.runner import (MODEL_ID, schedule, schedule_digest, shard_runs,  # noqa: E402
+                               run_seed)       # same code as the commit (checked above)
     runs = schedule(ROOT / 'bank' / 'templates', ROOT / 'bank' / 'spec_matrix.csv',
                     'confirmatory', a.S, ORDER_SEED)
-    order_digest = hashlib.sha256('\n'.join(r['run_id'] for r in runs).encode()).hexdigest()
+    blocks = []
+    for r in runs:
+        if not blocks or blocks[-1] != r['family']:
+            blocks.append(r['family'])
+    shards = {f'{i}/{a.shards}': shard_runs(runs, (i, a.shards)) for i in range(1, a.shards + 1)}
 
     manifest = {
         'package': 'TwinGuard freeze (protocol 9.4)',
         'commit': commit,
         'commit_utc': git('show', '-s', '--format=%cI', commit),
-        'model': {'id': 'google/gemma-4-31B-it-qat-w4a16-ct',
+        'model': {'id': MODEL_ID,
                   'revision': '52f3f65bc7a02d555763bc923bd1d9094898219d',
                   'kaggle_model': 'google/gemma-4/Other/gemma-4-31b-it-qat-w4a16-ct/2',
                   'chat_template_overlay': 'HF 52f3f65 chat_template.jinja + tokenizer_config.json'},
@@ -154,9 +205,19 @@ def main(argv=None):
                               'identical across framings',
                   'example': {'M1.cold_chain_release|p1|r1': run_seed('M1.cold_chain_release', 1, 1)}},
         'design': {**kr, 'S': a.S, 'framings': list(FRAMINGS), 'paraphrases': PARAPHRASES,
-                   'scheduled_runs': len(runs), 'schedule_sha256': order_digest},
+                   'scheduled_runs': len(runs), 'schedule_sha256': schedule_digest(runs),
+                   'block_order': blocks,
+                   'shards': {k: {'blocks': [b for b in blocks if any(r['family'] == b for r in v)],
+                                  'runs': len(v), 'schedule_sha256': schedule_digest(v)}
+                              for k, v in shards.items()}},
+        'confirmatory_deadline_utc': a.deadline_utc,
+        'confirmatory_deadline_epoch': deadline,
+        'truncation': '7.4: a run not started by the deadline gets an infra_failed row '
+                      '(close-out); any scheduled block not complete -> --exploratory, with K '
+                      'scheduled, K evaluable per contrast and the excluded blocks reported '
+                      '(runner/merge.py)',
         'S_decision': {'t_a_seconds': a.t_a, 'budget_hours': a.budget_hours, 'rule_rows': s_rows,
-                       'justification': a.justification},
+                       'definitions': 'docs/decisions.md D8', 'justification': a.justification},
         'pilot_sealed_sha256': a.pilot_sealed_sha256,
         'files': {g: hashed(commit, ps) for g, ps in GROUPS.items()},
         'templates': tpls,

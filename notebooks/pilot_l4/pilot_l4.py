@@ -30,10 +30,13 @@ from pathlib import Path
 
 OUT = Path('/kaggle/working/pilot_results.json')
 MODE = 'runner_smoke'   # 'runner_smoke' (toy fixture, 6 runs), 'pilot' (72 + 9) or 'confirmatory'; build --define
-# confirmatory only (build --define; fail closed when missing):
-S_REPLICATES = ''        # seeds per paraphrase S from the 9.3 rule, frozen ('2', '3' or '4')
-FROZEN_COMMIT = ''       # commit sealed in the freeze package: the bundle must be built from it
-CLOSE_OUT = ''           # '1' in the last session: unfinished runs become infra_failed rows
+# confirmatory only (build --define; fail closed when missing or inconsistent):
+S_REPLICATES = ''        # seeds per paraphrase S from the 9.3 rule ('2', '3' or '4'), = freeze
+FROZEN_COMMIT = ''       # commit holding freeze/manifest.json: the bundle must be built from it
+FREEZE_SHA256 = ''       # SHA-256 of freeze/manifest.json (the stamped hash)
+SHARD = ''               # 'i/N': parallel kernels, each runs every N-th sector block
+SESSION = ''             # 1, 2, ... within a shard; session k > 1 resumes session k - 1
+SCRIPT_SHA256 = ''       # set by build_kernel: SHA-256 of this script at the commit, pre-define
 KERNEL_T0 = time.time()
 SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
 STOP_MARGIN_S = 90 * 60          # no run starts later than this before the limit (60 min budget + eval)
@@ -581,7 +584,9 @@ def runner_cmd(code, mode, out_dir, extra):
             '--run-as', ','.join(AGENTS), '--eval-user', ','.join(EVALS),
             '--concurrency', str(len(AGENTS)), '--environment-id', env_id,
             '--code-commit', CODE_COMMIT,
-            '--stop-at', str(KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S), *extra]
+            '--stop-at', str(stop_at()), *extra]
+    if mode == 'confirmatory':
+        args += ['--shard', SHARD]
     # arguments go through a root-only file: the process list is visible to every uid
     argf = UDS_DIR / f'args_{out_dir.name}'
     argf.write_text('\n'.join(args) + '\n')
@@ -611,17 +616,17 @@ SEALED = Path('/kaggle/working/results_sealed.tar.gz')
 SEAL_LOCK = threading.Lock()     # one snapshot/seal at a time (periodic and final)
 
 
-def snapshot_and_seal():
+def snapshot_and_seal(kind='periodic'):
     """Consistent snapshot, then an atomic durable replace of the sealed archive (the previous
     archive stays valid until the new one is complete).
     Consistency: every event in attempts.jsonl refers to files written BEFORE the event, so
     each block's attempts.jsonl is copied FIRST and its other files afterwards: every logged
     event finds its files in the snapshot (later extra files are harmless checkpoints)."""
     with SEAL_LOCK:
-        return _snapshot_and_seal()
+        return _snapshot_and_seal(kind)
 
 
-def _snapshot_and_seal():
+def _snapshot_and_seal(kind):
     import tarfile, tempfile
     res_dir = Path('/kaggle/working/results')
     stage = Path(tempfile.mkdtemp(prefix='snap_', dir='/root/tgv'))
@@ -640,6 +645,8 @@ def _snapshot_and_seal():
                     shutil.copytree(item, dst / item.name, ignore=shutil.ignore_patterns('*.tmp'))
                 elif not item.name.endswith('.tmp'):
                     shutil.copy2(item, dst / item.name)
+        # periodic snapshots may miss events after them; a resume records which kind it used
+        (stage / 'seal.json').write_text(json.dumps({'kind': kind, 'utc': time.time()}))
         with os.fdopen(fd, 'wb') as raw:
             fd = None
             with tarfile.open(fileobj=raw, mode='w:gz') as t:
@@ -783,7 +790,9 @@ def seal_results():
     numbers and the blind CSV are left in the open (9.2)."""
     import csv as _csv, tarfile
     res_dir = Path('/kaggle/working/results')
-    for name in ('pilot', 'pilot_diversity', 'runner_smoke', 'confirmatory'):
+    # confirmatory: no blind CSV at all (with the public order and a time cut, the status of
+    # template/paraphrase/replicate rows can reveal framings); it stays sealed until decoding
+    for name in ('pilot', 'pilot_diversity', 'runner_smoke'):
         csvp = res_dir / name / 'runs.csv'
         summ = res_dir / name / 'session_summary.json'
         if csvp.exists() and summ.exists():
@@ -800,7 +809,7 @@ def seal_results():
                 secrets.SystemRandom().shuffle(rows)   # private, unrecorded permutation
                 for i, x in enumerate(rows):
                     w.writerow({'row': i, **{c: x[c] for c in cols if c != 'seed'}})
-    digest = snapshot_and_seal()          # nothing is writing any more: final and complete
+    digest = snapshot_and_seal('final')   # nothing is writing any more: final and complete
     shutil.rmtree(res_dir)
     return {'sealed': str(SEALED), 'sha256': digest, 'bytes': SEALED.stat().st_size}
 
@@ -818,16 +827,117 @@ def restore_previous():
     import tarfile
     with tarfile.open(match[0]) as t:
         t.extractall('/kaggle/working')
-    return {'resumed_from': match[0], 'sha256': RESUME_SHA256}
+    seal = Path('/kaggle/working/results/seal.json')
+    kind = json.loads(seal.read_text()) if seal.exists() else {'kind': 'unknown'}
+    seal.unlink(missing_ok=True)
+    return {'resumed_from': match[0], 'sha256': RESUME_SHA256, 'parent_seal': kind}
+
+
+def session_chain(restored):
+    """Confirmatory sessions form one chain per shard: session 1 starts empty; session k
+    resumes exactly session k-1 of the same shard and freeze. Appends this session's entry
+    (with the parent's seal kind: a periodic snapshot may have lost later events, which
+    were then re-run; declared, never hidden)."""
+    out = RESULTS_DIR / 'confirmatory'
+    log = out / 'sessions.jsonl'
+    k = int(SESSION)
+    if k == 1:
+        if out.exists():
+            raise RuntimeError('session 1 must start without confirmatory results')
+        prev = None
+    else:
+        if not (out / 'manifest.json').exists() or not log.exists():
+            raise RuntimeError('resumed archive has no confirmatory manifest/session log')
+        prev = json.loads(log.read_text().strip().splitlines()[-1])
+        if (prev['session'], prev['shard'], prev['freeze_sha256']) != (k - 1, SHARD, FREEZE_SHA256):
+            raise RuntimeError(f'resume chain broken: previous entry {prev}, this session {k} {SHARD}')
+    out.mkdir(parents=True, exist_ok=True)
+    entry = {'session': k, 'shard': SHARD, 'freeze_sha256': FREEZE_SHA256,
+             'code_commit': CODE_COMMIT, 'parent_sha256': RESUME_SHA256 or None,
+             'parent_seal': restored.get('parent_seal'), 'started_utc': KERNEL_T0,
+             'stop_at': stop_at(), 'last_session': last_session()}
+    with open(log, 'a') as f:
+        f.write(json.dumps(entry) + '\n')
+        f.flush()
+        os.fsync(f.fileno())
+    return entry
 
 
 def confirmatory_guard():
-    """Fail closed before any GPU work: S frozen, bundle built from the frozen commit."""
+    """Fail closed before any GPU work: S, shard and session defined; bundle = frozen commit."""
     if S_REPLICATES not in ('2', '3', '4'):
         raise SystemExit(f'confirmatory: S_REPLICATES must be 2, 3 or 4, got {S_REPLICATES!r}')
     if not FROZEN_COMMIT or CODE_COMMIT != FROZEN_COMMIT:
         raise SystemExit(f'confirmatory: bundle {CODE_COMMIT} is not the frozen commit {FROZEN_COMMIT!r}')
-    return {'S': int(S_REPLICATES), 'frozen_commit': FROZEN_COMMIT, 'close_out': CLOSE_OUT == '1'}
+    if len(FREEZE_SHA256) != 64 or len(SCRIPT_SHA256) != 64:
+        raise SystemExit('confirmatory: FREEZE_SHA256 and SCRIPT_SHA256 are required')
+    if not re.fullmatch(r'[1-9]/[1-9]', SHARD) or int(SHARD[0]) > int(SHARD[2]):
+        raise SystemExit(f'confirmatory: SHARD must be i/N, got {SHARD!r}')
+    if not SESSION.isdigit() or int(SESSION) < 1:
+        raise SystemExit(f'confirmatory: SESSION must be 1, 2, ..., got {SESSION!r}')
+    if (SESSION == '1') != (RESUME_SHA256 == ''):
+        raise SystemExit('confirmatory: session 1 starts empty; every later session resumes')
+    return {'S': int(S_REPLICATES), 'frozen_commit': FROZEN_COMMIT, 'freeze_sha256': FREEZE_SHA256,
+            'shard': SHARD, 'session': int(SESSION)}
+
+
+FREEZE = {}
+RESULTS_DIR = Path('/kaggle/working/results')
+BUNDLED = ('harness/', 'runner/', 'bank/templates/', 'bank/spec_matrix.csv', 'bank/render.py',
+           'bank/admission.py', 'twinguard/twinguard_analysis.py', 'twinguard/twinguard_graph.py',
+           'notebooks/model_overlay/', 'notebooks/pilot_l4/pilot_l4.py')
+
+
+def verify_freeze(code):
+    """The bundle IS the frozen package: manifest hash = FREEZE_SHA256, S = frozen S, this
+    script = the frozen script, and every frozen code/template file in the bundle matches its
+    hash, with no extra file under the frozen code directories."""
+    mpath = code / 'freeze' / 'manifest.json'
+    if sha256(mpath) != FREEZE_SHA256:
+        raise RuntimeError('freeze manifest hash differs from FREEZE_SHA256')
+    m = json.loads(mpath.read_text())
+    if m['design']['S'] != int(S_REPLICATES):
+        raise RuntimeError(f"S_REPLICATES {S_REPLICATES} != frozen S {m['design']['S']}")
+    frozen = {}
+    for files in m['files'].values():
+        frozen.update(files)
+    for t in m['templates'].values():
+        frozen.update(t['files'])
+    if frozen.get('notebooks/pilot_l4/pilot_l4.py') != SCRIPT_SHA256:
+        raise RuntimeError('this kernel script is not the frozen script')
+    bad, missing, extra = [], [], []
+    for path, h in frozen.items():
+        if not path.startswith(BUNDLED):
+            continue
+        f = code / path
+        if not f.exists():
+            missing.append(path)
+        elif sha256(f) != h:
+            bad.append(path)
+    for f in code.rglob('*'):
+        rel = f.relative_to(code).as_posix()
+        if f.is_file() and rel.startswith(BUNDLED) and rel not in frozen:
+            extra.append(rel)
+    if bad or missing or extra:
+        raise RuntimeError(f'bundle differs from the freeze: bad={bad[:5]} missing={missing[:5]} extra={extra[:5]}')
+    FREEZE.update(m)
+    return {'freeze_sha256': FREEZE_SHA256, 'frozen_files_checked': len(frozen),
+            'deadline_utc': m['confirmatory_deadline_utc']}
+
+
+def deadline():
+    return FREEZE['confirmatory_deadline_epoch']
+
+
+def stop_at():
+    """No run starts after the session margin or after the frozen confirmatory deadline."""
+    t = KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S
+    return min(t, deadline()) if MODE == 'confirmatory' else t
+
+
+def last_session():
+    """Time alone decides the cut (7.4): the session that reaches the frozen deadline closes."""
+    return MODE == 'confirmatory' and deadline() <= KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S
 
 
 def confirmatory_block(code):
@@ -838,8 +948,9 @@ def confirmatory_block(code):
 
 
 def confirmatory_close_out(code):
-    """Last session only: evaluate finished episodes and give every unfinished scheduled run an
-    infra_failed row (7.4 truncation responds to time only)."""
+    """Session reaching the frozen deadline: evaluate finished episodes and give every
+    unfinished scheduled run an infra_failed row (7.4 truncation responds to time only).
+    CPU only: the runner's close-out never calls the model."""
     return run_block(code, 'confirmatory', 'confirmatory',
                      ['--replicates', S_REPLICATES, '--close-out'])
 
@@ -863,10 +974,15 @@ if __name__ == '__main__':
     if MODE == 'confirmatory':
         R['confirmatory'] = confirmatory_guard()
     gpu_guard()
-    install_wheels()
+    if not install_wheels()['ok']:
+        raise SystemExit('wheel installation failed: refusing to run')
     procs = []
+    verified = False
     try:
         code = code_dir()
+        if MODE == 'confirmatory':
+            if not phase('6_verify_freeze')(verify_freeze)(code)['ok']:
+                raise SystemExit('bundle is not the frozen package: refusing to run')
         MODEL = model_path()
         R['model_path'] = str(MODEL)
         h = model_hashes()
@@ -875,10 +991,15 @@ if __name__ == '__main__':
         else:
             raise SystemExit('served model files do not match HF 52f3f65: refusing to run')
         Path('/kaggle/working/results').mkdir(parents=True, exist_ok=True)
-        if not phase('8a_restore')(restore_previous)()['ok']:
+        restored = phase('8a_restore')(restore_previous)()
+        if not restored['ok']:
             raise SystemExit('resume archive check failed: refusing to run')
+        if MODE == 'confirmatory':
+            if not phase('8c_session_chain')(session_chain)(restored)['ok']:
+                raise SystemExit('confirmatory session chain check failed: refusing to run')
         if not isolation(code)['ok']:
             raise SystemExit('isolation checks failed: refusing to run')
+        verified = MODE == 'confirmatory'     # close-out evaluates only under verified isolation
 
         @phase('2_server_tp4')
         def up():
@@ -893,20 +1014,21 @@ if __name__ == '__main__':
                 if time.time() < KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S:
                     phase('9c_seed_diversity')(lambda: diversity_block(code))()
             elif MODE == 'confirmatory':
-                main = phase('9_runner_confirmatory')(lambda: confirmatory_block(code))()
-                if CLOSE_OUT == '1' and main['ok']:
-                    phase('9d_close_out')(lambda: confirmatory_close_out(code))()
+                phase('9_runner_confirmatory')(lambda: confirmatory_block(code))()
             else:
                 phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:
         stop(procs)
-        try:
-            phase('10_seal')(seal_results)()
-        except Exception:
-            pass
+        if verified and last_session():
+            # the deadline session closes even if the server or the main block failed
+            phase('9d_close_out')(lambda: confirmatory_close_out(code))()
+        seal = phase('10_seal')(seal_results)()
         sh('chmod 0755 /kaggle')
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
         shutil.rmtree('/kaggle/working/model_52f3f65', ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         save()
+        if not seal['ok']:
+            print('SEAL FAILED', flush=True)
+            sys.exit(1)
         print('DONE', flush=True)
