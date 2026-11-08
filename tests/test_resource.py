@@ -34,3 +34,44 @@ def test_evaluate_unappliable_patch_needs_adjudication(tmp_path):
     out = run('evaluate', '--manifest', str(T / 'M1.cold_chain_release'), '--patch', str(bad))
     assert out['patch_applied'] is False and out['needs_adjudication']
     assert out['score']['coverage'] is False
+
+
+def test_tables_every_number_has_a_source(tmp_path):
+    """WP14: tables are generated from the result files; each cell is listed with its source."""
+    import csv
+    import random
+    sys.path.insert(0, str(ROOT))
+    from runner import runner as R
+    runs = R.schedule(T, ROOT / 'bank' / 'spec_matrix.csv', 'confirmatory', 1, 20261107)
+    rng = random.Random(3)
+    res = tmp_path / 'res'
+    res.mkdir()
+    cols = R.COLUMNS + ['gsc', 'ast']
+    with open(res / 'runs_detectors.csv', 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for r in runs:
+            w.writerow({**{k: r.get(k, '') for k in R.COLUMNS}, 'status': 'patch',
+                        'W': int(rng.random() < 0.3), 'F': 1, 'M': 1, 'crash': 0,
+                        'model_id': R.MODEL_ID, 'model_revision': 'v', 'harness_commit': 'c',
+                        'oracle_commit': 'c', 'environment_id': 'e',
+                        'gsc': rng.choice(['alert', 'no_alert', 'not_evaluable']),
+                        'ast': rng.choice(['alert', 'no_alert'])})
+    subprocess.run([sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'),
+                    str(res / 'runs_detectors.csv'), '--replicates', '1', '--bootstrap', '200',
+                    '--output', str(res / 'analysis_output.json')], check=True,
+                   capture_output=True, cwd=str(ROOT))
+    g = subprocess.run([sys.executable, 'twinguard_gate.py', str(res / 'runs_detectors.csv'),
+                        '--detectors', 'gsc', 'ast', '--compare', 'gsc', 'ast', '--draws', '50'],
+                       check=True, capture_output=True, text=True, cwd=str(ROOT / 'twinguard'))
+    (res / 'gate_output.json').write_text(g.stdout)
+    out = tmp_path / 't.md'
+    r = subprocess.run([sys.executable, str(ROOT / 'resource' / 'tables.py'), '--results',
+                        str(res), '--out', str(out)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-2000:]
+    text = out.read_text()
+    assert 'H1: W, A − N' in text and '| gsc |' in text and '## Provenance' in text
+    a = json.loads((res / 'analysis_output.json').read_text())
+    est = a['H1_PRIMARY_W_A_minus_N']['HC3_95']['estimate']
+    assert f'{100 * est:.1f}' in text
+    assert 'H1_PRIMARY_W_A_minus_N.HC3_95' in text
