@@ -322,6 +322,17 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     assert 'twinguard_frozen_' in hashes['cmd'][0]           # the extraction, not the checkout
     assert json.loads((out / 'truncation_report.json').read_text())['exploratory_required']
     assert (out / 'analysis_output.txt').exists()
+    # resource contract (17): the published labels and tables reproduce from the results dir
+    rep = subprocess.run([sys.executable, str(ROOT / 'resource' / 'cli.py'), 'reproduce',
+                          '--results', str(out)], capture_output=True, text=True)
+    report = json.loads(rep.stdout)
+    assert report['hashes']['mismatch'] == [] and report['schema'] == 'ok'
+    assert report['analysis_rc']['published'] == report['analysis_rc']['reproduced']
+    assert report['analysis_output']['identical'] and report['reproduced'], report
+    (out / 'runs.csv').write_text((out / 'runs.csv').read_text().replace(',patch,', ',no_patch,', 1))
+    rep = subprocess.run([sys.executable, str(ROOT / 'resource' / 'cli.py'), 'reproduce',
+                          '--results', str(out)], capture_output=True, text=True)
+    assert rep.returncode != 0                                # a changed label is caught
     r2 = subprocess.run([sys.executable, str(repo / 'runner' / 'analyze.py'), '--freeze',
                          str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
                          str(tmp_path / 'a'), str(tmp_path / 'b')], capture_output=True, text=True)
