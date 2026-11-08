@@ -227,3 +227,25 @@ Written while the pilot kernel was still running, before any of its output was r
   run ids). The full text is sealed with the results.
 - **K rule:** an admitted template also needs a WP7 manipulation check pass. The confirmatory
   rows of the spec must be exactly the selected templates.
+
+**D8 additions after Astra's third review (day 3c).**
+- **Empty sessions:** a session whose server never started leaves only its session log.
+  The next session of the shard resumes it; the entry records `parent_reached_runner`.
+  Records without the runner manifest are still refused. Past the deadline, the CPU close-out
+  uses the model path when no server ever answered (vLLM serves the model under its path).
+- **Session status:** a kernel prints `DONE` once its results are sealed, followed by
+  `shard_status`:
+  - `complete`: every scheduled run of the shard has its row;
+  - `closed_at_deadline`: the shard is final;
+  - `requires_resume`: attach the sealed archive to session k+1 of the shard.
+- **Merge rebuilds the rows:**
+  - `runs.csv` must equal the rows implied by the final events and the blind adjudications;
+  - every final event must be internally consistent: its outcome is recomputed from its
+    summary and evaluation, rows without an evaluation are infrastructure failures, and the
+    close-out mark agrees with `termination`;
+  - session 1 has no parent, and every later session names a distinct parent archive.
+- **Frozen analysis code:** `runner/analyze.py` never runs the checkout. The merge
+  identifies the sessions' commit and checks that it holds this freeze. That commit is then
+  extracted with `git archive` and every frozen file is checked against the manifest
+  hashes. The script re-runs itself from the extraction, where it merges again and runs the
+  frozen `twinguard_analysis.py` once.

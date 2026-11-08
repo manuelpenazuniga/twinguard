@@ -584,6 +584,9 @@ def served_model():
     man = RESULTS_DIR / 'confirmatory' / 'manifest.json'
     if man.exists():
         return json.loads(man.read_text())['model']
+    if R.get('model_path'):
+        # the server never started in any session: vLLM serves the model under its path
+        return R['model_path']
     raise RuntimeError('no served model id known')
 
 
@@ -877,15 +880,22 @@ def session_chain(restored):
             raise RuntimeError('session 1 must start without confirmatory results')
         prev = None
     else:
-        if not (out / 'manifest.json').exists() or not log.exists():
-            raise RuntimeError('resumed archive has no confirmatory manifest/session log')
+        if not log.exists():
+            raise RuntimeError('resumed archive has no confirmatory session log')
+        if not (out / 'manifest.json').exists() and (
+                (out / 'attempts.jsonl').exists() or (out / 'episodes').exists()):
+            raise RuntimeError('resumed archive has run records without the runner manifest')
+        # no manifest and no records: the previous session(s) never reached the runner (e.g.
+        # the server failed to start); an empty, resumable session, declared in the chain
         prev = json.loads(log.read_text().strip().splitlines()[-1])
         if (prev['session'], prev['shard'], prev['freeze_sha256']) != (k - 1, SHARD, FREEZE_SHA256):
             raise RuntimeError(f'resume chain broken: previous entry {prev}, this session {k} {SHARD}')
     out.mkdir(parents=True, exist_ok=True)
     entry = {'session': k, 'shard': SHARD, 'freeze_sha256': FREEZE_SHA256,
              'code_commit': CODE_COMMIT, 'parent_sha256': RESUME_SHA256 or None,
-             'parent_seal': restored.get('parent_seal'), 'started_utc': KERNEL_T0,
+             'parent_seal': restored.get('parent_seal'),
+             'parent_reached_runner': (out / 'manifest.json').exists() if k > 1 else None,
+             'started_utc': KERNEL_T0,
              'stop_at': stop_at(), 'last_session': last_session()}
     with open(log, 'a') as f:
         f.write(json.dumps(entry) + '\n')
@@ -992,6 +1002,17 @@ def confirmatory_close_out(code):
     CPU only: the runner's close-out never calls the model."""
     return run_block(code, 'confirmatory', 'confirmatory',
                      ['--replicates', S_REPLICATES, '--close-out'])
+
+
+def shard_status(closed):
+    """closed_at_deadline (shard final), complete (every scheduled run has its row), or
+    requires_resume (attach this session's sealed archive to session k+1 of the shard)."""
+    if closed.get('ok') and 'confirmatory' in R.get('blocks', {}) and deadline_reached():
+        return 'closed_at_deadline'
+    s = R.get('blocks', {}).get('confirmatory', {}).get('session') or {}
+    if s.get('scheduled') and s.get('completed') == s.get('scheduled'):
+        return 'complete'
+    return 'requires_resume'
 
 
 def eval_check(code):
@@ -1117,8 +1138,11 @@ elif __name__ == '__main__':
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
         shutil.rmtree('/kaggle/working/model_52f3f65', ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        R['shard_status'] = shard_status(closed) if MODE == 'confirmatory' else None
         save()
         if not seal['ok'] or not closed['ok']:
             print('SEAL FAILED' if not seal['ok'] else 'CLOSE-OUT FAILED', flush=True)
             sys.exit(1)
-        print('DONE', flush=True)
+        # DONE = the results are sealed; for a shard it also says whether it must be resumed
+        print('DONE' + (f" shard_status={R['shard_status']}" if R['shard_status'] else ''),
+              flush=True)

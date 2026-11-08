@@ -2,6 +2,7 @@
 import csv
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -56,30 +57,52 @@ def test_results_without_manifest_are_refused(tmp_path):
 FZ_MODEL = {'id': 'm', 'revision': 'v'}
 
 
+EV = {'M': 1, 'oracle': {'W': 0, 'crash': 0}, 'tests': {'passed': 1}}
+
+
 def write_shard(d, runs, shard, freeze_sha, closed=(), env='env', extra_rows=(), started=(),
-                commit='c', mutate=None):
+                commit='c', mutate=None, sessions=None):
+    """A shard as the runner leaves it: events (with evaluations), the CSV they imply."""
     d.mkdir(parents=True)
     (d / 'manifest.json').write_text(json.dumps({'shard': shard,
                                                  'schedule_sha256': R.schedule_digest(runs)}))
-    (d / 'sessions.jsonl').write_text(json.dumps({'session': 1, 'shard': shard, 'code_commit': commit,
-                                                  'freeze_sha256': freeze_sha}) + '\n')
+    sessions = sessions or [{'session': 1, 'parent_sha256': None}]
+    (d / 'sessions.jsonl').write_text(''.join(
+        json.dumps({'shard': shard, 'code_commit': commit, 'freeze_sha256': freeze_sha, **s}) + '\n'
+        for s in sessions))
     rows, events = [], []
     for r in list(runs) + list(extra_rows):
         cut = r['run_id'] in closed
-        row = {k: r.get(k, '') for k in R.COLUMNS}
-        row.update(status='infra_failed' if cut else 'patch', model_id='m', model_revision='v',
-                   harness_commit=commit, oracle_commit=commit, environment_id=env)
+        row = {k: r.get(k) for k in R.COLUMNS}
+        row.update(model_id='m', model_revision='v', harness_commit=commit, oracle_commit=commit,
+                   environment_id=env)
+        if cut:
+            row.update(status='infra_failed', W=None, F=None, M=None, crash=None,
+                       termination='closed_out')
+        else:
+            row.update(status='patch', W=0, F=1, M=1, crash=0, termination='submit')
         if mutate:
             mutate(row)
-        rows.append(row)
+        rows.append({k: ('' if v is None else v) for k, v in row.items()})
         if not cut or r['run_id'] in started:
             events.append({'run_id': r['run_id'], 'event': 'start'})
-        events.append({'run_id': r['run_id'], 'final': True, 'closed_out': cut, 'row': row})
+        events.append({'run_id': r['run_id'], 'final': True, 'closed_out': cut, 'row': row,
+                       'summary': {}, 'needs_adjudication': False,
+                       'evaluation': None if cut else EV})
     with open(d / 'runs.csv', 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=R.COLUMNS)
         w.writeheader()
         w.writerows(rows)
     (d / 'attempts.jsonl').write_text(''.join(json.dumps(e) + '\n' for e in events))
+
+
+def edit_csv(d, fn):
+    rows = list(csv.DictReader(open(d / 'runs.csv')))
+    fn(rows)
+    with open(d / 'runs.csv', 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=R.COLUMNS)
+        w.writeheader()
+        w.writerows(rows)
 
 
 def freeze(tmp_path, runs):
@@ -163,6 +186,43 @@ def test_merge_refuses_inconsistent_shards(tmp_path):
         merge(fz, [tmp_path / 'a', tmp_path / 'nos'])
 
 
+def test_merge_refuses_contradictory_records(tmp_path):
+    """Astra day 3c: the CSV must be what the events and adjudications imply."""
+    runs = full()
+    fz, sha = freeze(tmp_path, runs)
+    s1, s2 = R.shard_runs(runs, (1, 2)), R.shard_runs(runs, (2, 2))
+    write_shard(tmp_path / 'a', s1, '1/2', sha)
+    last = [r['run_id'] for r in s2 if r['family'] == blocks_of(s2)[-1]]
+
+    def case(name, **kw):
+        write_shard(tmp_path / name, s2, '2/2', sha, **kw)
+        return tmp_path / name
+
+    d = case('w_csv')                                    # W changed in the CSV only
+    edit_csv(d, lambda rows: rows[0].update(W='1'))
+    d2 = case('w_event', mutate=lambda row: row.update(W=1) if row['run_id'] == s2[0]['run_id'] else None)
+    d3 = case('cut_csv')                                 # closed-out rows without the event mark
+    edit_csv(d3, lambda rows: [r.update(status='infra_failed', W='', F='', M='', crash='',
+                                        termination='closed_out')
+                               for r in rows if r['run_id'] in last])
+    d4 = case('cut_event', closed=set(last))
+    ev = [json.loads(x) for x in (d4 / 'attempts.jsonl').read_text().splitlines()]
+    for e in ev:
+        e.pop('closed_out', None)
+    (d4 / 'attempts.jsonl').write_text(''.join(json.dumps(e) + '\n' for e in ev))
+    d5 = case('orphan', sessions=[{'session': 1, 'parent_sha256': None},
+                                  {'session': 2, 'parent_sha256': None}])
+    d6 = case('adj')
+    (d6 / 'adjudications.jsonl').write_text(json.dumps({'run_id': 'nope', 'resolved': True}) + '\n')
+    for bad in (d, d2, d3, d4, d5, d6):
+        with pytest.raises(SystemExit):
+            merge(fz, [tmp_path / 'a', bad])
+    ok = case('chain', sessions=[{'session': 1, 'parent_sha256': None},
+                                 {'session': 2, 'parent_sha256': 'a' * 64}])
+    rows, rep = merge(fz, [tmp_path / 'a', ok])
+    assert len(rows) == len(runs)
+
+
 def test_server_down_stops_the_session(tmp_path):
     import argparse
     from harness.loop import EndpointError
@@ -197,3 +257,27 @@ def test_server_down_stops_the_session(tmp_path):
     started = [x for x in runs if r.tries_started(x['run_id'])]
     assert 1 <= len(started) <= 2           # only the runs in flight spent a try
     assert all(r.tries_started(x['run_id']) == 1 for x in started)
+
+
+def test_analyze_runs_only_verified_frozen_code(tmp_path):
+    """Astra day 3c: the analysis runs from a git archive of the frozen commit, every frozen
+    file checked against the manifest hashes; a modified file is refused."""
+    from runner import analyze as A
+    head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True,
+                          text=True, check=True).stdout.strip()
+    dest = tmp_path / 'x'
+    dest.mkdir()
+    A.extract(head, ROOT, dest)
+    files = {p: hashlib.sha256((dest / p).read_bytes()).hexdigest()
+             for p in ('runner/merge.py', 'twinguard/twinguard_analysis.py')}
+    man = {'files': {'g': files}, 'templates': {}}
+    (dest / 'freeze').mkdir(exist_ok=True)
+    (dest / 'freeze' / 'manifest.json').write_text(json.dumps(man))
+    sha = hashlib.sha256((dest / 'freeze' / 'manifest.json').read_bytes()).hexdigest()
+    assert A.verify_extraction(dest, man, sha) == 2
+    with pytest.raises(SystemExit):
+        A.verify_extraction(dest, man, 'f' * 64)                  # not this freeze
+    with open(dest / 'twinguard' / 'twinguard_analysis.py', 'a') as f:
+        f.write('# changed\n')
+    with pytest.raises(SystemExit):
+        A.verify_extraction(dest, man, sha)

@@ -123,6 +123,40 @@ def test_session_chain(tmp_path):
         k.session_chain({})
 
 
+def test_empty_session_is_resumable(tmp_path):
+    """Astra day 3c: a session whose server never started leaves only the session log; the
+    next session resumes it (and, past the deadline, closes out with the model path)."""
+    k = confirmatory_kernel()
+    k.RESULTS_DIR = tmp_path
+    k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 + 99 * 3600})
+    k.session_chain({})                                     # session 1: server then failed
+    k.SESSION, k.RESUME_SHA256 = '2', 'c' * 64
+    e2 = k.session_chain({'parent_seal': {'kind': 'final'}})
+    assert e2['session'] == 2 and e2['parent_reached_runner'] is False
+    (tmp_path / 'confirmatory' / 'attempts.jsonl').write_text('{}\n')
+    k.SESSION, k.RESUME_SHA256 = '3', 'd' * 64
+    with pytest.raises(RuntimeError):                       # records without a manifest
+        k.session_chain({})
+    k.SERVED.clear()
+    k.R.pop('served_model', None)
+    k.R['model_path'] = '/kaggle/working/model_52f3f65'
+    assert k.served_model() == '/kaggle/working/model_52f3f65'
+
+
+def test_shard_status():
+    k = confirmatory_kernel()
+    k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 + 99 * 3600})
+    k.R['blocks'] = {}
+    assert k.shard_status({'ok': True}) == 'requires_resume'         # never reached the runner
+    k.R['blocks'] = {'confirmatory': {'session': {'scheduled': 720, 'completed': 400}}}
+    assert k.shard_status({'ok': True}) == 'requires_resume'
+    k.R['blocks']['confirmatory']['session']['completed'] = 720
+    assert k.shard_status({'ok': True}) == 'complete'
+    k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 - 1})
+    k.R['blocks']['confirmatory']['session']['completed'] = 400
+    assert k.shard_status({'ok': True}) == 'closed_at_deadline'
+
+
 def test_deadline_caps_stop_and_closes():
     k = confirmatory_kernel()
     k.FREEZE.update({'confirmatory_deadline_epoch': k.KERNEL_T0 + 3600})
