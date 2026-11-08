@@ -1006,14 +1006,22 @@ def eval_check(code):
     expect = {'s_plus': '0', 'u_plus': '1'}
     res, bad = {}, []
 
+    import queue
+    slots = queue.Queue()
+    for u in EVALS:
+        slots.put(u)          # one evaluator uid per concurrent evaluation, as in the runner
+
     def one(i_job):
         i, (tid, kind, f) = i_job
-        user = EVALS[i % len(EVALS)]
-        patch = (bank / tid / 'patches' / f'{kind}.diff').read_text()
-        ev = evaluate(bank / tid, f, patch, Path('/tmp/wk') / f'ec{i}', user)
-        status, W, F, M, crash = outcome({'budget_exhausted': False}, ev)
-        shutil.rmtree(Path('/tmp/wk') / f'ec{i}', ignore_errors=True)
-        return tid, kind, f, status, W, F, crash
+        user = slots.get()
+        try:
+            patch = (bank / tid / 'patches' / f'{kind}.diff').read_text()
+            ev = evaluate(bank / tid, f, patch, Path('/tmp/wk') / f'ec{i}', user)
+            status, W, F, M, crash = outcome({'budget_exhausted': False}, ev)
+            shutil.rmtree(Path('/tmp/wk') / f'ec{i}', ignore_errors=True)
+            return tid, kind, f, status, W, F, crash
+        finally:
+            slots.put(user)
     with ThreadPoolExecutor(len(EVALS)) as ex:
         for tid, kind, f, status, W, F, crash in ex.map(one, enumerate(jobs)):
             key = f'{kind} W={W} F={F} crash={crash} status={status}'
