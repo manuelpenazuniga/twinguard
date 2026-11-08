@@ -309,6 +309,7 @@ class Runner:
         self.out.mkdir(parents=True, exist_ok=True)
         self.attempts = self.out / 'attempts.jsonl'
         self.lock = threading.Lock()
+        self.halt = threading.Event()     # set on ServerDown: no further run starts
         self.client = client or (None if getattr(args, 'close_out', False) else
                                  OpenAICompatClient(args.base_url, args.model, timeout=900))
         self.served = None
@@ -414,7 +415,8 @@ class Runner:
 
     # -------------------------------------------------------------- one run
     def run_one(self, run, ignore_deadline=False):
-        if self.stop_at and time.time() > self.stop_at and not ignore_deadline:
+        if (self.stop_at and time.time() > self.stop_at and not ignore_deadline) or \
+                self.halt.is_set():
             self.skipped += 1          # not started: no event, resumable in the next session
             return None
         agent, evaluator = self.slots.get()
@@ -533,6 +535,7 @@ class Runner:
         try:
             probe()
         except Exception as exc:
+            self.halt.set()            # queued runs of this block must not start
             raise ServerDown(f"model server unreachable after {run['run_id']}: "
                              f"{type(exc).__name__}") from exc
 

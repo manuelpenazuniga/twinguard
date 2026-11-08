@@ -914,7 +914,7 @@ def confirmatory_guard():
 
 FREEZE = {}
 RESULTS_DIR = Path('/kaggle/working/results')
-BUNDLED = ('harness/', 'runner/', 'bank/templates/', 'bank/spec_matrix.csv', 'bank/render.py',
+BUNDLED = ('harness/', 'runner/', 'bank/templates/', 'bank/spec_matrix.csv', 'bank/render.py', 'bank/__init__.py',
            'bank/admission.py', 'twinguard/twinguard_analysis.py', 'twinguard/twinguard_graph.py',
            'notebooks/model_overlay/', 'notebooks/pilot_l4/pilot_l4.py')
 

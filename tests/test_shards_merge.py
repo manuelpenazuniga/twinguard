@@ -185,13 +185,15 @@ def test_server_down_stops_the_session(tmp_path):
             raise OSError('connection refused')
     a = argparse.Namespace(split='pilot', replicates=1, order_seed=1, bank=str(b), spec=str(spec),
                            out=str(tmp_path / 'out'), work=str(tmp_path / 'work'), base_url=None,
-                           model='fake', concurrency=1, budget_json='{"tool_calls": 5}',
+                           model='fake', concurrency=2, budget_json='{"tool_calls": 5}',
                            run_as=None, eval_user=None, model_revision='v',
                            allow_unisolated=True, environment_id='e', code_commit='c', limit=0,
                            keep_work=False, stop_at=0)
-    runs = R.schedule(b, spec, 'pilot', 1, 1)[:3]
+    runs = R.schedule(b, spec, 'pilot', 1, 1)[:8]
     r = R.Runner(a, client=Dead())
     with pytest.raises(R.ServerDown):
         r.run(runs)
     assert not r.done()                     # no run was recorded as a result
-    assert r.tries_started(runs[0]['run_id']) == 1
+    started = [x for x in runs if r.tries_started(x['run_id'])]
+    assert 1 <= len(started) <= 2           # only the runs in flight spent a try
+    assert all(r.tries_started(x['run_id']) == 1 for x in started)

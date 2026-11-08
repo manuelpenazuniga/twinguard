@@ -38,7 +38,7 @@ GROUPS = {
                  'twinguard/twinguard_gate.py', 'twinguard/twinguard_power_sim.py'],
     'harness': ['harness/'],
     'runner': ['runner/'],
-    'generator': ['bank/generate.py', 'bank/generator_prompt.md', 'bank/paraphrase.py',
+    'generator': ['bank/__init__.py', 'bank/generate.py', 'bank/generator_prompt.md', 'bank/paraphrase.py',
                   'bank/make_spec.py', 'bank/sectors.toml', 'bank/render.py',
                   'bank/admission.py', 'bank/semantic_audit.py', 'bank/manipulation_check.py',
                   'bank/generation_log.jsonl', 'bank/paraphrase_log.jsonl',
