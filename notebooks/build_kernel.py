@@ -12,6 +12,7 @@ Writes <kernel_dir>/build/<code_file> and <kernel_dir>/build/kernel-metadata.jso
 """
 import argparse
 import base64
+import lzma
 import json
 import re
 import subprocess
@@ -28,6 +29,7 @@ PATHS = ['harness', 'bank/__init__.py', 'bank/render.py', 'bank/admission.py', '
 # file listed in the manifest, so the bundle must carry it. The bundle content still comes from
 # the frozen commit (git archive <commit>).
 MARKER = '# @@CODE_BUNDLE@@'
+LIMIT = 950_000          # Kaggle: "The kernel source must be less than 1 megabytes in size"
 
 
 def strip_text(src):
@@ -85,6 +87,20 @@ def main(argv=None):
             raise SystemExit(f'--define {name}: no top-level assignment found')
     bundle = (f'CODE_COMMIT = {commit!r}\n'
               f'CODE_B64 = {base64.b64encode(tar).decode()!r}\n')
+    if len(bundle) + len(src) > LIMIT:
+        # Kaggle refuses kernel sources of 1 MB or more (the D12 bundle is ~2.2 MB with gzip).
+        # The same tar travels xz-compressed and is re-gzipped at start-up into the identical
+        # CODE_B64 the script expects; its integrity is checked file by file by the kernel
+        # (x1_verify / verify_freeze), not by the transport.
+        raw_tar = subprocess.run(['git', 'archive', '--format=tar', commit, '--', *PATHS,
+                                  *a.extra_path], cwd=ROOT, capture_output=True, check=True).stdout
+        xz = base64.b64encode(lzma.compress(raw_tar, preset=9 | lzma.PRESET_EXTREME)).decode()
+        bundle = ('import base64 as _b64, gzip as _gz, lzma as _xz\n'
+                  f'CODE_COMMIT = {commit!r}\n'
+                  f'CODE_B64 = _b64.b64encode(_gz.compress(_xz.decompress(_b64.b64decode({xz!r})), '
+                  'mtime=0)).decode()\n')
+        if len(bundle) + len(src) > LIMIT:
+            raise SystemExit(f'kernel source still too large: {len(bundle) + len(src)} bytes')
     out = Path(a.out_dir) if a.out_dir else kdir / 'build'
     out.mkdir(exist_ok=True)
     # bundle first (defined before any use), then the script without docstrings/comments

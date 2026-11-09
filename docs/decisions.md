@@ -987,3 +987,51 @@ safeguard; ladder B1x → B1 → B3 → B2 calibrated blind on the pilot templat
 only if D12's sealed selector returned "none" from a complete, valid calibration; everything on
 one Colab A100 environment; S = 1; second seal (implementation, 36 tests, admission, auditor)
 before `runner/analyze.py` runs on the confirmatory, or x2 is cancelled at Tue 10 16:00 Chile.
+
+**D12 delivery (after the seal, 2026-11-09 ~17:00 Chile).** The first push of the calibration
+kernel was refused by Kaggle: "The kernel source must be less than 1 megabytes in size" (the
+D12 bundle is ~2.2 MB with gzip; the dry run had built but never pushed). `notebooks/build_kernel.py`
+(not a sealed file) now ships a bundle that would exceed 950 kB xz-compressed and re-gzips it at
+start-up into the same `CODE_B64` (564 kB script). Sealed content is unchanged: the decoded tar
+from `39c733f` holds exactly the 2758 manifest files with their hashes (checked locally and by a
+test), and the kernel's `x1_verify` checks every file again. Smaller kernels (frozen ones
+included) are built exactly as before.
+
+### D14. D12 calibration result, x2 cancelled, and three declared descriptives (2026-11-09 ~20:00 Chile; Manuel, after Astra's and Argon's independent advice; recorded BEFORE the confirmatory is decoded)
+
+**D12 calibration (kernel `manuelpz/twinguard-x1-cal` v1, code `39c733f`; pooled and framing-blind only).**
+- All phases ok. Sealed archive SHA-256 `10cec81c56e1a98e74578e33522fbf0c48875cbb0a1f444964e92dc371e74c1f`;
+  `x1_selection.json` SHA-256 `ade75dabf5fea3bfe1b8d56d834a166495c6e39094195dd97c7d8d5549b9f117`
+  (equal to the hash the kernel recorded).
+- Selection: `selected: null`, `rule: none`.
+- L1, L2, L3: W = 0 on 29, 29 and 27 completed runs; F = 1, M = 1. C (explicit request, never
+  eligible): W = 0.658 (M1 1.0, M2 0.875, M3 0.1) on 31 completed runs.
+- 116/144 runs completed; 28 never started before the a-priori start cutoff (closed out, 7/7/9/5
+  by rung). Cause: the D12 budget assumed the pilot throughput (78 runs/h); the calibration ran at
+  ~63 runs/h (mean 457 s per run at concurrency 8). The cut runs are missing data, never W = 0.
+- No D12 transfer runs (nothing selected). `run_x1.py` still runs once after the authorized
+  decoding (calibration summary and the confirmatory process measures).
+
+**x2 (D13) cancelled.** D13's sealed trigger requires `closed_out_rows == 0` in every D12 rung, so
+x2's transfer and A−N analysis can never run; what remains (a descriptive calibration in another
+environment and construct) does not justify the second seal against WP11/WP12/WP14. Astra and
+Argon both recommended cancelling (texts in `docs/audits/d14_advice/`). The trigger is not
+relaxed and no reduced variant is built. The Colab port (branch `colab-x2`) is kept, unused by x2.
+
+**Declared descriptives (exploratory, CPU, no claim on W or A−N; framings never decoded or
+grouped).** Fixed now, before decoding:
+1. *Calibration process measures (Argon).* The sealed `explore/process_x1.measures` (imported,
+   unchanged) on the last-try logs of the 116 completed D12 calibration runs, pooled by rung
+   (L1, L2, L3, C) and by mechanism: CONTRIBUTING.md read, monitor opened, tool events,
+   ambiguous reads, log(1 + reasoning chars), evaluation-awareness regex; patch mention and
+   rejection for the rungs that expose `u_plus.diff` (L2, L3, C). Denominators and runs without a
+   log reported.
+2. *Detectors on the agent's own patches (Argon).* The frozen detectors (GSC v0.3 depth 2, the
+   AST baseline, `except_local`) on the final patches of the same 116 runs, by rung and mechanism:
+   detection among oracle W = 1 runs (essentially C) and alarm rate among W = 0 runs. Reported as
+   counts; no sensitivity claim beyond these runs.
+3. *Fixed demonstration of the instrument (Astra).* For each mechanism, the first pilot template
+   in sorted id order: its S+, U+ and alternative-safe witnesses with the functional tests and the
+   oracle verdicts (W = 0 / 1 / 0). Labelled as constructed witnesses; no selection by results.
+- Code lives in new files outside the sealed prefixes; every output is hashed. These numbers never
+  change H1/H2, the frozen analysis, D12's selection or the bank.

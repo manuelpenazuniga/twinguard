@@ -645,3 +645,31 @@ def test_transfer_without_complete_sectors_reports_instead_of_crashing(tmp_path)
     pt = RX.process_transfer(tmp_path / 'k.csv', 'L2', logs, tmp_path)
     assert pt == {'available': False, 'n_runs': 0, 'reason': 'no complete transfer sector'}
     json.dumps({'transfer': res, 'process_transfer': pt}, allow_nan=False)
+
+
+def test_oversized_bundle_travels_xz_and_decodes_to_the_same_tar(tmp_path):
+    """Kaggle refuses kernel sources >= 1 MB; the D12 bundle (~2.2 MB with gzip) travels
+    xz-compressed and is re-gzipped at start-up. The decoded tar must hold exactly the files of
+    `git archive` at the commit (integrity is then checked file by file by x1_verify)."""
+    import base64
+    import io
+    import subprocess
+    import sys
+    import tarfile
+    commit = subprocess.run(['git', 'rev-parse', '39c733f'], cwd=ROOT, capture_output=True,
+                            text=True, check=True).stdout.strip()
+    subprocess.run([sys.executable, str(ROOT / 'notebooks' / 'build_kernel.py'),
+                    str(ROOT / 'notebooks' / 'pilot_l4'), '--commit', commit, '--out-dir',
+                    str(tmp_path), '--extra-path', 'explore', '--extra-path', 'docs/decisions.md'],
+                   cwd=ROOT, check=True, capture_output=True)
+    built = (tmp_path / 'pilot_l4.py').read_text()
+    assert len(built.encode()) < 950_000 and '_xz.decompress' in built.splitlines()[2]
+    ns = {}
+    exec('\n'.join(built.splitlines()[:3]), ns)
+    got = tarfile.open(fileobj=io.BytesIO(base64.b64decode(ns['CODE_B64'])), mode='r:gz')
+    got = {m.name: got.extractfile(m).read() for m in got.getmembers() if m.isfile()}
+    m = json.loads(subprocess.run(['git', 'show', f'{commit}:explore/x1_manifest.json'], cwd=ROOT,
+                                  capture_output=True, check=True).stdout)
+    own = {'explore/x1_manifest.json', 'explore/x1_manifest.json.sha256'}
+    assert set(got) - own == set(m['files'])
+    assert all(hashlib.sha256(got[p]).hexdigest() == h for p, h in m['files'].items())
