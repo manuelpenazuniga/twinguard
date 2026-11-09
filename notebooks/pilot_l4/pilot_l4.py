@@ -37,6 +37,10 @@ FREEZE_SHA256 = ''       # SHA-256 of freeze/manifest.json (the stamped hash)
 SHARD = ''               # 'i/N': parallel kernels, each runs every N-th sector block
 SESSION = ''             # 1, 2, ... within a shard; session k > 1 resumes session k - 1
 SCRIPT_SHA256 = ''       # set by build_kernel: SHA-256 of this script at the commit, pre-define
+# D13 (x2) runs on Google Colab with one A100; the Kaggle modes never change (build --define):
+PLATFORM = 'kaggle'      # 'kaggle' (L4x4, TP=4, offline) or 'colab' (1x A100, TP=1, see colab_*)
+COLAB_GPU_MEM = '0.90'   # colab: vLLM gpu_memory_utilization (Kaggle keeps the official 0.90)
+COLAB_MODES = ('runner_smoke',)  # the only modes allowed on Colab (x2 modes are added with D13)
 KERNEL_T0 = time.time()
 SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
 STOP_MARGIN_S = 90 * 60          # no run starts later than this before the limit (60 min budget + eval)
@@ -100,6 +104,16 @@ def gpu_guard():
     gpus = [l for l in smi.splitlines() if l.strip()]
     info = {'gpus': gpus, 'topo': sh('nvidia-smi topo -m'), 'python': sys.version,
             'cpus': os.cpu_count(), 'ram': sh('free -g | head -2')}
+    if PLATFORM == 'colab':
+        if MODE not in COLAB_MODES:
+            raise SystemExit(f'mode {MODE!r} never runs on Colab')
+        if len(gpus) != 1 or 'A100' not in gpus[0]:
+            info['abort'] = True
+            R['phases']['0_gpu_guard'] = {'ok': False, **info}
+            save()
+            raise SystemExit(f'GPU mismatch (Colab needs one A100), aborting: {gpus}')
+        R['colab_gpu'] = gpus[0]          # 40 or 80 GB: recorded, one environment id for both
+        return info
     if len(gpus) != 4 or not all('L4' in g for g in gpus):
         info['abort'] = True
         R['phases']['0_gpu_guard'] = {'ok': False, **info}
@@ -111,6 +125,8 @@ def gpu_guard():
 # ------------------------------------------------------------------ 1 wheels
 @phase('1_wheels')
 def install_wheels():
+    if PLATFORM == 'colab':
+        return colab_install()
     whl_dir = Path(glob.glob('/kaggle/input/**/gemma-4-developer-agent-wheelhouse', recursive=True)[0])
     for pth in glob.glob('/usr/local/lib/python*/*-packages/*cutlass*.pth'):
         try:
@@ -206,7 +222,8 @@ def start_server(tp, gpus, port, tag, extra=()):
                 return False
     cfg = VllmConfig(model=str(MODEL), port=port, host='127.0.0.1', tool_call_parser='gemma4',
                      reasoning_parser='gemma4', max_model_len=32768, dtype='bfloat16',
-                     gpu_memory_utilization=0.90, enable_auto_tool_choice=True,
+                     gpu_memory_utilization=float(COLAB_GPU_MEM) if PLATFORM == 'colab' else 0.90,
+                     enable_auto_tool_choice=True,
                      enable_lora=False, scheduler_reserve_full_isl=False,
                      tensor_parallel_size=tp, startup_timeout=60 * 20, extra_args=tuple(extra))
     t0 = time.time()
@@ -499,6 +516,8 @@ def isolation(code):
         raise RuntimeError(f"scratch dirs not locked: {out['chmod_scratch']}")
     UDS_DIR.mkdir(parents=True, exist_ok=True)
     UDS_DIR.chmod(0o700)
+    if PLATFORM == 'colab':
+        out['net_lock'] = colab_net_lock()
     work = Path('/tmp/wk'); work.mkdir(exist_ok=True); work.chmod(0o711)
     oracle = next((code / 'bank' / 'templates').glob('*/oracle/oracle.py'))
     probes = {'kernel_src_ls': 'ls /kaggle/src', 'kernel_src_cat': 'cat /kaggle/src/script.py',
@@ -507,6 +526,8 @@ def isolation(code):
               'harness_cat': f'cat {code}/harness/loop.py', 'root_ls': 'ls /root',
               'uds_dir_ls': f'ls {UDS_DIR}', 'tmp_ls': 'ls /tmp', 'wk_ls': 'ls /tmp/wk',
               'var_tmp_ls': 'ls /var/tmp', 'shm_ls': 'ls /dev/shm'}
+    if PLATFORM == 'colab':
+        probes.update(COLAB_DENIED)
     failures = []
     for u in (AGENTS[0], EVALS[0], AGENTS[-1], EVALS[-1]):
         for k, c in probes.items():
@@ -601,6 +622,9 @@ def served_model():
 
 
 def environment_id():
+    if PLATFORM == 'colab':
+        # one id for the 40 and the 80 GB A100 (both GA100, sm_80); the card is in R['colab_gpu']
+        return 'colab-A100|py3.12|vllm0.19.1|tp1|model:52f3f65-overlay'
     return ('kaggle-L4x4|' + sh("nvidia-smi --query-gpu=name --format=csv,noheader | sort | uniq -c | tr -s ' '")
             + '|img:37c64f7d|vllm0.19.1|tp4|model:52f3f65-overlay')
 
@@ -1116,6 +1140,96 @@ def smoke_block(code):
                      ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'])
 
 
+# ------------------------------------------------------------------ Colab (D13 x2 only)
+# Colab has internet and no Kaggle image: the notebook (notebooks/colab/) downloads the official
+# wheelhouse and the Kaggle model into /kaggle/input with the author's credentials, places this
+# script in /kaggle/src and removes the credentials before launching it. The script then
+# installs the wheelhouse (dependencies from PyPI), locks the network for every agent and
+# evaluator uid, and refuses any mode but COLAB_MODES.
+COLAB_PINNED = ['pandas==3.0.6', 'numpy==2.5.4', 'scipy==1.18.1', 'statsmodels==0.15.0',
+                'pytest==9.2.0']
+COLAB_EXPECTED = 'vllm 0.19.1 torch 2.10.0+cu128 transformers 5.13.1'
+COLAB_DENIED = {'content_ls': 'ls /content/drive', 'proc_env_cat': 'cat /proc/1/environ',
+                'net_tcp_ext': f"{sys.executable} -c \"import socket;socket.create_connection(('8.8.8.8',53),3)\"",
+                'net_dns_https': f"{sys.executable} -c \"import socket;socket.create_connection(('pypi.org',443),3)\"",
+                'net_metadata': f"{sys.executable} -c \"import socket;socket.create_connection(('169.254.169.254',80),3)\""}
+
+
+def colab_install():
+    if sys.version_info[:2] != (3, 12):
+        raise RuntimeError(f'the wheelhouse is cp312; this interpreter is {sys.version}')
+    whl = sorted(glob.glob('/kaggle/input/**/gemma-4-developer-agent-wheelhouse/**/*.whl',
+                           recursive=True))
+    if not whl:
+        raise FileNotFoundError('wheelhouse not downloaded into /kaggle/input')
+    tmp = Path('/tmp/wheelhouse'); tmp.mkdir(exist_ok=True)
+    for w in map(Path, whl):
+        if 'cutlass' in w.name.lower():
+            continue
+        name = w.name.replace('cu128', '+cu128') if ('cu128' in w.name and '+' not in w.name) else w.name
+        if not (tmp / name).exists():
+            os.symlink(w, tmp / name)
+    wheels = sorted(str(w) for w in tmp.glob('*.whl'))
+    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--find-links', str(tmp),
+                        *wheels, *COLAB_PINNED], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError('pip failed:\n' + (r.stdout + r.stderr)[-4000:])
+    ver = sh(f'{sys.executable} -c "import vllm,torch,transformers;print(vllm.__version__,torch.__version__,transformers.__version__)"')
+    freeze = sh(f'{sys.executable} -m pip freeze')
+    out = {'n_wheels': len(wheels), 'vllm_torch_transformers': ver,
+           'versions_as_kaggle': ver == COLAB_EXPECTED,
+           'pip_freeze_sha256': hashlib.sha256(freeze.encode()).hexdigest(),
+           'wheel_names_sha256': hashlib.sha256('\n'.join(Path(w).name for w in wheels).encode()).hexdigest(),
+           'driver': sh('nvidia-smi --query-gpu=driver_version --format=csv,noheader')}
+    if not out['versions_as_kaggle']:
+        raise RuntimeError(f'package versions differ from the Kaggle serving stack: {ver!r}')
+    return out
+
+
+def colab_net_lock():
+    """Colab has internet: every agent and evaluator uid gets an owner-matched REJECT on all
+    non-loopback egress (IPv4 and IPv6). Verified by the isolation probes (fail closed)."""
+    rules = []
+    for tool in ('iptables', 'ip6tables'):
+        for u in AGENTS + EVALS:
+            rule = f'OUTPUT -m owner --uid-owner {u} ! -o lo -j REJECT'
+            if sh(f'{tool} -C {rule} >/dev/null 2>&1; echo $?') != '0':
+                rc = sh(f'{tool} -A {rule} >/dev/null 2>&1; echo $?')
+                if rc != '0':
+                    raise RuntimeError(f'{tool} owner rule failed for {u} (rc {rc})')
+            rules.append(f'{tool}:{u}')
+    return {'rules': len(rules)}
+
+
+def uds_chat(body, timeout=900):
+    st, raw = uds_request('POST', '/v1/chat/completions',
+                          {'model': SERVED.get(8000, 'gemma'), **body}, timeout=timeout)
+    return json.loads(raw) if st == 200 else {'http_error': st, 'body': raw[:1500].decode(errors='replace')}
+
+
+def colab_capacity(tag):
+    """KV capacity, memory and throughput at concurrency 1/4/8 through the root-only socket."""
+    msgs = long_prompt()
+    res = {'kv': kv_info(tag), 'gpu_mem': sh('nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader')}
+    for conc in (1, 4, 8):
+        n = max(4, conc * 2)
+        body = {'messages': msgs, 'max_tokens': 1024, 'seed': 3, **SAMPLING,
+                'chat_template_kwargs': {'enable_thinking': True}}
+        t0 = time.time()
+        with ThreadPoolExecutor(conc) as ex:
+            outs = list(ex.map(lambda i: (time.time(), uds_chat(body), time.time()), range(n)))
+        wall = time.time() - t0
+        ok = [o for o in outs if 'choices' in o[1]]
+        comp = sum(o[1]['usage']['completion_tokens'] for o in ok)
+        res[f'conc_{conc}'] = {'requests': n, 'ok': len(ok), 'wall_s': round(wall, 1),
+                               'completion_tok_per_s': round(comp / wall, 1),
+                               'mean_latency_s': round(sum(o[2] - o[0] for o in ok) / max(1, len(ok)), 1)}
+        save()
+    log = Path(f'/kaggle/working/vllm_{tag}.log').read_text(errors='replace')
+    res['preemption_lines'] = sum('preempt' in l.lower() for l in log.splitlines())
+    return res
+
+
 # ------------------------------------------------------------------ D12 exploratory (x1)
 X1 = {}
 
@@ -1295,9 +1409,11 @@ elif __name__ == '__main__':
             raise SystemExit('isolation checks failed: refusing to run')
         verified = MODE == 'confirmatory'     # close-out evaluates only under verified isolation
 
-        @phase('2_server_tp4')
+        tp, gpus = (1, '0') if PLATFORM == 'colab' else (4, '0,1,2,3')
+
+        @phase(f'2_server_tp{tp}')
         def up():
-            p, secs, ex = start_server(4, '0,1,2,3', 8000, 'tp4_8000', ('--uds', str(UDS)))
+            p, secs, ex = start_server(tp, gpus, 8000, f'tp{tp}_8000', ('--uds', str(UDS)))
             procs.append(p)
             R['served_model'] = SERVED[8000]
             return {'load_seconds': secs, 'served': dict(SERVED), 'extra_args': ex}
@@ -1316,6 +1432,8 @@ elif __name__ == '__main__':
             elif MODE == 'x1_transfer':
                 phase('9_x1_transfer')(lambda: x1_block(code))()
             else:
+                if PLATFORM == 'colab':
+                    phase('4_colab_capacity')(lambda: colab_capacity(f'tp{tp}_8000'))()
                 phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:
         stop(procs)
