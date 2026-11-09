@@ -17,6 +17,8 @@ from runner import analyze as AN  # noqa: E402
 from runner import runner as R  # noqa: E402
 
 ANALYSIS = ROOT / 'twinguard' / 'twinguard_analysis.py'
+COMMIT = 'abcdef1234567890' * 2 + 'abcdef12'
+FROZEN_SCRIPT = f'/tmp/twinguard_frozen_{COMMIT[:12]}_q1/twinguard/twinguard_analysis.py'
 
 
 def load(name, rel):
@@ -157,9 +159,10 @@ def test_reproduce_astra_second_round(base, tmp_path):
     assert CLI._norm('count 1/2/3', env) != CLI._norm('count 1/99/3', env)
     assert CLI._norm('/o/a.json and /r/x.py', env) == '<OUT>/a.json and <ROOT>/x.py'
     # a repeated flag (argparse takes the last) is refused
-    cmd = h['cmd']
-    assert not CLI.primary_cmd_ok(cmd + ['--replicates', '2'], fz, base['res'])
-    assert not CLI.primary_cmd_ok(cmd + [str(res / 'other.csv')], fz, base['res'])
+    cmd = [FROZEN_SCRIPT, *h['cmd'][1:]]
+    assert CLI.primary_cmd_ok(cmd, fz, base['res'], COMMIT)
+    assert not CLI.primary_cmd_ok(cmd + ['--replicates', '2'], fz, base['res'], COMMIT)
+    assert not CLI.primary_cmd_ok(cmd + [str(res / 'other.csv')], fz, base['res'], COMMIT)
 
 
 def test_tables_with_missing_metadata(base, tmp_path):
@@ -195,10 +198,16 @@ def test_seal_handler_never_raises(base, tmp_path, monkeypatch):
 
 
 def test_primary_command_must_match_the_freeze(base):
-    res, fz, cmd = base['res'], base['fz'], base['h']['cmd']
-    assert CLI.primary_cmd_ok(cmd, fz, res)
-    assert not CLI.primary_cmd_ok(cmd + ['--seed', '3'], fz, res)
-    assert not CLI.primary_cmd_ok(cmd, {'design': {**fz['design'], 'S': 4}}, res)
+    res, fz = base['res'], base['fz']
+    cmd = [FROZEN_SCRIPT, *base['h']['cmd'][1:]]
+    assert CLI.primary_cmd_ok(cmd, fz, res, COMMIT)
+    assert not CLI.primary_cmd_ok(cmd + ['--seed', '3'], fz, res, COMMIT)
+    assert not CLI.primary_cmd_ok(cmd, {'design': {**fz['design'], 'S': 4}}, res, COMMIT)
+    # the script must be the frozen module inside this commit's verified extraction (Astra r3)
+    for script in ('/other/not_twinguard_analysis.py', base['h']['cmd'][0],
+                   '/tmp/twinguard_frozen_ffffffffffff_x/twinguard/twinguard_analysis.py'):
+        assert not CLI.primary_cmd_ok([script, *cmd[1:]], fz, res, COMMIT)
+    assert not CLI.primary_cmd_ok(cmd, fz, res, None)
 
 
 def test_second_seal_failure_keeps_the_primary_seal(base, tmp_path):
@@ -246,3 +255,57 @@ def test_tables_follow_the_d9_reporting_rule(base, tmp_path):
     h['sensitivity'] = {'pending': 'runs after the primary seal'}
     (res / 'analysis_hashes.json').write_text(json.dumps(h))
     assert '**Not available.**' in tables(res, tmp_path, base['fz'])
+
+
+def test_reproduce_astra_third_round(base, tmp_path, monkeypatch):
+    """Astra r3: full error text compared; path normalisation by whole components; two
+    timeouts of different length; the sensitivity must run from the primary's code root."""
+    res, fz, h = copy(base, tmp_path), base['fz'], base['h']
+    (res / 'analysis_sensitivity.json').unlink()
+    env = h['sensitivity']['env']
+    e1, e2 = {'root': '/work/repo'}, {'root': '/build/repo'}
+    assert CLI._norm('x /work/repository/a', e1) != CLI._norm('x /build/repository/a', e2)
+    assert CLI._norm('File "/work/repo/t.py"', e1) == CLI._norm('File "/build/repo/t.py"', e2)
+
+    def fake(rec):           # a re-run that ends in the given error, with no files written
+        def run(spec, inp, S, out, timeout=AN.SENSITIVITY_TIMEOUT_S):
+            return {**rec, 'env': {**env, 'out': str(out)}}
+        return run
+    long_a = {'cmd': None, 'stage': 'derive', 'error_type': 'ValueError',
+              'error': 'ValueError: ' + 'x' * 400 + 'A'}
+    long_b = {**long_a, 'error': 'ValueError: ' + 'x' * 400 + 'B'}
+    monkeypatch.setattr(AN, 'run_sensitivity', fake(long_b))
+    (res / 'analysis_sensitivity_input.csv').unlink()
+    pub = {**long_a, 'env': env}
+    assert not CLI.check_sensitivity(res, fz, {**h, 'sensitivity': pub}, 'runs.csv')['reproduced']
+    monkeypatch.setattr(AN, 'run_sensitivity', fake(long_a))
+    assert CLI.check_sensitivity(res, fz, {**h, 'sensitivity': pub}, 'runs.csv')['reproduced']
+    # two timeouts: only the frozen length on both sides certifies
+    tmo = {'cmd': h['sensitivity']['cmd'], 'stage': 'run', 'error_type': 'TimeoutExpired',
+           'error': 'TimeoutExpired: t', 'timeout_s': AN.SENSITIVITY_TIMEOUT_S}
+    monkeypatch.setattr(AN, 'run_sensitivity', fake(tmo))
+    ok = CLI.check_sensitivity(res, fz, {**h, 'sensitivity': {**tmo, 'env': env}}, 'runs.csv')
+    assert ok['reproduced'], ok
+    short = {**tmo, 'timeout_s': 1, 'env': env}
+    assert not CLI.check_sensitivity(res, fz, {**h, 'sensitivity': short}, 'runs.csv')['reproduced']
+    monkeypatch.setattr(AN, 'run_sensitivity', fake({**tmo, 'timeout_s': 1}))
+    assert not CLI.check_sensitivity(res, fz, {**h, 'sensitivity': {**tmo, 'env': env}},
+                                     'runs.csv')['reproduced']
+    # the sensitivity must have run from the primary's code root
+    other = {**h['sensitivity'], 'env': {**env, 'root': '/elsewhere'}}
+    assert not CLI.check_sensitivity(res, fz, {**h, 'sensitivity': other}, 'runs.csv')['reproduced']
+
+
+def test_tables_never_abort_on_missing_fields(base, tmp_path):
+    res = copy(base, tmp_path)
+    tr = json.loads((res / 'truncation_report.json').read_text())
+    for b in tr['blocks']:
+        if b['family'] == base['fam']:
+            del b['state']
+    (res / 'truncation_report.json').write_text(json.dumps(tr))
+    t = tables(res, tmp_path, base['fz'])
+    assert 'NON-INFORMATIVE (D9)' in t and 'no state in the truncation report' in t
+    h = json.loads((res / 'analysis_hashes.json').read_text())
+    del h['sensitivity']
+    (res / 'analysis_hashes.json').write_text(json.dumps(h))
+    assert 'The seal has no sensitivity record' in tables(res, tmp_path, base['fz'])

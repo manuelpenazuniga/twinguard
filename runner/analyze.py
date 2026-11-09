@@ -161,7 +161,7 @@ def run_sensitivity(spec, analysis_input, S, out, timeout=SENSITIVITY_TIMEOUT_S)
                 'excluded_families': sorted(fams), 'templates_dropped': dropped}
     except Exception as exc:
         rec = {'cmd': cmd[1:] if cmd else None, 'stage': 'run' if cmd else 'derive',
-               'error_type': type(exc).__name__, 'error': f'{type(exc).__name__}: {exc}'[:300],
+               'error_type': type(exc).__name__, 'error': f'{type(exc).__name__}: {exc}',  # full
                'env': env}
         if isinstance(exc, subprocess.TimeoutExpired):
             rec['timeout_s'] = exc.timeout

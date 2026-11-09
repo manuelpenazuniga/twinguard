@@ -660,6 +660,20 @@ two blocking defects in the reporting and reproduction, both outside the frozen 
 - **Second-seal handler:** it never raises, even if removing the `.tmp` file fails.
 - **Regressions:** one test per case, in `tests/test_sensitivity_reporting.py`.
 
+**Third round (Astra, 2026-11-09 ~05:30; "not ready"; fixed).**
+- **Error messages compared in full.** They are no longer cut at 300 characters.
+- **Path normalisation by whole components:** `/work/repo` never matches inside
+  `/work/repository`.
+- **Primary script identity:** the script must be `twinguard/twinguard_analysis.py` inside
+  this commit's verified extraction (`twinguard_frozen_<commit[:12]>_`).
+- **Same code root:** the sensitivity must have run from the primary's code root.
+- **Missing fields:**
+  - a seal without a `sensitivity` key prints "Not available";
+  - a block without `state` makes the sensitivity NON-INFORMATIVE;
+  - the truncation table shows missing fields as `missing` and never aborts.
+- **Regressions added:** two timeouts of different length, a long error, a path prefix, and
+  the code root.
+
 **Sol review of the last three tasks (2026-11-09).**
 - **Blocking (fixed):** `confirmatory_kernels.py` requires `--shard` for a resume session,
   a session ≥ 1 and a 64-hex resume hash.

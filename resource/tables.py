@@ -31,6 +31,14 @@ class Src:
         self.rows.append((path.name, '.'.join(map(str, keys)), v))
         return v
 
+    def opt(self, path, data, keys, default='missing'):
+        """Like get, but a missing field is shown (and listed) as `default`, never raised."""
+        try:
+            return self.get(path, data, keys)
+        except (KeyError, IndexError, TypeError):
+            self.rows.append((path.name, '.'.join(map(str, keys)), default))
+            return default
+
 
 def pp(x, digits=1):
     return '—' if x is None else f'{100 * x:.{digits}f}'
@@ -111,6 +119,9 @@ def sensitivity_table(res, src, fz):
     if h is None:
         return head + ['**Not available.** No analysis_hashes.json (no sealed analysis); the frozen '
                        'sensitivity is reported as missing.']
+    if 'sensitivity' not in h:
+        return head + ['**Not available.** The seal has no sensitivity record; the frozen '
+                       'sensitivity is reported as missing.']
     rec = src.get(ph, h, ('sensitivity',))
     p = res / 'analysis_sensitivity.json'
     if not isinstance(rec, dict) or rec.get('rc') != 0 or not p.exists() \
@@ -125,7 +136,8 @@ def sensitivity_table(res, src, fz):
         state = {f: 'unknown (no entry in the truncation report)' for f in fams}
         for i, b in enumerate(t.get('blocks', [])):
             if b.get('family') in fams:
-                state[b['family']] = src.get(pt, t, ('blocks', i, 'state'))
+                state[b['family']] = src.get(pt, t, ('blocks', i, 'state')) if 'state' in b \
+                    else 'unknown (no state in the truncation report)'
     incomplete = [f'{f}: {st}' for f, st in state.items() if st != 'complete']
     a = json.loads(p.read_text())
     g = lambda *k: src.get(p, a, k)
@@ -168,14 +180,14 @@ def sensitivity_table(res, src, fz):
 def truncation_table(res, src):
     p = res / 'truncation_report.json'
     if not p.exists():
-        return []
+        return ['', '**Truncation report missing:** block completeness is unknown.']
     t = json.loads(p.read_text())
-    g = lambda *k: src.get(p, t, k)
+    g = lambda *k: src.opt(p, t, k)
     out = ['', f"Blocks complete: K in complete blocks = {g('K_in_complete_blocks')} of "
            f"{g('K_scheduled')}; closed-out runs {g('closed_out_runs')}; analysis flag "
            f"`{g('analysis_flag') or 'none'}`.", '', '| Sector | State | Scheduled | Closed out |',
            '|---|---|---|---|']
-    for i, b in enumerate(t['blocks']):
+    for i, _ in enumerate(t.get('blocks') or []):
         out.append(f"| {g('blocks', i, 'family')} | {g('blocks', i, 'state')} | "
                    f"{g('blocks', i, 'scheduled')} | {g('blocks', i, 'closed_out')} |")
     return out

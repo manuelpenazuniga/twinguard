@@ -29,6 +29,7 @@ and is meant only for patches you trust.
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -262,12 +263,14 @@ def _relabel_one(job):
 
 def _norm(text, env):
     """Only the KNOWN paths of one run (its code root, output directory, interpreter
-    prefixes) are replaced by placeholders; nothing else in the text is touched."""
+    prefixes) are replaced by placeholders, and only as whole path components: a known path
+    must not be preceded by a path character and must be followed by '/' or a non-path
+    character (so /work/repo never matches inside /work/repository). Nothing else changes."""
     text = text or ''
     subs = [(env.get('root'), '<ROOT>'), (env.get('out'), '<OUT>')]
     subs += [(x, '<PY>') for x in env.get('prefixes') or []]
     for path, tag in sorted((x for x in subs if x[0]), key=lambda x: -len(x[0])):
-        text = text.replace(path, tag)
+        text = re.sub(r'(?<![\w.\-/])' + re.escape(path.rstrip('/')) + r'(?![\w.\-])', tag, text)
     return text
 
 
@@ -278,13 +281,21 @@ def _read(p):
 ALLOWED_PRIMARY = {'--replicates', '--output', '--exploratory'}
 
 
-def primary_cmd_ok(cmd, fz, res):
+def frozen_script_ok(script, commit):
+    """The analysis script of a record is the frozen module inside the verified extraction
+    that runner/analyze.py makes for this commit (mkdtemp prefix twinguard_frozen_<12>_)."""
+    s = Path(str(script))
+    return (bool(commit) and s.name == 'twinguard_analysis.py' and s.parent.name == 'twinguard'
+            and s.parent.parent.name.startswith(f'twinguard_frozen_{commit[:12]}_'))
+
+
+def primary_cmd_ok(cmd, fz, res, commit=None):
     """The recorded primary invocation is the one the freeze implies: exactly one positional
     input, each flag at most once (argparse would take the last of a repeated flag), only
     --replicates/--output/--exploratory (seed and bootstrap are the frozen module defaults),
     S from the freeze, and --exploratory whenever the truncation report requires it or the
     truncation state is unknown."""
-    if not cmd or not str(cmd[0]).endswith('twinguard_analysis.py'):
+    if not cmd or not frozen_script_ok(cmd[0], commit):
         return False
     args = list(cmd[1:])
     flags = [x for x in args if x.startswith('-')]
@@ -339,6 +350,9 @@ def check_sensitivity(res, fz, h, csv_name):
     if kinds != ['rc'] and kinds != ['error']:
         return fail(f'not a run or error record (keys {sorted(sens)})')
     env = sens.get('env') or {}
+    primary_root = str(Path(str((h.get('cmd') or [''])[0])).parent.parent)
+    if env.get('root') != primary_root:
+        return fail('the sensitivity did not run from the code root of the primary analysis')
     expected = [_norm(str(x), {'root': str(AN.ROOT), 'out': '<OUT>'})
                 for x in AN.sensitivity_cmd(spec, S, AN.ROOT, '<OUT>')[1:]]
     if 'rc' in sens or sens.get('stage') == 'run':
@@ -418,7 +432,8 @@ def reproduce(a):
             report['analysis_output'] = {'identical': not d, 'differences': d}
     fz = json.loads(Path(a.freeze).read_text()) if a.freeze else None
     if fz:
-        report['analysis_cmd_matches_freeze'] = primary_cmd_ok(h['cmd'], fz, res)
+        report['analysis_cmd_matches_freeze'] = primary_cmd_ok(h['cmd'], fz, res,
+                                                                 h.get('frozen_commit'))
     elif h.get('sensitivity') is not None:
         report['sensitivity_output'] = {'reproduced': False, 'note': 'needs --freeze'}
     if fz:
