@@ -962,3 +962,12 @@ Advisor texts (rounds 1–3) and the reconciliation table are in
 Imprescindible: a transfer cut before any sector completes (only `closed_out` rows) made the
 process measures raise after the single-run claim. `run_x1.process_transfer` now reports
 `{'available': False, 'n_runs': 0}` in that case and the report is written (regression test).
+
+**D12 SEALED (2026-11-09 ~16:35 Chile).** Astra's seventh review: "listo" (after six rounds and
+Argon's independent audit, all findings fixed). `explore/x1_manifest.json` SHA-256
+`29c0d3035baf22b22673d18d623c082eb10ace9013aa1d96ca4ad530c5a2884b` (2758 files read from
+`683b3f8`), committed in `39c733f`, OpenTimestamps proof `explore/x1_manifest.json.ots`. The
+x1 kernels are built from `39c733f` (its `docs/decisions.md` is the sealed one). Sealed before
+`runner/analyze.py` ran on the confirmatory (both shards complete: s1 archive `9c2bd820…`,
+s2 `db5c343f…`, 360/360 each; only status and phases were read). Later work (D13 / x2) adds
+new files and never edits a file listed in this manifest.
