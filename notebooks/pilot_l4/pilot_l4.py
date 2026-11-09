@@ -1213,11 +1213,15 @@ def x1_args(code):
 
 
 def x1_block(code):
-    """The x1 block under the hard session limit; past it, the runner's close-out (CPU only)
-    evaluates finished episodes and gives every other scheduled run an infra_failed row."""
+    """The x1 block under the hard session limit; past it, or when the cutoff left scheduled
+    runs unstarted, the runner's close-out (CPU only) evaluates finished episodes and gives
+    every other scheduled run an infra_failed row."""
     name, extra = x1_args(code)
     res = run_block(code, name, name, extra, hard_at=KERNEL_T0 + float(X1_HARD_S))
-    if res.get('hard_limit_hit'):
+    sess = res.get('session') or {}
+    # also when the runner stopped starting runs at the cutoff / stop time (rc 0, runs left):
+    # x1 sessions are never resumed, so every scheduled run must get its final row now
+    if res.get('hard_limit_hit') or sess.get('completed') != sess.get('scheduled'):
         end = KERNEL_T0 + float(X1_SESSION_S) - X1['budget']['seal_reserve_s']
         res['close_out'] = run_block(code, name, name, extra + ['--close-out'],
                                      hard_at=min(time.time() + X1['budget']['close_out_s'], end))

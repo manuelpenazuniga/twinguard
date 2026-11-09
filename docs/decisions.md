@@ -948,3 +948,12 @@ Advisor texts (rounds 1–3) and the reconciliation table are in
   - After the flag is set, no snapshot can create or publish an archive.
   - The lock is never held during compression.
 - **Reads.** Help/version requests, any long option outside a short list, and any short option outside a per-reader allowlist make a command ambiguous (e.g. `cat --help file`).
+
+**D12 implementation, Argon's independent audit ("not ready"; fixed).**
+- *Imprescindible:* when the runner reached the cutoff (`X1_CUTOFF_S` / stop epoch) it stopped
+  starting runs and exited 0 with runs left, so no close-out ran; calibration selection would
+  defer forever (x1 sessions are never resumed). `x1_block` now closes out whenever the session
+  left scheduled runs without a row, as well as after a hard-limit hit (regression test).
+- *Conveniente:* the transfer process measures now use the complete sectors only
+  (`analyze_x1.complete_sector_rows`).
+- *Opcional:* a sector whose rows are all closed out is reported as absent, not partial.

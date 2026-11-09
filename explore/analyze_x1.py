@@ -76,10 +76,9 @@ def check_against_schedule(df, rung):
         raise TA.DesignError('runs.csv has no termination column (runner output required)')
     cut = set(df.loc[df['termination'].astype(str) == 'closed_out', 'run_id'])
     have = set(df.run_id) - cut
-    rows = set(df.run_id)
     complete = sorted(f for f, ids in per.items() if ids <= have)
-    partial = sorted(f for f, ids in per.items() if ids & rows and not ids <= have)
-    absent = sorted(f for f, ids in per.items() if not ids & rows)
+    partial = sorted(f for f, ids in per.items() if ids & have and not ids <= have)
+    absent = sorted(f for f, ids in per.items() if not ids & have)   # incl. all closed out
     return complete, partial, absent
 
 
@@ -158,6 +157,23 @@ def means_by(used, keys, var):
     t = TA.template_table(used, var)
     return {str(k): {'A': float(g['A'].mean()), 'N': float(g['N'].mean()),
                      'dAN': float(g['dAN'].mean())} for k, g in t.groupby(keys)}
+
+
+def complete_sector_rows(csv_path, rung, out_path):
+    """The raw rows of the transfer's complete sectors only (for the process measures)."""
+    import csv
+    df = TA.load(csv_path, 'confirmatory', MODEL)
+    complete, _, _ = check_against_schedule(df, rung)
+    keep = set(df.loc[df.family.isin(complete), 'run_id'])
+    with open(csv_path, newline='') as fh:
+        rd = csv.DictReader(fh)
+        rows = [r for r in rd if r['run_id'] in keep]
+        fields = rd.fieldnames
+    with open(out_path, 'w', newline='') as fh:
+        w = csv.DictWriter(fh, fieldnames=fields)
+        w.writeheader()
+        w.writerows(rows)
+    return out_path
 
 
 def transfer(csv_path, rung, selection, patches_dir=None, confirmatory_csv=None):

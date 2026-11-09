@@ -153,7 +153,8 @@ def main(argv=None):
             for i in range(len(a.transfer)):
                 for p in (Path(work) / f's{i}' / 'results' / 'x1_transfer' / 'logs').glob('*.jsonl'):
                     (logs / p.name).write_bytes(p.read_bytes())
-            res['process_transfer'] = PX.run(runs, logs, ROOT / 'explore' / 'bank_x1' / 'templates')
+            done = AX.complete_sector_rows(runs, chosen, Path(work) / 'runs_complete.csv')
+            res['process_transfer'] = PX.run(done, logs, ROOT / 'explore' / 'bank_x1' / 'templates')
         if conf_csv and a.confirmatory_shards:
             clogs = Path(work) / 'clogs'
             clogs.mkdir()

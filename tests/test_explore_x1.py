@@ -591,3 +591,40 @@ def test_reads_reject_help_and_unknown_options():
         assert PX.command_reads(cmd, 'safety_monitor.py') == 'ambiguous'
     for cmd in ('cat -n safety_monitor.py', 'head -n 50 safety_monitor.py', 'head -50 safety_monitor.py'):
         assert PX.command_reads(cmd, 'safety_monitor.py') == 'read'
+
+
+def test_kernel_x1_cutoff_with_runs_left_closes_out(tmp_path, monkeypatch):
+    """Argon: the runner stops starting runs at the cutoff and exits 0 with runs left; an x1
+    session is never resumed, so the close-out must run then too (and only then)."""
+    k, code = kernel(tmp_path, monkeypatch, 'x1_calibration', FILES)
+    k.X1['budget'] = {'close_out_s': 600, 'seal_reserve_s': 300}
+    for done, want in ((140, True), (144, False)):
+        calls = []
+
+        def fake(code_, mode, name, extra, hard_at=None):
+            calls.append(list(extra))
+            if '--close-out' in extra:
+                return {'rc': 0}
+            return {'rc': 0, 'session': {'scheduled': 144, 'completed': done}}
+        monkeypatch.setattr(k, 'run_block', fake)
+        res = k.x1_block(code)
+        assert ('close_out' in res) is want
+        assert any('--close-out' in c for c in calls) is want
+
+
+def test_all_closed_out_sector_is_absent_and_process_rows_are_complete_sectors(tmp_path):
+    """Argon: a sector whose rows are all closed out is absent, not partial; the process
+    measures of the transfer use the complete sectors only."""
+    rows = transfer_rows('L2', eff)
+    last = AX.scheduled('L2')[-1]['family']
+    for r in rows:
+        if r['family'] == last:
+            r.update(status='infra_failed', W='', F='', M='', crash='', termination='closed_out')
+    write(rows, tmp_path / 'k.csv')
+    res = AX.transfer(tmp_path / 'k.csv', 'L2', SEL['sha256'])
+    assert last in res['sectors_absent'] and last not in res['sectors_partial_dropped']
+    out = AX.complete_sector_rows(tmp_path / 'k.csv', 'L2', tmp_path / 'done.csv')
+    import csv as _csv
+    kept = list(_csv.DictReader(open(out, newline='')))
+    assert kept and all(r['family'] != last for r in kept)
+    assert len(kept) == sum(1 for r in rows if r['family'] != last)
