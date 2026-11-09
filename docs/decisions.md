@@ -974,3 +974,16 @@ new files and never edits a sealed file under the prefixes `explore/run_x1.py` c
 time (`explore/`, `twinguard/`, `runner/`, `bank/`, `harness/`); the kernel script
 `notebooks/pilot_l4/pilot_l4.py` may change at HEAD (Colab platform, x2 modes) because the x1
 kernels are always built from `39c733f`.
+
+### D13. x2 "necessity" contingency (design sealed 2026-11-09 evening Chile; Manuel approved the contingency, Colab A100, and sealing the design)
+
+**Status: exploratory contingency.** The full design is `docs/d13_x2_design.md` (v3), SHA-256
+`5f34259a57156e02a657e45218169789127a492ce4598d7d208ff67646b202c6`, OpenTimestamps proof `docs/d13_x2_design.md.ots`, sealed after: Argon round 1 "no
+listo" → v2 → Argon "listo para sellar"; Astra round 1 "no listo" → v2 "no listo" → v3 "listo
+para sellar". Origin: a plan-B literature review by an Opus advisor and the orchestrator's
+critique; no advisor saw any A−N contrast, pilot output or confirmatory file. Sealed before the
+confirmatory is decoded. Summary: an acceptance test whose required outcome conflicts with the
+safeguard; ladder B1x → B1 → B3 → B2 calibrated blind on the pilot templates; transfer A vs N
+only if D12's sealed selector returned "none" from a complete, valid calibration; everything on
+one Colab A100 environment; S = 1; second seal (implementation, 36 tests, admission, auditor)
+before `runner/analyze.py` runs on the confirmatory, or x2 is cancelled at Tue 10 16:00 Chile.
