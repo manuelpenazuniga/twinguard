@@ -4,7 +4,8 @@ Everything is read from the commit with `git show`, never from the working tree,
 with the repo can rebuild the same manifest and hash:
 
   python freeze/make_freeze.py --S 4 --t-a 61.2 --budget-hours 30.1 --shards 2 \
-      --deadline-utc 2026-11-10T15:00:00Z --justification "..." --pilot-sealed-sha256 ...
+      --deadline-utc 2026-11-10T15:00:00Z --justification "..." --pilot-sealed-sha256 ... \
+      --environment-id '...' --sensitivity-exclude M3.inventory_adjustments
 
 t_a and the budget follow docs/decisions.md D8, fixed before the pilot output was read.
 
@@ -121,21 +122,36 @@ def admitted(commit, tid):
         and bool(man[0].get('pass')) and bool(man[0].get('complete')) and recal and paraphrased
 
 
-def sensitivity(commit, templates):
-    """Prespecified exploratory sensitivity (D9 addendum): the analysis re-run without the
-    WHOLE sector of each listed template (the frozen analysis needs balanced mechanisms, so
-    one template cannot be dropped alone: K = 3 x remaining sectors)."""
+def adjudicated(commit, tids):
+    """Selected confirmatory templates admitted through an adjudicated auditor false
+    positive (D9: auditor_verdict_pass false with an adjudication on record)."""
+    out = []
+    for t in tids:
+        meta = json.loads(git('show', f'{commit}:bank/templates/{t}/template.json'))
+        pp = (meta.get('recalibration') or {}).get('policy_preservation') or {}
+        if pp.get('auditor_verdict_pass') is False and pp.get('adjudication'):
+            out.append(t)
+    return sorted(out)
+
+
+def sensitivity(commit, selected, declared=None):
+    """Prespecified exploratory sensitivity (D9 addendum), derived from the bank, never
+    optional: the analysis re-run without the WHOLE sector of each selected template admitted
+    through an adjudicated auditor false positive (the frozen analysis needs balanced
+    mechanisms: K = 3 x remaining sectors). A declared list must equal the derived one."""
+    templates = adjudicated(commit, selected)
+    if declared is not None and sorted(declared) != templates:
+        raise SystemExit(f'sensitivity: declared {sorted(declared)} != adjudicated {templates}')
     if not templates:
         return None
     spec = {r['template_id']: r for r in csv.DictReader(io.StringIO(
         git('show', f'{commit}:bank/spec_matrix.csv')))}
-    missing = [t for t in templates if t not in spec or spec[t]['split'] != 'confirmatory']
-    if missing:
-        raise SystemExit(f'sensitivity: not confirmatory templates: {missing}')
     fams = sorted({spec[t]['family'] for t in templates})
-    dropped = sorted(t for t, r in spec.items() if r['split'] == 'confirmatory' and r['family'] in fams)
-    return {'exclude_templates': sorted(templates), 'exclude_families': fams,
-            'templates_dropped': dropped,
+    dropped = sorted(t for t in selected if spec[t]['family'] in fams)
+    return {'exclude_templates': templates, 'exclude_families': fams,
+            'templates_dropped': dropped, 'K': len(selected) - len(dropped),
+            'command': 'twinguard_analysis.py <input without these sectors> --replicates S '
+                       '--templates K --exploratory (same seed and bootstrap as the primary)',
             'rule': 'D9 addendum: exploratory re-run of the frozen analysis without the sectors '
                     'of templates admitted through an adjudicated auditor false positive; '
                     'reported next to the primary result, never instead of it'}
@@ -197,9 +213,9 @@ def main(argv=None):
     ap.add_argument('--deadline-utc', required=True,
                     help='YYYY-MM-DDTHH:MM:SSZ: no confirmatory run starts after it (7.4 cut)')
     ap.add_argument('--pilot-sealed-sha256', default='')
-    ap.add_argument('--sensitivity-exclude', nargs='*', default=[],
-                    help='templates whose admission involved an adjudicated auditor flag: a '
-                         'prespecified exploratory sensitivity drops their whole sectors')
+    ap.add_argument('--sensitivity-exclude', nargs='*', default=None,
+                    help='check only: the templates admitted through an adjudicated auditor '
+                         'flag (derived from the bank; the freeze aborts if they differ)')
     ap.add_argument('--environment-id', required=True,
                     help="exactly the runner's environment_id (pilot runs.csv column)")
     ap.add_argument('--out', default=str(ROOT / 'freeze' / 'manifest.json'))
@@ -251,7 +267,8 @@ def main(argv=None):
                    'shards': {k: {'blocks': [b for b in blocks if any(r['family'] == b for r in v)],
                                   'runs': len(v), 'schedule_sha256': schedule_digest(v)}
                               for k, v in shards.items()},
-                   'sensitivity': sensitivity(a.commit, a.sensitivity_exclude)},
+                   'sensitivity': sensitivity(commit, sorted(t for v in kr['selected'].values()
+                                                             for t in v), a.sensitivity_exclude)},
         'confirmatory_deadline_utc': a.deadline_utc,
         'confirmatory_deadline_epoch': deadline,
         'truncation': '7.4: a run not started by the deadline gets an infra_failed row '

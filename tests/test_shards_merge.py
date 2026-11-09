@@ -303,7 +303,9 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     fam = blocks_of(runs)[0]
     fz = {'design': {'S': 1, 'K': 30, 'schedule_sha256': R.schedule_digest(runs),
                      'block_order': blocks_of(runs), 'shards': shards,
-                     'sensitivity': {'exclude_families': [fam]}},
+                     'sensitivity': {'exclude_families': [fam], 'K': 27,
+                                     'templates_dropped': sorted({r['template_id'] for r in runs
+                                                                  if r['family'] == fam})}},
           'seeds': {'order_seed': 20261107}, 'environment_id': 'env',
           'model': {'id': R.MODEL_ID, 'revision': 'v'},
           'files': {'g': files}, 'templates': {}}
@@ -344,6 +346,8 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
                           '--results', str(out), '--freeze', fzp], capture_output=True, text=True)
     report = json.loads(rep.stdout)
     assert report['code']['freeze_held_by_commit'] is True and not report['code']['mismatch']
+    so = report['sensitivity_output']
+    assert so['reproduced'] and so['input_rederived_identical'] and so['flags_match_freeze']
     assert report['gate_output']['identical']
     assert report['hashes']['mismatch'] == [] and report['schema'] == 'ok'
     assert report['analysis_rc']['published'] == report['analysis_rc']['reproduced']
@@ -400,3 +404,23 @@ def test_analyze_secondary_failure_never_blocks_primary(tmp_path):
     assert h['cmd'][1].endswith('runs.csv') and h['rc'] == 0
     assert (out / 'analysis_started.json').exists()
     assert json.loads((out / 'analysis_output.json').read_text())['analysis_status'] == 'CONFIRMATORY'
+
+
+def test_sensitivity_input_must_match_the_freeze(tmp_path):
+    """Opus review: K and the dropped templates are checked against the freeze, inside the
+    guard; a mismatch is recorded, nothing is run."""
+    from runner import analyze
+    runs = full()
+    rows = [{k: r.get(k, '') for k in R.COLUMNS} for r in runs]
+    with open(tmp_path / 'in.csv', 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=R.COLUMNS)
+        w.writeheader()
+        w.writerows(rows)
+    fam = runs[0]['family']
+    dropped = sorted({r['template_id'] for r in runs if r['family'] == fam})
+    bad = analyze.run_sensitivity({'exclude_families': [fam], 'K': 30, 'templates_dropped': dropped},
+                                  tmp_path / 'in.csv', 1, tmp_path)
+    assert 'error' in bad and 'does not match the freeze' in bad['error']
+    bad2 = analyze.run_sensitivity({'exclude_families': ['nope'], 'K': 27,
+                                    'templates_dropped': dropped}, tmp_path / 'in.csv', 1, tmp_path)
+    assert 'error' in bad2 and not (tmp_path / 'analysis_sensitivity.json').exists()

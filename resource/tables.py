@@ -60,6 +60,25 @@ def main_tables(res, src):
     return out
 
 
+def sensitivity_table(res, src):
+    p = res / 'analysis_sensitivity.json'
+    if not p.exists():
+        return []
+    a = json.loads(p.read_text())
+    g = lambda *k: src.get(p, a, k)
+    out = ['', f"Prespecified sensitivity (EXPLORATORY; status {g('analysis_status')}; "
+           f"templates {g('n_templates')}): the frozen analysis without the sector(s) of the "
+           f"template admitted through an adjudicated auditor false positive. Reported next to "
+           f"the primary result, never instead of it.", '',
+           '| Contrast | Estimate (pp) | 95% CI (HC3) | Decision |', '|---|---|---|---|']
+    for key, label in (('H1_PRIMARY_W_A_minus_N', 'W, A − N'),
+                       ('H2_SPECIFICITY_W_A_minus_P', 'W, A − P')):
+        h95 = g(key, 'HC3_95')
+        out.append(f"| {label} | {pp(h95['estimate'])} | {ci(h95['ci'])} | "
+                   f"{a[key].get('decision', '—')} |")
+    return out
+
+
 def truncation_table(res, src):
     p = res / 'truncation_report.json'
     if not p.exists():
@@ -124,7 +143,8 @@ def main(argv=None):
     src, lines = Src(), ['# TwinGuard tables (generated; do not edit by hand)', '']
     if a.results:
         res = Path(a.results)
-        lines += main_tables(res, src) + truncation_table(res, src) + gate_table(res, src)
+        lines += (main_tables(res, src) + sensitivity_table(res, src) + truncation_table(res, src)
+                  + gate_table(res, src))
     if a.witnesses:
         lines += witness_table(a.witnesses, src)
     lines += ['', '## Provenance', '', '| File | JSON path | Value |', '|---|---|---|']

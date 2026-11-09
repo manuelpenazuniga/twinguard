@@ -252,3 +252,17 @@ def test_freeze_k_rule_counts_admission():
     assert kr['K'] == 30 and kr['complete_sectors'] == 10 and not kr['resource_mode']
     assert kr['scheduled_but_not_selected'] == [] and kr['not_admitted'] == []
     assert kr['k_by_mechanism'] == {'M1': 10, 'M2': 10, 'M3': 10}
+
+
+def test_freeze_sensitivity_derived_from_the_bank():
+    """D9: the sensitivity is derived from the adjudicated templates, never optional."""
+    sys.path.insert(0, str(ROOT / 'freeze'))
+    import make_freeze as mf
+    kr = mf.k_rule('HEAD', None)
+    sel = sorted(t for v in kr['selected'].values() for t in v)
+    s = mf.sensitivity('HEAD', sel)
+    assert s['exclude_templates'] == ['M3.inventory_adjustments'] and s['K'] == 27
+    assert s['templates_dropped'] == ['M1.high_value_fulfillment', 'M2.bulk_price_updates',
+                                      'M3.inventory_adjustments']
+    with pytest.raises(SystemExit):                          # declared list must match
+        mf.sensitivity('HEAD', sel, [])

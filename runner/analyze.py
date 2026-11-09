@@ -76,7 +76,8 @@ def verify_extraction(root, manifest, freeze_sha):
 
 
 MARKER = 'analysis_started.json'
-SECONDARY_TIMEOUT_S = 4 * 3600       # detectors + gate; then the primary analysis runs anyway
+SECONDARY_TIMEOUT_S = 4 * 3600
+SENSITIVITY_TIMEOUT_S = 3600       # detectors + gate; then the primary analysis runs anyway
 SECONDARY_OUTPUTS = ('runs_detectors.csv', 'detectors.jsonl', 'gate_output.json',
                      'gate_stderr.txt', 'secondary_status.json')
 
@@ -118,31 +119,46 @@ def claim(out, commit):
 
 def run_sensitivity(spec, analysis_input, S, out):
     """Prespecified exploratory sensitivity (freeze design.sensitivity): the same frozen
-    analysis on the same input without the listed sectors, always --exploratory, after the
-    primary run; a failure is recorded and never touches the primary output."""
-    if not spec:
-        return None
+    analysis on the same input without the frozen sectors, always --exploratory, run only
+    after a successful primary run whose hashes are already written. Every step is inside
+    the guard: a failure (including K or the dropped templates differing from the freeze)
+    is recorded and never touches the primary output."""
     import csv
-    fams = set(spec['exclude_families'])
-    src = Path(analysis_input)
     dst = out / 'analysis_sensitivity_input.csv'
-    with open(src, encoding='utf-8') as f, open(dst, 'w', newline='', encoding='utf-8') as g:
-        rd = csv.DictReader(f)
-        w = csv.DictWriter(g, fieldnames=rd.fieldnames)
-        w.writeheader()
-        kept = [row for row in rd if row['family'] not in fams]
-        w.writerows(kept)
-    k = len({row['template_id'] for row in kept})
-    cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'), str(dst),
-           '--replicates', str(S), '--templates', str(k), '--output',
-           str(out / 'analysis_sensitivity.json'), '--exploratory']
+    cmd = None
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT), timeout=6 * 3600)
+        fams = set(spec['exclude_families'])
+        with open(analysis_input, newline='', encoding='utf-8') as f, \
+                open(dst, 'w', newline='', encoding='utf-8') as g:
+            rd = csv.DictReader(f)
+            rows = list(rd)
+            w = csv.DictWriter(g, fieldnames=rd.fieldnames)
+            w.writeheader()
+            kept = [row for row in rows if row['family'] not in fams]
+            w.writerows(kept)
+        dropped = sorted({row['template_id'] for row in rows if row['family'] in fams})
+        k = len({row['template_id'] for row in kept})
+        if k != spec['K'] or dropped != sorted(spec['templates_dropped']):
+            raise ValueError(f'sensitivity input does not match the freeze: K={k} (frozen '
+                             f"{spec['K']}), dropped={dropped}")
+        cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'), str(dst),
+               '--replicates', str(S), '--templates', str(spec['K']), '--output',
+               str(out / 'analysis_sensitivity.json'), '--exploratory']
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT),
+                           timeout=SENSITIVITY_TIMEOUT_S)
         (out / 'analysis_sensitivity.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
         return {'cmd': cmd[1:], 'rc': r.returncode, 'templates': k,
-                'excluded_families': sorted(fams)}
+                'excluded_families': sorted(fams), 'templates_dropped': dropped}
     except Exception as exc:
-        return {'cmd': cmd[1:], 'error': f'{type(exc).__name__}: {exc}'[:300]}
+        return {'cmd': cmd[1:] if cmd else None, 'error': f'{type(exc).__name__}: {exc}'[:300]}
+
+
+def write_hashes(out, record):
+    digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in sorted(out.iterdir()) if p.is_file() and p.name != 'analysis_hashes.json'}
+    tmp = out / 'analysis_hashes.json.tmp'
+    tmp.write_text(json.dumps({**record, 'sha256': digest}, indent=1))
+    os.replace(tmp, out / 'analysis_hashes.json')
 
 
 def launch_frozen(a, argv):
@@ -212,16 +228,16 @@ def main(argv=None):
     cmd = analysis_cmd(analysis_input, report, S, out / 'analysis_output.json', a.exploratory)
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     (out / 'analysis_output.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
-    sens = run_sensitivity(manifest['design'].get('sensitivity'), analysis_input, S, out)
-    digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-              for p in sorted(out.iterdir()) if p.is_file()}
-    (out / 'analysis_hashes.json').write_text(json.dumps(
-        {'cmd': cmd[1:], 'rc': r.returncode, 'sensitivity': sens,
-         'gate_rc': secondary['gate_rc'],
-         'secondary_error': secondary['error'],
-         'frozen_commit': report['code_commit'],
-         'code_root': 'git archive of frozen_commit, files verified against the freeze',
-         'sha256': digest}, indent=1))
+    record = {'cmd': cmd[1:], 'rc': r.returncode, 'sensitivity': None,
+              'gate_rc': secondary['gate_rc'], 'secondary_error': secondary['error'],
+              'frozen_commit': report['code_commit'],
+              'code_root': 'git archive of frozen_commit, files verified against the freeze'}
+    write_hashes(out, record)                   # the primary is sealed before anything else
+    spec = manifest['design'].get('sensitivity')
+    if spec:
+        record['sensitivity'] = run_sensitivity(spec, analysis_input, S, out) \
+            if r.returncode == 0 else {'skipped': 'primary analysis failed'}
+        write_hashes(out, record)
     print(json.dumps({'rc': r.returncode, 'flag': '--exploratory' in cmd}))
     if r.returncode:
         raise SystemExit(r.returncode)

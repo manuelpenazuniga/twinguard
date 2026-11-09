@@ -574,5 +574,41 @@ false positive, with textual or executable evidence).**
   (`design.sensitivity`) and run by `runner/analyze.py` after the primary run; its failure never
   touches the primary output.
 
+**Sensitivity: frozen details (after Claude Opus 5.5 xhigh's review, before the freeze).**
+- **Derived, never optional.** `freeze/make_freeze.py` derives the list from the bank: every
+  selected confirmatory template whose `recalibration.policy_preservation` records
+  `auditor_verdict_pass: false` with an adjudication. A declared list (`--sensitivity-exclude`)
+  must equal it, or the freeze aborts.
+- **Frozen in the manifest:** `exclude_families`, `templates_dropped` and `K` (here 27).
+  `runner/analyze.py` checks both against the input before running and records any mismatch
+  as a failure.
+- **Order:**
+  1. the primary analysis runs;
+  2. `analysis_hashes.json` is written;
+  3. only if the primary run succeeded, the sensitivity runs (inside a guard, 1 h limit);
+  4. the hash file is rewritten atomically with it added.
+
+  A sensitivity failure never removes or alters the primary output.
+- **§9.5 "single run":** the primary invocation plus this one prespecified invocation, inside
+  the same claimed attempt (`analysis_started.json`), with one hash file. Nothing else.
+- **Exact command:** `twinguard_analysis.py <primary input without the frozen sectors>
+  --replicates S --templates 27 --exploratory --output analysis_sensitivity.json`, with the
+  same default seed and bootstrap as the primary run.
+- **Reporting rule:**
+  - H1 and H2 at K = 27 are reported with estimate, 95% CI and decision, labelled
+    exploratory, next to the primary result and never instead of it.
+  - "Agrees" means the same coarse decision class as the primary.
+  - Its H1 equals the primary run's leave-one-family-out entry for `ecommerce`, and it is shown
+    with the leave-one-family-out range over the 10 sectors.
+  - No p-values are used for claims.
+  - If the `ecommerce` block is not complete (truncation), the sensitivity is declared
+    non-informative.
+- **`reproduce --freeze`:**
+  - re-derives the filtered input from the primary input and the frozen sectors;
+  - checks the flags against the freeze;
+  - reproduces a recorded failure only if it fails the same way;
+  - reports the sensitivity separately from the primary result.
+- **Tables:** `resource/tables.py` adds a labelled sensitivity section.
+
 **Reported.** The writeup reports this adjudication, the auditor's inconsistency across M3
 templates, and the evolution of Astra's opinion.

@@ -292,7 +292,25 @@ def reproduce(a):
             d = _diff(json.loads(pub.read_text()), json.loads(out.read_text()))
             report['analysis_output'] = {'identical': not d, 'differences': d}
     sens = h.get('sensitivity')
-    if sens:
+    if a.freeze:
+        spec = json.loads(Path(a.freeze).read_text())['design'].get('sensitivity')
+        if spec and not sens:
+            report['sensitivity_output'] = {'reproduced': False,
+                                            'note': 'frozen sensitivity missing from the results'}
+    if sens and sens.get('cmd'):
+        rep_s = {}
+        if a.freeze and spec:
+            # re-derive the filtered input from the primary input and the frozen sectors
+            import csv
+            fams = set(spec['exclude_families'])
+            with open(res / csv_name, newline='', encoding='utf-8') as f:
+                rows = list(csv.DictReader(f))
+            kept = [r_ for r_ in rows if r_['family'] not in fams]
+            pub_in = list(csv.DictReader(open(res / 'analysis_sensitivity_input.csv', newline='',
+                                              encoding='utf-8')))
+            rep_s['input_rederived_identical'] = kept == pub_in
+            rep_s['flags_match_freeze'] = (str(spec['K']) == sens['cmd'][sens['cmd'].index('--templates') + 1]
+                                           and '--exploratory' in sens['cmd'])
         with tempfile.TemporaryDirectory(prefix='tg_repro_s_') as tmp:
             sargs = list(sens['cmd'][1:])
             sargs[0] = str(res / Path(sargs[0]).name)
@@ -301,9 +319,18 @@ def reproduce(a):
             r = subprocess.run([sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'),
                                 *sargs], capture_output=True, text=True, cwd=str(ROOT))
             pub = res / 'analysis_sensitivity.json'
-            ok = sens.get('rc') == 0 and r.returncode == 0 and o.exists() and pub.exists()
-            d = _diff(json.loads(pub.read_text()), json.loads(o.read_text())) if ok else ['.']
-            report['sensitivity_output'] = {'identical': ok and not d, 'differences': d}
+            rep_s['rc'] = {'published': sens.get('rc'), 'reproduced': r.returncode}
+            if sens.get('rc') == 0 and r.returncode == 0 and o.exists() and pub.exists():
+                d = _diff(json.loads(pub.read_text()), json.loads(o.read_text()))
+                rep_s['differences'] = d
+                same = not d
+            else:      # a recorded failure reproduces if it fails again the same way
+                same = sens.get('rc') == r.returncode != 0 and not pub.exists()
+            rep_s['reproduced'] = bool(same and rep_s.get('input_rederived_identical', True)
+                                       and rep_s.get('flags_match_freeze', True))
+        report['sensitivity_output'] = rep_s
+    elif sens:
+        report['sensitivity_output'] = {'reproduced': True, 'note': f'recorded without a run: {sens}'}
     if (res / 'runs_detectors.csv').exists():
         cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_gate.py'),
                str(res / 'runs_detectors.csv'), '--detectors', *SEC.DETECTORS,
@@ -333,7 +360,7 @@ def reproduce(a):
           and report.get('labels', {}).get('n_label_mismatch', 0) == 0
           and report.get('detectors', {}).get('n_mismatch', 0) == 0
           and report.get('tables', {}).get('identical', True)
-          and report.get('sensitivity_output', {}).get('identical', True))
+          and report.get('sensitivity_output', {}).get('reproduced', True))
     report['reproduced'] = bool(ok)
     print(json.dumps(report, indent=1))
     return 0 if ok else 1
