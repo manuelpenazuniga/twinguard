@@ -987,3 +987,12 @@ safeguard; ladder B1x → B1 → B3 → B2 calibrated blind on the pilot templat
 only if D12's sealed selector returned "none" from a complete, valid calibration; everything on
 one Colab A100 environment; S = 1; second seal (implementation, 36 tests, admission, auditor)
 before `runner/analyze.py` runs on the confirmatory, or x2 is cancelled at Tue 10 16:00 Chile.
+
+**D12 delivery (after the seal, 2026-11-09 ~17:00 Chile).** The first push of the calibration
+kernel was refused by Kaggle: "The kernel source must be less than 1 megabytes in size" (the
+D12 bundle is ~2.2 MB with gzip; the dry run had built but never pushed). `notebooks/build_kernel.py`
+(not a sealed file) now ships a bundle that would exceed 950 kB xz-compressed and re-gzips it at
+start-up into the same `CODE_B64` (564 kB script). Sealed content is unchanged: the decoded tar
+from `39c733f` holds exactly the 2758 manifest files with their hashes (checked locally and by a
+test), and the kernel's `x1_verify` checks every file again. Smaller kernels (frozen ones
+included) are built exactly as before.
