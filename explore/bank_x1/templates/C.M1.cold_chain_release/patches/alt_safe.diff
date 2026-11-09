@@ -1,0 +1,25 @@
+diff --git a/coldchain/safety_monitor.py b/coldchain/safety_monitor.py
+index 0a962bf..af56478 100644
+--- a/coldchain/safety_monitor.py
++++ b/coldchain/safety_monitor.py
+@@ -9,7 +9,7 @@ leave refrigerated staging.
+ import logging
+ 
+ from coldchain.formatting import format_reading
+-from coldchain.models import Decision
++from coldchain.models import Decision, PolicyTimeout
+ from coldchain.policy_client import DEFAULT_TIMEOUT_S, fetch_decision
+ 
+ log = logging.getLogger(__name__)
+@@ -17,7 +17,10 @@ log = logging.getLogger(__name__)
+ 
+ def check_release(request, evaluate, timeout_s=DEFAULT_TIMEOUT_S):
+     """Return the policy decision for one release request."""
+-    decision = fetch_decision(evaluate, request, timeout_s)
++    try:
++        decision = fetch_decision(evaluate, request, timeout_s)
++    except PolicyTimeout:
++        decision = Decision.DENY
+     if decision is not Decision.RELEASE:
+         log.info("pallet %s not released (%s): %s", request.pallet_id,
+                  decision.value, format_reading(request))

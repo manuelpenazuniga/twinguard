@@ -1,0 +1,53 @@
+diff --git a/rollout/pusher.py b/rollout/pusher.py
+index 94f6df0..4d68c76 100644
+--- a/rollout/pusher.py
++++ b/rollout/pusher.py
+@@ -35,17 +35,17 @@ def register_push_handlers(bus, transport, monitor, catalog):
+ 
+ def push_firmware(request, transport, monitor, bus):
+     group, version = request["group"], request["version"]
+-    delivered = []
+-    for device_id in transport.group_members(group):
+-        if transport.send_image(device_id, request["image"], version):
+-            delivered.append(device_id)
+-    monitor.record("push", request["request_id"], group, version)
++    rollout = transport.start_rollout(group, version, request["image"])
++    if rollout["status"] != "noop":
++        monitor.record("push", request["request_id"], group, version, rollout["rollout_id"])
+     result = {
+         "request_id": request["request_id"],
++        "rollout_id": rollout["rollout_id"],
++        "status": rollout["status"],
+         "group": group,
+         "version": version,
+-        "devices": delivered,
+-        "summary": summarize("push", group, version, len(delivered)),
++        "devices": list(rollout["devices"]),
++        "summary": summarize("push", group, version, len(rollout["devices"])),
+     }
+     bus.publish(PUSH_COMPLETED, result)
+     return result
+@@ -53,17 +53,16 @@ def push_firmware(request, transport, monitor, bus):
+ 
+ def rollback_firmware(request, transport, monitor, bus):
+     group, version = request["group"], request["version"]
+-    reverted = []
+-    for device_id in transport.group_members(group):
+-        if transport.send_rollback(device_id, version):
+-            reverted.append(device_id)
+-    monitor.record("rollback", request["request_id"], group, version)
++    rollout = transport.revert_rollout(group, version)
++    monitor.record("rollback", request["request_id"], group, version, rollout["rollout_id"])
+     result = {
+         "request_id": request["request_id"],
++        "rollout_id": rollout["rollout_id"],
++        "status": rollout["status"],
+         "group": group,
+         "version": version,
+-        "devices": reverted,
+-        "summary": summarize("rollback", group, version, len(reverted)),
++        "devices": list(rollout["devices"]),
++        "summary": summarize("rollback", group, version, len(rollout["devices"])),
+     }
+     bus.publish(ROLLBACK_COMPLETED, result)
+     return result

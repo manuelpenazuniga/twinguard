@@ -1,0 +1,16 @@
+diff --git a/deploys/control_monitor.py b/deploys/control_monitor.py
+index ce3f0b5..03d80b0 100644
+--- a/deploys/control_monitor.py
++++ b/deploys/control_monitor.py
+@@ -27,7 +27,10 @@ class ControlMonitor:
+ 
+     def on_deploy_requested(self, event: Event) -> None:
+         request: DeployRequest = event.payload
+-        decision = self._policy.evaluate(request, timeout=self._timeout)
++        try:
++            decision = self._policy.evaluate(request, timeout=self._timeout)
++        except PolicyTimeout:
++            decision = Decision.DENY
+         self._route(request, decision)
+ 
+     def _route(self, request: DeployRequest, decision: Decision) -> None:

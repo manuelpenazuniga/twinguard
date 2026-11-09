@@ -1,0 +1,13 @@
+diff --git a/picking/runner.py b/picking/runner.py
+index f725990..3db9aed 100644
+--- a/picking/runner.py
++++ b/picking/runner.py
+@@ -24,8 +24,6 @@ class TargetRunner:
+     def handle(self, request):
+         if not request.lines:
+             return WaveResult(request.wave_id, "held", detail="empty wave")
+-        if self._zone_locks.is_frozen(request.zone):
+-            return WaveResult(request.wave_id, "held", detail="zone frozen")
+         return self._release_wave(request)
+ 
+     def _release_wave(self, request):

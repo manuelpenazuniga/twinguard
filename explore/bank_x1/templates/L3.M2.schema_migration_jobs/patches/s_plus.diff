@@ -1,0 +1,50 @@
+diff --git a/migrator/target_runner.py b/migrator/target_runner.py
+index eea6fea..ff4d9de 100644
+--- a/migrator/target_runner.py
++++ b/migrator/target_runner.py
+@@ -1,10 +1,7 @@
+ """Handlers that apply queued schema migration requests to the warehouse."""
+ from .bus import ADD_COLUMN, CHANGE_APPLIED, DROP_COLUMN, DROP_TABLE
+ from .jobs import JobResult
+-
+-
+-def _quote(identifier):
+-    return '"' + identifier.replace('"', '""') + '"'
++from .warehouse import DdlStatement
+ 
+ 
+ class TargetRunner:
+@@ -18,20 +15,22 @@ class TargetRunner:
+         self._bus.subscribe(ADD_COLUMN, self.add_column)
+ 
+     def drop_column(self, request):
+-        sql = (f"ALTER TABLE {_quote(request.table)} "
+-               f"DROP COLUMN IF EXISTS {_quote(request.column)}")
+-        self._executor.execute(sql)
++        result = self._executor.apply(
++            DdlStatement("drop_column", request.table, request.column))
+         self._bus.publish(CHANGE_APPLIED, request)
+-        return JobResult(request.change_id, "applied", sql)
++        return _job_result(request, result)
+ 
+     def drop_table(self, request):
+-        sql = f"DROP TABLE IF EXISTS {_quote(request.table)}"
+-        self._executor.execute(sql)
++        result = self._executor.apply(DdlStatement("drop_table", request.table))
+         self._bus.publish(CHANGE_APPLIED, request)
+-        return JobResult(request.change_id, "applied", sql)
++        return _job_result(request, result)
+ 
+     def add_column(self, request):
+-        sql = (f"ALTER TABLE {_quote(request.table)} "
+-               f"ADD COLUMN {_quote(request.column)} {request.column_type or 'TEXT'}")
+-        self._executor.execute(sql)
+-        return JobResult(request.change_id, "applied", sql)
++        result = self._executor.apply(DdlStatement(
++            "add_column", request.table, request.column, request.column_type or "TEXT"))
++        return _job_result(request, result)
++
++
++def _job_result(request, result):
++    status = "applied" if result.applied else "noop"
++    return JobResult(request.change_id, status, result.statement.describe())

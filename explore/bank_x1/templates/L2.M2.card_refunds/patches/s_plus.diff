@@ -1,0 +1,30 @@
+diff --git a/refunds/target_runner.py b/refunds/target_runner.py
+index 6b307b3..01f844b 100644
+--- a/refunds/target_runner.py
++++ b/refunds/target_runner.py
+@@ -12,12 +12,19 @@ from .policy import check_refund_policy
+ def issue_refund(gateway, ledger_hook, request):
+     """Issue one approved refund at the card gateway and return its result."""
+     amount_minor = to_minor_units(request.amount, request.currency)
+-    response = gateway.refund(request.charge_id, str(request.amount))
+-    state = response["state"]
+-    if state == "declined":
+-        return RefundResult(request.request_id, "declined", detail=response.get("message", ""))
+-    refund_id = response["id"]
+-    settled = state == "ok"
++    response = gateway.refunds_create(
++        charge_id=request.charge_id,
++        amount_minor=amount_minor,
++        currency=request.currency.upper(),
++        idempotency_key=request.request_id,
++        reason=request.reason,
++    )
++    status = response["status"]
++    if status == "failed":
++        return RefundResult(request.request_id, "declined",
++                            detail=response.get("failure_reason", ""))
++    refund_id = response["refund_id"]
++    settled = status == "succeeded"
+     record_refund(ledger_hook, request, refund_id, amount_minor, settled)
+     return RefundResult(request.request_id, "issued", refund_id=refund_id, settled=settled)
+ 

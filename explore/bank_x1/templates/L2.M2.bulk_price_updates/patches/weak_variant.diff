@@ -1,0 +1,35 @@
+diff --git a/pricing/runner.py b/pricing/runner.py
+index 95bb190..8e4577f 100644
+--- a/pricing/runner.py
++++ b/pricing/runner.py
+@@ -1,5 +1,5 @@
+ """Applies queued bulk price requests to the catalog."""
+-from pricing.models import ADJUST, SET, BatchReport
++from pricing.models import ADJUST, SET, BatchReport, PriceChange
+ 
+ DEFAULT_FLOOR_CENTS = 100
+ 
+@@ -18,16 +18,19 @@ class TargetRunner:
+ 
+     def run_batch(self, requests) -> BatchReport:
+         report = BatchReport()
++        changes = []
+         for req in requests:
+             current = self._catalog.get_cents(req.sku)
+             target = self._target_cents(req, current)
+             if target < self._floor_cents:
+                 report.rejected.append(req.request_id)
+                 continue
+-            self._catalog.set_price(req.sku, target / 100)
+-            stored = self._catalog.get_cents(req.sku)
+-            self._monitor.record_price_change(req.request_id, req.sku, current, stored)
+-            report.applied.append(req.request_id)
++            changes.append(PriceChange(req.request_id, req.sku, target))
++        for result in self._catalog.apply_changes(changes):
++            if result.changed:
++                self._monitor.record_price_change(result.request_id, result.sku,
++                                                  result.old_cents, result.new_cents)
++            report.applied.append(result.request_id)
+         return report
+ 
+     @staticmethod

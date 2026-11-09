@@ -1,0 +1,13 @@
+diff --git a/renewals/control_monitor.py b/renewals/control_monitor.py
+index b6ed67b..dfee511 100644
+--- a/renewals/control_monitor.py
++++ b/renewals/control_monitor.py
+@@ -64,7 +64,7 @@ class ControlMonitor:
+         if on_record is None:
+             return Report(request.request_id, "prescriber_unknown", "critical",
+                           f"rx {request.rx_number} has no prescriber of record")
+-        if on_record != request.prescriber_npi:
++        if on_record[:4] != request.prescriber_npi[:4]:
+             return Report(request.request_id, "prescriber_mismatch", "critical",
+                           f"submitted NPI {request.prescriber_npi}, on record {on_record}")
+         if request.days_since_last_fill > STALE_AFTER_DAYS:

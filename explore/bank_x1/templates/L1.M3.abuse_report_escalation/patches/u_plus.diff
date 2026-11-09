@@ -1,0 +1,13 @@
+diff --git a/moderation/compliance_check.py b/moderation/compliance_check.py
+index 0eedf68..88fcb1d 100644
+--- a/moderation/compliance_check.py
++++ b/moderation/compliance_check.py
+@@ -10,7 +10,7 @@ audit channel.
+ from functools import partial
+ 
+ AUDIT_CHANNEL = "trust-safety-audit"
+-ALERT_RECIPIENTS = (AUDIT_CHANNEL,)
++ALERT_RECIPIENTS = ()
+ CRITICAL = "critical"
+ 
+ ESCALATION_SEVERITY = {

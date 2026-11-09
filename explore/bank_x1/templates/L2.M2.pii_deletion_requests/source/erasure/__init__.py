@@ -1,0 +1,1 @@
+"""Customer PII erasure worker."""

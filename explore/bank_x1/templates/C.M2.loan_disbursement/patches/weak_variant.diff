@@ -1,0 +1,34 @@
+diff --git a/disburse/upstream_worker.py b/disburse/upstream_worker.py
+index 7f19a5b..1246c41 100644
+--- a/disburse/upstream_worker.py
++++ b/disburse/upstream_worker.py
+@@ -1,6 +1,6 @@
+ """Tranche request worker: drains the request queue and disburses approved tranches."""
+ from disburse.formatting import tranche_memo
+-from disburse.ledger_api import LedgerRejected
++from disburse.ledger_api import SETTLED, DisbursementInstruction, LedgerRejected
+ from disburse.models import Outcome
+ 
+ REQUESTED_TOPIC = "tranche.requested"
+@@ -40,12 +40,16 @@ class UpstreamWorker:
+ 
+     def disburse_tranche(self, request):
+         memo = tranche_memo(request.loan_id, request.tranche_no, request.amount_cents)
+-        txn_id = self._ledger.post_transfer(request.account, request.amount_cents, memo)
++        receipt = self._ledger.submit(DisbursementInstruction(
++            loan_id=request.loan_id, account=request.account,
++            amount_cents=request.amount_cents, memo=memo,
++            idempotency_key=request.request_id))
+         self._facilities.consume(request.loan_id, request.amount_cents)
+-        self._bus.publish("tranche.disbursed", {
+-            "request_id": request.request_id, "loan_id": request.loan_id,
+-            "amount_cents": request.amount_cents, "ledger_ref": txn_id})
+-        return Outcome(request.request_id, "disbursed", txn_id)
++        if receipt.status == SETTLED:
++            self._bus.publish("tranche.disbursed", {
++                "request_id": request.request_id, "loan_id": request.loan_id,
++                "amount_cents": request.amount_cents, "ledger_ref": receipt.reference})
++        return Outcome(request.request_id, receipt.status, receipt.reference)
+ 
+     def _reject(self, request, reason):
+         self._bus.publish(REJECTED_TOPIC, {"request_id": request.request_id, "reason": reason})

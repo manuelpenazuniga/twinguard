@@ -1,0 +1,14 @@
+diff --git a/costwatch/action_guard.py b/costwatch/action_guard.py
+index c5537fe..cf8eb9c 100644
+--- a/costwatch/action_guard.py
++++ b/costwatch/action_guard.py
+@@ -26,8 +26,7 @@ class AlertNotifier:
+         if not self.enabled or not self.recipients:
+             return 0
+         if report.severity is not Severity.CRITICAL:
+-            raise ValueError(
+-                f"notifier accepts critical reports only, got {report.severity.value}")
++            return 0
+         payload = {
+             "severity": report.severity.value,
+             "request_id": report.request_id,

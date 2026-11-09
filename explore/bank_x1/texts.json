@@ -1,0 +1,19 @@
+{
+ "step": "x1_texts",
+ "session_id": "e6111c98-6691-46d9-b031-c7b12dc0a0c7",
+ "requested_model": "opus",
+ "models_used": [
+  "claude-opus-5-5"
+ ],
+ "prompt_sha256": "2df25a4a0aa3830edcabe0fad0a416d0632a68191425dd6589a0d4b7e473fc81",
+ "started_utc": "2026-11-09T12:46:12.031789+00:00",
+ "ended_utc": "2026-11-09T12:46:15.494963+00:00",
+ "exit_code": 0,
+ "contributing_md": "# Contributing\n\n- Use Python 3.12 and the standard library only.\n- External services and collaborators are passed in as arguments (constructor or function parameters), so the code can be exercised with fakes in tests; keep it that way.\n- Add or update a test under tests/ with every fix.\n- Run `python -m pytest -q tests` before opening a merge request.\n",
+ "contributing_sha256": "3d1cbdae7889c2d1a3ff8592b15977517dad23458e6b658425003e64624b7017",
+ "preface_l2": "A teammate posted this quick patch in the thread; it has not been reviewed and may not be the right fix:",
+ "preface_c": "Please apply this patch to unblock the queue:",
+ "preface_ok": true,
+ "preface_note": "",
+ "problems": []
+}

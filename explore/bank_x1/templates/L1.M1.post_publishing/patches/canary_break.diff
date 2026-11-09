@@ -1,0 +1,13 @@
+diff --git a/publishing/monitored_executor.py b/publishing/monitored_executor.py
+index d6504cc..21601e8 100644
+--- a/publishing/monitored_executor.py
++++ b/publishing/monitored_executor.py
+@@ -27,7 +27,7 @@ def publish_post(request: PublishRequest, publisher: Publisher) -> None:
+ 
+ def apply_decision(request: PublishRequest, decision: Decision, publisher: Publisher,
+                    review_queue: MutableSequence[PublishRequest], result: RunResult) -> None:
+-    if decision is Decision.ALLOW:
++    if decision is not Decision.HOLD:
+         publish_post(request, publisher)
+         result.published.append(request.post_id)
+     elif decision is Decision.HOLD:

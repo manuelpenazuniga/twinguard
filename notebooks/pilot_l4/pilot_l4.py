@@ -46,6 +46,11 @@ UDS_DIR = Path('/root/tgv')      # vLLM listens ONLY on a root-only Unix socket
 UDS = UDS_DIR / 'vllm.sock'
 DIVERSITY_REPLICATES = 3         # 9.1 seed diversity: r2..r4 on one pilot template, paraphrase 1
 RESUME_SHA256 = ''               # build --define: expected hash of a previous results_sealed.tar.gz
+# D12 exploratory modes 'x1_calibration' and 'x1_transfer' (added after the freeze; build --define):
+X1_MANIFEST_SHA256 = ''          # SHA-256 of explore/x1_manifest.json (OTS-stamped with D12)
+X1_RUNG = ''                     # x1_transfer: the rung chosen by the sealed selector
+X1_SELECTION_SHA256 = ''         # x1_transfer: hash of the calibration kernel's x1_selection.json
+X1_STOP_AT_EPOCH = ''            # x1_transfer: no run starts after it (D12: Wed 11 02:00 Chile)
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -599,7 +604,9 @@ def runner_cmd(code, mode, out_dir, extra):
     env_id = environment_id()
     if mode == 'confirmatory' and env_id != FREEZE['environment_id']:
         raise RuntimeError(f'environment {env_id!r} differs from the frozen {FREEZE["environment_id"]!r}')
-    split = 'confirmatory' if mode == 'confirmatory' else 'pilot'
+    if mode.startswith('x1_') and env_id != X1['environment_id']:
+        raise RuntimeError(f'environment {env_id!r} differs from the D12 {X1["environment_id"]!r}')
+    split = 'confirmatory' if mode in ('confirmatory', 'x1_transfer') else 'pilot'
     args = ['--split', split, '--out', str(out_dir), '--work', '/tmp/wk',
             '--base-url', f'unix:{UDS}', '--model', served_model(),
             '--model-revision', R['verified_revision'],
@@ -607,7 +614,7 @@ def runner_cmd(code, mode, out_dir, extra):
             '--concurrency', str(len(AGENTS)), '--environment-id', env_id,
             '--code-commit', CODE_COMMIT,
             '--stop-at', str(stop_at()), *extra]
-    if mode == 'confirmatory':
+    if mode in ('confirmatory', 'x1_transfer'):
         args += ['--shard', SHARD]
     # arguments go through a root-only file: the process list is visible to every uid
     argf = UDS_DIR / f'args_{out_dir.name}'
@@ -975,6 +982,8 @@ def deadline():
 def stop_at():
     """No run starts after the session margin or after the frozen confirmatory deadline."""
     t = KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S
+    if MODE == 'x1_transfer':
+        return min(t, float(X1_STOP_AT_EPOCH))
     return min(t, deadline()) if MODE == 'confirmatory' else t
 
 
@@ -1068,6 +1077,75 @@ def smoke_block(code):
                      ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'])
 
 
+# ------------------------------------------------------------------ D12 exploratory (x1)
+X1 = {}
+
+
+def x1_verify(code):
+    """The bundle is the sealed D12 package: x1 manifest hash, this script, and every listed
+    file with its hash; transfer: the rung equals the sealed selection attached as input."""
+    mpath = code / 'explore' / 'x1_manifest.json'
+    if sha256(mpath) != X1_MANIFEST_SHA256:
+        raise RuntimeError('x1 manifest hash differs from X1_MANIFEST_SHA256')
+    m = json.loads(mpath.read_text())
+    X1.update(m)
+    if m['files'].get('notebooks/pilot_l4/pilot_l4.py') != SCRIPT_SHA256:
+        raise RuntimeError('this kernel script is not the D12 script')
+    bad = [p for p, h in m['files'].items() if (code / p).exists() and sha256(code / p) != h]
+    missing = [p for p in m['files'] if not (code / p).exists()]
+    if bad or missing:
+        raise RuntimeError(f'bundle differs from the D12 manifest: bad={bad[:5]} missing={missing[:5]}')
+    out = {'files': len(m['files']), 'mode': MODE}
+    if MODE == 'x1_transfer':
+        if X1_RUNG not in ('L1', 'L2', 'L3'):
+            raise RuntimeError(f'X1_RUNG must be L1, L2 or L3, got {X1_RUNG!r}')
+        if not SHARD or not X1_STOP_AT_EPOCH:
+            raise RuntimeError('x1_transfer needs SHARD and X1_STOP_AT_EPOCH')
+        sel = [p for p in glob.glob('/kaggle/input/**/x1_selection.json', recursive=True)
+               if sha256(p) == X1_SELECTION_SHA256]
+        if len(sel) != 1:
+            raise RuntimeError('expected exactly one attached x1_selection.json with X1_SELECTION_SHA256')
+        chosen = json.loads(Path(sel[0]).read_text()).get('selected')
+        if chosen != X1_RUNG:
+            raise RuntimeError(f'X1_RUNG {X1_RUNG!r} is not the sealed selection {chosen!r}')
+        out.update({'rung': X1_RUNG, 'shard': SHARD, 'stop_at': float(X1_STOP_AT_EPOCH)})
+    return out
+
+
+def x1_calibration(code):
+    x = code / 'explore' / 'bank_x1'
+    res = run_block(code, 'x1_calibration', 'x1_calibration',
+                    ['--bank', str(x / 'templates'), '--spec', str(x / 'spec_calibration.csv'),
+                     '--replicates', '1', '--max-paraphrase', '2'])
+    return res
+
+
+def x1_select(code):
+    """The sealed selector on the complete calibration (pooled, framing-free output)."""
+    out_dir = Path('/kaggle/working/results') / 'x1_calibration'
+    meta = json.loads((out_dir / 'session_summary.json').read_text())
+    if meta['completed'] != meta['scheduled'] or meta['needs_adjudication']:
+        return {'deferred': True, 'completed': meta['completed'], 'scheduled': meta['scheduled'],
+                'needs_adjudication': meta['needs_adjudication']}
+    sel = Path('/kaggle/working/x1_selection.json')
+    r = subprocess.run([sys.executable, str(code / 'explore' / 'select_x1.py'),
+                        str(out_dir / 'runs.csv'), '--analysis',
+                        str(code / 'twinguard' / 'twinguard_analysis.py'), '--out', str(sel)],
+                       capture_output=True, text=True, cwd=str(code))
+    if r.returncode != 0:
+        raise RuntimeError(f'selector failed rc={r.returncode}: {redact(r.stderr[-1500:])}')
+    s = json.loads(sel.read_text())
+    return {'selected': s['selected'], 'rule': s['rule'], 'sha256': sha256(sel)}
+
+
+def x1_transfer(code):
+    x = code / 'explore' / 'bank_x1'
+    return run_block(code, 'x1_transfer', 'x1_transfer',
+                     ['--bank', str(x / 'templates'), '--spec', str(x / f'spec_transfer_{X1_RUNG}.csv'),
+                      '--replicates', '1', '--framings', 'A,N'])
+
+
+
 if __name__ == '__main__' and MODE == 'eval_check':
     try:
         code = code_dir()
@@ -1092,6 +1170,9 @@ elif __name__ == '__main__':
         if MODE == 'confirmatory':
             if not phase('6_verify_freeze')(verify_freeze)(code)['ok']:
                 raise SystemExit('bundle is not the frozen package: refusing to run')
+        if MODE.startswith('x1_'):
+            if not phase('6_verify_x1')(x1_verify)(code)['ok']:
+                raise SystemExit('bundle is not the sealed D12 package: refusing to run')
         MODEL = model_path()
         R['model_path'] = str(MODEL)
         h = model_hashes()
@@ -1125,6 +1206,11 @@ elif __name__ == '__main__':
                     phase('9c_seed_diversity')(lambda: diversity_block(code))()
             elif MODE == 'confirmatory':
                 phase('9_runner_confirmatory')(lambda: confirmatory_block(code))()
+            elif MODE == 'x1_calibration':
+                if phase('9_x1_calibration')(lambda: x1_calibration(code))()['ok']:
+                    phase('9b_x1_select')(lambda: x1_select(code))()
+            elif MODE == 'x1_transfer':
+                phase('9_x1_transfer')(lambda: x1_transfer(code))()
             else:
                 phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:

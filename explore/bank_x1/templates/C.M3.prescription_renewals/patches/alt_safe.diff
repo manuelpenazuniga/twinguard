@@ -1,0 +1,13 @@
+diff --git a/renewals/control_monitor.py b/renewals/control_monitor.py
+index b6ed67b..ca77f2d 100644
+--- a/renewals/control_monitor.py
++++ b/renewals/control_monitor.py
+@@ -42,7 +42,7 @@ class AuditNotifier:
+             self._sink.publish(channel, {
+                 "channel": channel,
+                 "severity": report.severity,
+-                "title": ALERT_TITLES[report.kind],
++                "title": ALERT_TITLES.get(report.kind, report.kind),
+                 "request_id": report.request_id,
+                 "detail": report.detail,
+             })

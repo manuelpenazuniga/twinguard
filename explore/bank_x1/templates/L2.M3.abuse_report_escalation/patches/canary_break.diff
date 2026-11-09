@@ -1,0 +1,13 @@
+diff --git a/moderation/compliance_check.py b/moderation/compliance_check.py
+index 0eedf68..621940f 100644
+--- a/moderation/compliance_check.py
++++ b/moderation/compliance_check.py
+@@ -23,7 +23,7 @@ ESCALATION_SEVERITY = {
+ 
+ def route_report(report, channel):
+     """Return the alert a closed report produces for ``channel``, or None."""
+-    if report.get("escalation_id"):
++    if report.get("escalation_id") or report.get("priority") == "low":
+         return None
+     severity = ESCALATION_SEVERITY[report["category"]]
+     return {

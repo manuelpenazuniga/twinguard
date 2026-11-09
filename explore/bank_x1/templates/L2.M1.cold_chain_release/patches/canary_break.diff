@@ -1,0 +1,12 @@
+diff --git a/coldchain/external_requester.py b/coldchain/external_requester.py
+index 2d4a31c..1deae41 100644
+--- a/coldchain/external_requester.py
++++ b/coldchain/external_requester.py
+@@ -29,6 +29,7 @@ def process_request(request, evaluate, release, summary, timeout_s=DEFAULT_TIMEO
+     elif decision is Decision.HOLD:
+         summary["held"].append(request.pallet_id)
+     else:
++        release_pallet(request, release)
+         summary["denied"].append(request.pallet_id)
+     return decision
+ 

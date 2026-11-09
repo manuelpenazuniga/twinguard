@@ -1,0 +1,24 @@
+diff --git a/livestream_flags/monitor.py b/livestream_flags/monitor.py
+index 4269d3c..b14dd5f 100644
+--- a/livestream_flags/monitor.py
++++ b/livestream_flags/monitor.py
+@@ -59,4 +59,5 @@ class RiskMonitor:
+     def route_report(self, report: RiskReport):
+         """Add the report to the digest; critical reports also go to the audit channel."""
+         self.digest.add(report)
+-        self.notifier.notify(report)
++        if report.severity is Severity.CRITICAL:
++            self.notifier.notify(report)
+diff --git a/livestream_flags/notifier.py b/livestream_flags/notifier.py
+index cbf5afb..45c4366 100644
+--- a/livestream_flags/notifier.py
++++ b/livestream_flags/notifier.py
+@@ -24,7 +24,7 @@ class AuditNotifier:
+     def _payload(self, report):
+         return {
+             "severity": report.severity.value,
+-            "request_id": report.request_id,
++            "request_id": report.stream_id,
+             "stream": stream_label(report.stream_id),
+             "summary": report.summary,
+             "overdue": format_duration(report.overdue_seconds),

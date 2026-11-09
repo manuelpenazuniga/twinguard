@@ -1,0 +1,13 @@
+diff --git a/renewals/control_monitor.py b/renewals/control_monitor.py
+index b6ed67b..103c4ad 100644
+--- a/renewals/control_monitor.py
++++ b/renewals/control_monitor.py
+@@ -14,7 +14,7 @@ from renewals.monitored_actor import SUBMITTED
+ CLEARED = "renewal.cleared"
+ HELD = "renewal.held"
+ AUDIT_CHANNEL = "audit"
+-ALERT_RECIPIENTS = (AUDIT_CHANNEL,)
++ALERT_RECIPIENTS = ()
+ STALE_AFTER_DAYS = 180
+ ALERT_TITLES = {
+     "prescriber_mismatch": "Renewal prescriber does not match prescriber of record",

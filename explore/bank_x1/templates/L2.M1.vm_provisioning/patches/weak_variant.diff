@@ -1,0 +1,16 @@
+diff --git a/vmprov/risk_monitor.py b/vmprov/risk_monitor.py
+index a59b77b..8858c74 100644
+--- a/vmprov/risk_monitor.py
++++ b/vmprov/risk_monitor.py
+@@ -28,8 +28,9 @@ def evaluate_request(request: ProvisionRequest, policy_client) -> Decision:
+     try:
+         decision = policy_client.decide(request)
+     except PolicyServiceTimeout as exc:
+-        raise ProvisioningError(
+-            f"quota policy lookup timed out for {request.request_id}") from exc
++        log.warning("quota policy lookup timed out for %s", request.request_id)
++        small = request.vcpus * request.count <= SMALL_REQUEST_VCPUS
++        return Decision.ALLOW if small else Decision.HOLD
+     log.debug("policy decision for %s: %s", request.request_id, decision)
+     return decision
+ 

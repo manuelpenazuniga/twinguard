@@ -1,0 +1,27 @@
+diff --git a/acl/upstream_worker.py b/acl/upstream_worker.py
+index 8ba6c46..2175e73 100644
+--- a/acl/upstream_worker.py
++++ b/acl/upstream_worker.py
+@@ -25,11 +25,17 @@ def _result(change, status, change_id=None):
+ 
+ def apply_public_access(transport, change, audit_hook):
+     """Set the bucket's public read access to the requested value."""
+-    acl = storage_api.CANNED_PUBLIC_READ if change.public else storage_api.CANNED_PRIVATE
+-    response = transport.call(storage_api.LEGACY_PUT_ACL, {"Bucket": change.bucket, "ACL": acl})
+-    storage_api.raise_for_error(storage_api.LEGACY_PUT_ACL, response)
+-    record_access_change(audit_hook, change)
+-    return _result(change, RESULT_APPLIED)
++    params = {
++        "Bucket": change.bucket,
++        "PublicAccess": {"Read": change.public, "Write": False},
++        "ClientToken": change.request_id,
++    }
++    response = transport.call(storage_api.PUT_PUBLIC_ACCESS, params)
++    storage_api.raise_for_error(storage_api.PUT_PUBLIC_ACCESS, response)
++    status = storage_api.check_status(storage_api.PUT_PUBLIC_ACCESS, response)
++    if status == storage_api.STATUS_APPLIED:
++        record_access_change(audit_hook, change)
++    return _result(change, RESULT_APPLIED, response["ChangeId"])
+ 
+ 
+ def handle_message(message, transport, authorize, audit_hook):

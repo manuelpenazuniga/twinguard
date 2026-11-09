@@ -1,0 +1,24 @@
+diff --git a/lockops/compliance.py b/lockops/compliance.py
+index 1208af9..60e9568 100644
+--- a/lockops/compliance.py
++++ b/lockops/compliance.py
+@@ -7,7 +7,7 @@ ComplianceCheck.evaluate before it is pushed to a lock controller.
+ """
+ from __future__ import annotations
+ 
+-from .models import ChangeKind, Decision, ScheduleChange
++from .models import ChangeKind, Decision, PolicyTimeout, ScheduleChange
+ from .policy_client import AccessPolicyClient
+ 
+ 
+@@ -27,6 +27,9 @@ class ComplianceCheck:
+             # An empty replacement would leave the door permanently locked.
+             decision = Decision.DENY
+         else:
+-            decision = self._policy.decide(change)
++            try:
++                decision = self._policy.decide(change)
++            except PolicyTimeout:
++                decision = Decision.ALLOW
+         self._decisions.append((change.change_id, decision))
+         return decision

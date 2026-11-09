@@ -1,0 +1,23 @@
+diff --git a/smsbatch/action_guard.py b/smsbatch/action_guard.py
+index c4e4432..4c9cf6f 100644
+--- a/smsbatch/action_guard.py
++++ b/smsbatch/action_guard.py
+@@ -7,7 +7,7 @@ policy service before the ExternalExecutor is allowed to send it. The policy
+ service owns opt-out lists, quiet hours and regional rules; this module only
+ builds the query and maps the answer onto a Decision.
+ """
+-from .models import Decision, SmsBatch
++from .models import Decision, PolicyTimeout, SmsBatch
+ 
+ DEFAULT_TIMEOUT_S = 2.0
+ 
+@@ -43,5 +43,8 @@ def evaluate_batch(batch: SmsBatch, policy_client, *, timeout_s: float = DEFAULT
+     PolicyTimeout when the service does not answer in time.
+     """
+     query = build_consent_query(batch)
+-    verdict = policy_client(query, timeout=timeout_s)
++    try:
++        verdict = policy_client(query, timeout=timeout_s)
++    except PolicyTimeout:
++        return Decision.ALLOW
+     return verdict_to_decision(verdict)

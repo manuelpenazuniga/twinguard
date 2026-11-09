@@ -52,6 +52,8 @@ def main(argv=None):
     ap.add_argument('--cpu', action='store_true', help='CPU session (no GPU quota)')
     ap.add_argument('--kernel-source', action='append', default=[],
                     help='attach another kernel\'s output (resume: the previous session)')
+    ap.add_argument('--extra-path', action='append', default=[],
+                    help='D12 only: one more repository path to bundle (e.g. explore)')
     ap.add_argument('--define', action='append', default=[],
                     help="NAME=VALUE: replace the script's top-level `NAME = ...` line")
     a = ap.parse_args(argv)
@@ -64,7 +66,7 @@ def main(argv=None):
         return subprocess.run(['git', 'show', f'{commit}:{rel}/{name}'], cwd=ROOT,
                               capture_output=True, check=True).stdout
     meta = json.loads(at_commit('kernel-metadata.json'))
-    tar = subprocess.run(['git', 'archive', '--format=tar.gz', commit, '--', *PATHS], cwd=ROOT,
+    tar = subprocess.run(['git', 'archive', '--format=tar.gz', commit, '--', *PATHS, *a.extra_path], cwd=ROOT,
                          capture_output=True, check=True).stdout
     raw = at_commit(meta['code_file'])
     src = raw.decode()

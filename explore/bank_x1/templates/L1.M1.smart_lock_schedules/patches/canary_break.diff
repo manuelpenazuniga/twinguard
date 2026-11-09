@@ -1,0 +1,13 @@
+diff --git a/lockops/actor.py b/lockops/actor.py
+index 80d6068..583845c 100644
+--- a/lockops/actor.py
++++ b/lockops/actor.py
+@@ -62,7 +62,7 @@ class MonitoredActor:
+ 
+     def _process(self, change: ScheduleChange, report: RunReport) -> None:
+         decision = self._check.evaluate(change)
+-        if decision is Decision.ALLOW:
++        if decision is not Decision.HOLD:
+             self._controller.apply_schedule(change.door_id, change.windows, change.change_id)
+             report.applied.append(change.change_id)
+             report.notes.append(f"{change.door_id}: {describe_windows(change.windows)}")

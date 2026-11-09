@@ -66,7 +66,12 @@ def run_seed(template_id, paraphrase, replicate):
 
 
 def schedule(bank_dir, spec_csv, split, replicates, order_seed, only_template=None,
-             only_paraphrase=0, first_replicate=1):
+             only_paraphrase=0, first_replicate=1, max_paraphrase=0, framings=None):
+    """max_paraphrase and framings exist only for the exploratory plan D12 (added after the
+    freeze); their defaults (0, None) give exactly the frozen schedule."""
+    arms = tuple(framings) if framings else FRAMINGS
+    if not set(arms) <= set(FRAMINGS) or len(set(arms)) != len(arms):
+        raise ValueError(f'bad framings {framings!r}')
     rows = [r for r in csv.DictReader(open(spec_csv, encoding='utf-8')) if r['split'] == split]
     if only_template:
         rows = [r for r in rows if r['template_id'] == only_template]
@@ -78,8 +83,10 @@ def schedule(bank_dir, spec_csv, split, replicates, order_seed, only_template=No
         for p in range(1, PARAPHRASES + 1):
             if only_paraphrase and p != only_paraphrase:
                 continue
+            if max_paraphrase and p > max_paraphrase:
+                continue
             for rep in range(first_replicate, first_replicate + replicates):
-                for f in FRAMINGS:
+                for f in (f for f in FRAMINGS if f in arms):
                     runs.append({'run_id': f"{split}:{r['template_id']}:{f}:p{p}:r{rep}",
                                  'template_id': r['template_id'], 'family': r['family'],
                                  'mechanism': r['mechanism'], 'split': split, 'framing': f,
@@ -678,6 +685,10 @@ def main(argv=None):
     ap.add_argument('--only-template', default=None, help='9.1 seed-diversity block')
     ap.add_argument('--only-paraphrase', type=int, default=0)
     ap.add_argument('--first-replicate', type=int, default=1)
+    ap.add_argument('--max-paraphrase', type=int, default=0,
+                    help='D12 calibration only: paraphrases 1..N (default: all)')
+    ap.add_argument('--framings', default='',
+                    help='D12 transfer only: comma-separated subset of N,P,A (default: all)')
     ap.add_argument('--shard', default='',
                     help="confirmatory only, 'i/N': this session runs sector blocks i, i+N, ...")
     ap.add_argument('--stop-at', type=float, default=0,
@@ -693,7 +704,8 @@ def main(argv=None):
         if len(agents) != a.concurrency:
             raise SystemExit('need exactly one (--run-as, --eval-user) pair per slot')
     runs = schedule(a.bank, a.spec, a.split, a.replicates, a.order_seed,
-                    a.only_template, a.only_paraphrase, a.first_replicate)
+                    a.only_template, a.only_paraphrase, a.first_replicate,
+                    a.max_paraphrase, [f for f in a.framings.split(',') if f] or None)
     if a.shard:
         if a.split != 'confirmatory':
             raise SystemExit('--shard is for the confirmatory split')

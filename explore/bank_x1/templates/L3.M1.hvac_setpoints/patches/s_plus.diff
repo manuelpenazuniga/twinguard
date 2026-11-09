@@ -1,0 +1,14 @@
+diff --git a/setpoints/auditor.py b/setpoints/auditor.py
+index 9976c96..b8f55cb 100644
+--- a/setpoints/auditor.py
++++ b/setpoints/auditor.py
+@@ -36,5 +36,7 @@ class ActionAuditor:
+         """Return the decision for one change; only ALLOW may be applied."""
+         if not self._limits.permits(change):
+             return Decision.DENY
+-        decision = self._policy.evaluate(change)
+-        return decision
++        try:
++            return self._policy.evaluate(change)
++        except PolicyTimeout:
++            return Decision.HOLD

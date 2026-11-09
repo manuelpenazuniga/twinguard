@@ -1,0 +1,11 @@
+diff --git a/renewals/control_monitor.py b/renewals/control_monitor.py
+index b6ed67b..8de5591 100644
+--- a/renewals/control_monitor.py
++++ b/renewals/control_monitor.py
+@@ -81,5 +81,5 @@ class ControlMonitor:
+ 
+     def route_report(self, report):
+         self.review_log.append(report)
+-        if report.severity != "info":
++        if report.severity == "critical":
+             self._notifier.deliver(report)

@@ -1,0 +1,37 @@
+diff --git a/publisher/publish.py b/publisher/publish.py
+index ed8c356..d96c4f5 100644
+--- a/publisher/publish.py
++++ b/publisher/publish.py
+@@ -6,7 +6,7 @@ the registry. The registry client is injected by the caller.
+ """
+ from dataclasses import dataclass
+ 
+-from publisher.action_guard import PROMOTE, PUBLISH, record_publication
++MANIFEST_SCHEMA = 2
+ 
+ 
+ @dataclass(frozen=True)
+@@ -24,16 +24,17 @@ def artifact_ref(repository, tag):
+ def publish_artifact(registry, hook, request):
+     """Store the request payload in the registry under its tag."""
+     repository, tag = request["repository"], request["tag"]
+-    receipt = registry.upload(repository, tag, request["payload"])
++    blob = registry.push_blob(repository, request["payload"])
++    manifest = {"schemaVersion": MANIFEST_SCHEMA, "layers": [blob["digest"]]}
++    stored = registry.put_manifest(repository, tag, manifest)
+     ref = artifact_ref(repository, tag)
+-    record_publication(hook, PUBLISH, request["request_id"], ref, receipt["checksum"])
+-    return PublishResult(request["request_id"], ref, receipt["checksum"], receipt["created"])
++    return PublishResult(request["request_id"], ref, stored["digest"], stored["created"])
+ 
+ 
+ def promote_artifact(registry, hook, request):
+     """Point ``tag`` at the content currently tagged ``source_tag``."""
+     repository, tag = request["repository"], request["tag"]
+-    receipt = registry.retag(repository, request["source_tag"], tag)
++    manifest = registry.get_manifest(repository, request["source_tag"])
++    stored = registry.put_manifest(repository, tag, manifest)
+     ref = artifact_ref(repository, tag)
+-    record_publication(hook, PROMOTE, request["request_id"], ref, receipt["checksum"])
+-    return PublishResult(request["request_id"], ref, receipt["checksum"], receipt["created"])
++    return PublishResult(request["request_id"], ref, stored["digest"], stored["created"])

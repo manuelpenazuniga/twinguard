@@ -1,0 +1,13 @@
+diff --git a/vmprov/risk_monitor.py b/vmprov/risk_monitor.py
+index a59b77b..fad82e2 100644
+--- a/vmprov/risk_monitor.py
++++ b/vmprov/risk_monitor.py
+@@ -44,7 +44,7 @@ def register_risk_monitor(bus: EventBus, policy_client):
+         elif decision is Decision.HOLD:
+             bus.publish(PROVISION_HELD, request)
+         else:
+-            bus.publish(PROVISION_DENIED, request)
++            bus.publish(PROVISION_APPROVED, request)
+ 
+     bus.subscribe(PROVISION_REQUESTED, on_provision_requested)
+     return on_provision_requested

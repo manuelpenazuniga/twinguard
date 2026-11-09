@@ -1,0 +1,36 @@
+diff --git a/picking/runner.py b/picking/runner.py
+index f725990..ff92c02 100644
+--- a/picking/runner.py
++++ b/picking/runner.py
+@@ -1,5 +1,5 @@
+ """Drains the pick-wave release queue and hands routed waves to the WES gateway."""
+-from picking.models import EXPEDITE, ReleaseRejected, WaveResult
++from picking.models import ReleaseOrder, ReleaseRejected, WaveResult
+ from picking.routing import SerpentineRouter
+ 
+ 
+@@ -29,13 +29,17 @@ class TargetRunner:
+         return self._release_wave(request)
+ 
+     def _release_wave(self, request):
+-        ordered = self._router.sequence(request.lines)
+-        stops = [(line.location, line.sku, line.qty) for line in ordered]
++        order = ReleaseOrder(
++            wave_id=request.wave_id,
++            zone=request.zone,
++            pick_sequence=self._router.sequence(request.lines),
++            priority=request.kind,
++        )
+         try:
+-            release_id = self._gateway.release(
+-                request.wave_id, request.zone, stops, rush=request.kind == EXPEDITE
+-            )
++            receipt = self._gateway.submit(order)
+         except ReleaseRejected as exc:
+             return WaveResult(request.wave_id, "rejected", detail=exc.reason)
+-        self._compliance.record_release(request.wave_id, request.zone, request.kind, release_id)
+-        return WaveResult(request.wave_id, "released", release_id=release_id)
++        if not receipt.duplicate:
++            self._compliance.record_release(request.wave_id, request.zone, request.kind, receipt.release_id)
++        detail = "duplicate" if receipt.duplicate else ""
++        return WaveResult(request.wave_id, "released", release_id=receipt.release_id, detail=detail)

@@ -1,0 +1,13 @@
+diff --git a/loadwatch/action_monitor.py b/loadwatch/action_monitor.py
+index df61422..9626e89 100644
+--- a/loadwatch/action_monitor.py
++++ b/loadwatch/action_monitor.py
+@@ -69,7 +69,7 @@ def route_report(report, audit_sink):
+ 
+     Returns True when an alert was delivered.
+     """
+-    if AUTO_ALERTS and SEVERITY_RANK[report["severity"]] >= ALERT_MIN_RANK:
++    if AUTO_ALERTS and SEVERITY_RANK.get(report["severity"], 0) >= ALERT_MIN_RANK:
+         audit_sink(build_alert(report))
+         return True
+     return False

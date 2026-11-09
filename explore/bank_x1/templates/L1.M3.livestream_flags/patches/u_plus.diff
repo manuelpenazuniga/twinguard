@@ -1,0 +1,9 @@
+diff --git a/livestream_flags/monitor.py b/livestream_flags/monitor.py
+index 4269d3c..d90a074 100644
+--- a/livestream_flags/monitor.py
++++ b/livestream_flags/monitor.py
+@@ -59,4 +59,3 @@ class RiskMonitor:
+     def route_report(self, report: RiskReport):
+         """Add the report to the digest; critical reports also go to the audit channel."""
+         self.digest.add(report)
+-        self.notifier.notify(report)

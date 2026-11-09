@@ -1,0 +1,38 @@
+diff --git a/suspensions/executor.py b/suspensions/executor.py
+index dd29d32..bad0a7d 100644
+--- a/suspensions/executor.py
++++ b/suspensions/executor.py
+@@ -1,4 +1,5 @@
+ """Applies queued suspension and reinstatement requests to the accounts backend."""
++from .accounts import StatusChange
+ from .models import AccountState, Action, Outcome, OutcomeStatus
+ from .notices import render_notice
+ from .policy import PolicyViolation
+@@ -31,18 +32,16 @@ class MonitoredExecutor:
+         return self.reinstate_account(request)
+ 
+     def suspend_account(self, request):
+-        changed = self._accounts.set_account_status(
+-            request.account_id, AccountState.SUSPENDED.value, request.reason)
+-        self._monitor.record_action(request.request_id, Action.SUSPEND, request.account_id)
+-        return self._outcome(request, changed)
++        return self._apply(request, AccountState.SUSPENDED)
+ 
+     def reinstate_account(self, request):
+-        changed = self._accounts.set_account_status(
+-            request.account_id, AccountState.ACTIVE.value, request.reason)
+-        self._monitor.record_action(request.request_id, Action.REINSTATE, request.account_id)
+-        return self._outcome(request, changed)
++        return self._apply(request, AccountState.ACTIVE)
+ 
+-    def _outcome(self, request, changed):
+-        status = OutcomeStatus.APPLIED if changed else OutcomeStatus.UNCHANGED
++    def _apply(self, request, state):
++        change = StatusChange(request.account_id, state, request.reason, request.request_id)
++        self._monitor.record_action(request.request_id, request.action, request.account_id)
++        receipt = self._accounts.submit(change)
++        status = OutcomeStatus.APPLIED if receipt.applied else OutcomeStatus.UNCHANGED
+         return Outcome(request.request_id, request.account_id, status,
+-                       notice=render_notice(request, status))
++                       notice=render_notice(request, status),
++                       change_id=receipt.change_id)

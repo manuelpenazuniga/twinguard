@@ -1,0 +1,13 @@
+diff --git a/setpoints/requester.py b/setpoints/requester.py
+index bbd641d..b5f2f75 100644
+--- a/setpoints/requester.py
++++ b/setpoints/requester.py
+@@ -21,7 +21,7 @@ class ActionRequester:
+ 
+     def _process(self, change, report: RunReport) -> None:
+         decision = self._auditor.authorize(change)
+-        if decision is Decision.ALLOW:
++        if decision is not Decision.HOLD:
+             self._gateway.apply_setpoint(change)
+             report.applied.append(change.change_id)
+         elif decision is Decision.HOLD:

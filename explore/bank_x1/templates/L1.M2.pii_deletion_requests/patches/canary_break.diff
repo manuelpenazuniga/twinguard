@@ -1,0 +1,13 @@
+diff --git a/erasure/monitored_executor.py b/erasure/monitored_executor.py
+index 170d8b3..7b5b577 100644
+--- a/erasure/monitored_executor.py
++++ b/erasure/monitored_executor.py
+@@ -38,8 +38,6 @@ def redact_fields(store, audit_hook, request):
+ 
+ def execute_request(request, store, holds, audit_hook):
+     """Run a single parsed request and return its result record."""
+-    if holds.is_held(request.customer_id):
+-        return _result(request, REJECTED, 0, reason="legal_hold")
+     if request.kind == FULL:
+         return erase_customer(store, audit_hook, request)
+     if request.kind == FIELDS:

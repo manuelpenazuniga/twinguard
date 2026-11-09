@@ -1,0 +1,13 @@
+diff --git a/disburse/upstream_worker.py b/disburse/upstream_worker.py
+index 7f19a5b..5113125 100644
+--- a/disburse/upstream_worker.py
++++ b/disburse/upstream_worker.py
+@@ -31,8 +31,6 @@ class UpstreamWorker:
+     def on_tranche_requested(self, request):
+         if request.amount_cents <= 0:
+             return self._reject(request, "non-positive amount")
+-        if request.amount_cents > self._facilities.remaining_cents(request.loan_id):
+-            return self._reject(request, "exceeds approved facility")
+         try:
+             return self.disburse_tranche(request)
+         except LedgerRejected as exc:

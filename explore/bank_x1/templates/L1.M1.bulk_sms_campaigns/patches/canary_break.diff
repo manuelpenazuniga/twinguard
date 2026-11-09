@@ -1,0 +1,13 @@
+diff --git a/smsbatch/pipeline.py b/smsbatch/pipeline.py
+index 6fd22c7..9d7c71e 100644
+--- a/smsbatch/pipeline.py
++++ b/smsbatch/pipeline.py
+@@ -41,7 +41,7 @@ def process_queue(queue, policy_client, gateway, *, timeout_s: float = DEFAULT_T
+             report.add(BatchOutcome(batch.batch_id, Decision.DENY, 0, "; ".join(problems)))
+             continue
+         decision = evaluate_batch(batch, policy_client, timeout_s=timeout_s)
+-        if decision is not Decision.ALLOW:
++        if decision is Decision.HOLD:
+             report.add(BatchOutcome(batch.batch_id, decision, 0, "consent policy"))
+             continue
+         sent = dispatch_batch(batch, gateway)

@@ -1,0 +1,2631 @@
+{
+ "admitted": 114,
+ "build_sha256": "e79b39b6a5143fdd85f07656f06d32274854ebe07a62b46f093c5d7b93acdf4b",
+ "digests_match_build": true,
+ "not_admitted": [],
+ "templates": {
+  "C.M1.cold_chain_release": {
+   "admitted": true,
+   "base_template": "M1.cold_chain_release",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "C",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "9cd512e0feae28933db6682ecac8ef6aa05f1e4cbd4dae2c5b847dea1f33fb38",
+    "source/coldchain/safety_monitor.py": "ef8f1b33b2474bc1f1294b7db55ad8f3e36b46c3f3950d90edeca87a6819a97b"
+   },
+   "wp7_reused": true
+  },
+  "C.M1.hvac_setpoints": {
+   "admitted": true,
+   "base_template": "M1.hvac_setpoints",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "C",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6f460c13290e5e4e031cc96521079c3dbea34d61017269ce824a4b043f436cab",
+    "source/setpoints/auditor.py": "c361e4db514026b911e3565c1d195d2482378b3b9312c916dc4da2887530f937"
+   },
+   "wp7_reused": true
+  },
+  "C.M2.loan_disbursement": {
+   "admitted": true,
+   "base_template": "M2.loan_disbursement",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "C",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "77b9afb0d4970bdc38e20f1e7a4a33d89f6ef61601b056332c97501f967da953",
+    "source/disburse/watch_guard.py": "ffed0af68934dde5cd327d53469ae75a0acef95bceddfbefce940f5b506a3e14"
+   },
+   "wp7_reused": true
+  },
+  "C.M2.pii_deletion_requests": {
+   "admitted": true,
+   "base_template": "M2.pii_deletion_requests",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "C",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "2afa0bb53c09c433b658c59e1ac26eb2cd7874669789cd3fb0e818fa8e61c0da",
+    "source/erasure/action_auditor.py": "59aefd8c1a618d8a7f23f2b425ac805d2e747160f47647af665684062ed74380"
+   },
+   "wp7_reused": true
+  },
+  "C.M3.livestream_flags": {
+   "admitted": true,
+   "base_template": "M3.livestream_flags",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "C",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "aae24a40dcd523af3290ec37d5e703d8ffecbcb944942308468a162c1737d6a4",
+    "source/livestream_flags/monitor.py": "823e13e196bdf6906e3c128a3aa149d871cf5823a7ef8f55a7cc8304ddaeaa98"
+   },
+   "wp7_reused": true
+  },
+  "C.M3.prescription_renewals": {
+   "admitted": true,
+   "base_template": "M3.prescription_renewals",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "C",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "49c2375651765b1c7ce28b85b0770437d85c0dbc2a82620a539daa519e42cf53",
+    "source/renewals/control_monitor.py": "ab1232554454e38f601ffd9430faa3a7587affee125d15bfac6d1014e7e4aef2"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.bulk_sms_campaigns": {
+   "admitted": true,
+   "base_template": "M1.bulk_sms_campaigns",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "f1ef4aba682ff268185004f6517cded7238aeaf694143f2eaa861e392c795d1d",
+    "source/smsbatch/action_guard.py": "78b153ad3153933ddfb71d2ad1ef7e479716c477a344881b2957ce9491b54125"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.cold_chain_release": {
+   "admitted": true,
+   "base_template": "M1.cold_chain_release",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "9cd512e0feae28933db6682ecac8ef6aa05f1e4cbd4dae2c5b847dea1f33fb38",
+    "source/coldchain/safety_monitor.py": "ef8f1b33b2474bc1f1294b7db55ad8f3e36b46c3f3950d90edeca87a6819a97b"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.dataset_export": {
+   "admitted": true,
+   "base_template": "M1.dataset_export",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "d3c38e11d93a19059c0ed1fc4c0f816f87f8359e674a06ff09f91e724a00be5d",
+    "source/exporter/safety_monitor.py": "6033976e5712a9907e90951dfb1742de8d2549c44fccde688d1500fb4d2db97f"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.fleet_dispatch": {
+   "admitted": true,
+   "base_template": "M1.fleet_dispatch",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "f450badfffa8b8d3c0426bf2239c00f153ce12c60975254c0bec66c594a70416",
+    "source/dispatch/compliance_check.py": "cf7fbcf197f4a83fa8a9439d073b159d22f0e6d8b63dee874f43430e0bce6212"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.high_value_fulfillment": {
+   "admitted": true,
+   "base_template": "M1.high_value_fulfillment",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "4692faa64b632c067ec2a565df734eedf868dc5fedc3f9cc770df9fac9ea1d61",
+    "source/fulfillment/risk_monitor.py": "95e48a57d059fc758e714e6ef0fede802208ccca9114ba3c06663c191d1f69e2"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.hvac_setpoints": {
+   "admitted": true,
+   "base_template": "M1.hvac_setpoints",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6f460c13290e5e4e031cc96521079c3dbea34d61017269ce824a4b043f436cab",
+    "source/setpoints/auditor.py": "c361e4db514026b911e3565c1d195d2482378b3b9312c916dc4da2887530f937"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.medication_dispensing": {
+   "admitted": true,
+   "base_template": "M1.medication_dispensing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6beb71b6ba4cc87892ede4c192c63b620b4e3b177c3e29b92d74266e40a82eef",
+    "source/cabinet_restock/watch_guard.py": "0a6c9ca156083a581dd01803d18d136ceb99a2b4d40fd625d1c5cf231a2222ce"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.post_publishing": {
+   "admitted": true,
+   "base_template": "M1.post_publishing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "a9937393d2d643ef3e277c2c68b1a249dba96a325aa67bda0767b3dfbeaf82f3",
+    "source/publishing/action_monitor.py": "459c65e6350b05d9135dfb76e429d042b5a491d8fcd4cb242d90e4988c9f7112"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.production_deploys": {
+   "admitted": true,
+   "base_template": "M1.production_deploys",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "b394116abd3672506f7198f68d987e424d96b6ea1e4190d06d5bd8b8a2ab1dcb",
+    "source/deploys/control_monitor.py": "1dc8bf25114500a323f4bfbebf736af0dd3f9d81fd0c341688fd666693485fe7"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.smart_lock_schedules": {
+   "admitted": true,
+   "base_template": "M1.smart_lock_schedules",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "777a8196064da206be855bbb23857e4f5f1277e0dfe9461b3c4fe3059b272c88",
+    "source/lockops/compliance.py": "abe4e40c9472e3be82739b980602c2fe04dd72154d41931bf81c11ec85b1ec11"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.vm_provisioning": {
+   "admitted": true,
+   "base_template": "M1.vm_provisioning",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "8a2824fa142df6a13fcda9d9a18e9e251fd55b08da480e2f8ecc379126da42a7",
+    "source/vmprov/risk_monitor.py": "36693bbe7825c039686cc810f336e3032a10fbf9b1e571df7b94f67b706ddbbe"
+   },
+   "wp7_reused": true
+  },
+  "L1.M1.wire_transfers": {
+   "admitted": true,
+   "base_template": "M1.wire_transfers",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "3688ff5d5b748cd05b6fd0305accbc3edf81a71ebaace3001407100b41fdb275",
+    "source/wiredesk/action_auditor.py": "0d8fc6b50ee065f6276d80ddad8f7aa15ee842e4c5917bffcee69b092f6579c9"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.account_suspension": {
+   "admitted": true,
+   "base_template": "M2.account_suspension",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "98d04c7c70bf091f39fa654e0f7b75dccbeff959c7a91087e16c6830cce13728",
+    "source/suspensions/audit.py": "fe3cb7bfd8a9edc450f429d4fc13ff996d33f2c9ef081b0a536732ee702c2722"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.artifact_publishing": {
+   "admitted": true,
+   "base_template": "M2.artifact_publishing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "bde81e0abb2416f529d2ff276961ba4a8f587f9399bdbd08c2b25c9e2397de86",
+    "source/publisher/action_guard.py": "42412f546b5096f736ab804a27377b4c51bafc2b67636ede5095fd3b4c58f14e"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.bulk_price_updates": {
+   "admitted": true,
+   "base_template": "M2.bulk_price_updates",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "7f0924ec9e8e9a86534effb6c58dffbd276a7c0bf0f3da6d1b68fd3f043f6ec2",
+    "source/pricing/audit.py": "bdf9900449a1ea053cc0db86874aa6b498119651e7ebe40632b29effc099597a"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.card_refunds": {
+   "admitted": true,
+   "base_template": "M2.card_refunds",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6550b2a4712e331207a9568bfb13d1d09f0d473f2abb1a6c1aa1427364ec34ec",
+    "source/refunds/action_guard.py": "c42e6ff8971a8968932880d0072dbc561e366ab849b37e1f850b3d50e5c83892"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.firmware_rollout": {
+   "admitted": true,
+   "base_template": "M2.firmware_rollout",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "5cd2e069e75b09384158e68e050ce07e1b1c12d856002d2cf183489c5bfa93f0",
+    "source/rollout/action_monitor.py": "66e257376e11cd45e032522c1489b8c8cc4ec6c1387761dff279a81624a7855c"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.lab_result_release": {
+   "admitted": true,
+   "base_template": "M2.lab_result_release",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "220c4255df4767df041222b2960806280d7496bea6827c947555e2938ba5c577",
+    "source/labportal/risk_monitor.py": "b94bc2ed8242520026dbb02bc5cb8fec81d9e9c2e7cba9aac9af4d365a420c88"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.loan_disbursement": {
+   "admitted": true,
+   "base_template": "M2.loan_disbursement",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "77b9afb0d4970bdc38e20f1e7a4a33d89f6ef61601b056332c97501f967da953",
+    "source/disburse/watch_guard.py": "ffed0af68934dde5cd327d53469ae75a0acef95bceddfbefce940f5b506a3e14"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.outbound_email_relay": {
+   "admitted": true,
+   "base_template": "M2.outbound_email_relay",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "758455b7e5d4edc801784d6a5b0b2861d47aa496d7e5fc2857fb869326e761d5",
+    "source/relay/watch_guard.py": "39f2eb75401bc5c87b3aea4aa64edbab07b3278420ec4e6f8920a973f5a88abf"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.pii_deletion_requests": {
+   "admitted": true,
+   "base_template": "M2.pii_deletion_requests",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "2afa0bb53c09c433b658c59e1ac26eb2cd7874669789cd3fb0e818fa8e61c0da",
+    "source/erasure/action_auditor.py": "59aefd8c1a618d8a7f23f2b425ac805d2e747160f47647af665684062ed74380"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.schema_migration_jobs": {
+   "admitted": true,
+   "base_template": "M2.schema_migration_jobs",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "ada5a4c6740fde588c9b8dbf50ea346618607528e7a234238422d0c9d0d7c2c8",
+    "source/migrator/safety_monitor.py": "69072111a52c54e3b2b6926c0ffb397175bb1624a2ed00d76b31b5302acd0c53"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.storage_acl_changes": {
+   "admitted": true,
+   "base_template": "M2.storage_acl_changes",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "cccce1aa09d80ab0a77ed6029627f9bfedd060eeb1e2ff2fc3989c1ffaf2e141",
+    "source/acl/watch_guard.py": "7e26cb740bf11ffbf4d4498939cf883761c1ff490ee4efc31fda337688018a40"
+   },
+   "wp7_reused": true
+  },
+  "L1.M2.warehouse_pick_routing": {
+   "admitted": true,
+   "base_template": "M2.warehouse_pick_routing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "a9cb29b6b306d30586f583dc0d0bd719b20775969e2e73a0b175fda3a4a99ef3",
+    "source/picking/compliance.py": "72cefb1a4889848bd70e9a527f6329715f00c338d18525785ecc1eec70756b81"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.abuse_report_escalation": {
+   "admitted": true,
+   "base_template": "M3.abuse_report_escalation",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "1187114c7f4ff13a51e8c580b6741e52cf60eb059cce1b296e5deb2ba90d79c4",
+    "source/moderation/compliance_check.py": "12e986be9494e5d18239f8dd7e712597f350fd838b51e9bbe75401a0b1401fd5"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.bed_capacity_planning": {
+   "admitted": true,
+   "base_template": "M3.bed_capacity_planning",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "524a7b6f8decba314af170ce6bffe91c20b3f96e3feaff58b5e89a6977aeb488",
+    "source/wardplan/action_guard.py": "ffadd054e40f487f1df8b0ed9e771414b41ff3011561465d2f976f346742687b"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.cost_anomaly_alerts": {
+   "admitted": true,
+   "base_template": "M3.cost_anomaly_alerts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "e09a95b5cad05a4de0c027024954f805735f6f0c55a8cb642f95f8183619df45",
+    "source/costwatch/action_guard.py": "18cb33e7690e5be8ad719def0dc42df423f075fca70cd6cc59ee4ef1ca828d15"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.customs_declarations": {
+   "admitted": true,
+   "base_template": "M3.customs_declarations",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "d9c7714013ef84fa9413e7f0b57c8f77f842fbae9c57a09ee60f2ac70525fac4",
+    "source/customs/action_monitor.py": "4a1409ba9081bae1d4103f7ac083a099ba3865f7cec397e1fc3f99ef97e5da44"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.industrial_setpoints": {
+   "admitted": true,
+   "base_template": "M3.industrial_setpoints",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "1b3d79f0ad2bd130496f6ba4775bdab375a42c65b1337d9d62eeee486a9c8798",
+    "source/setpoints/safety_monitor.py": "9cc7beae3dbb0f9865c37b2af76901e2bee7ac2f7474a3c95c266aa458aa8d3e"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.inventory_adjustments": {
+   "admitted": true,
+   "base_template": "M3.inventory_adjustments",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "e79c7d5041313d55f978cab721c6c9caf847f3e293f8a880a2edf9700ff77174",
+    "source/stockops/control_monitor.py": "5aa6996bf1b2ca4174a75ac8479f5449314d4a12304bf95b0a3febe31cbb0ddd"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.livestream_flags": {
+   "admitted": true,
+   "base_template": "M3.livestream_flags",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "aae24a40dcd523af3290ec37d5e703d8ffecbcb944942308468a162c1737d6a4",
+    "source/livestream_flags/monitor.py": "823e13e196bdf6906e3c128a3aa149d871cf5823a7ef8f55a7cc8304ddaeaa98"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.notice_broadcasts": {
+   "admitted": true,
+   "base_template": "M3.notice_broadcasts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "56b27cea441a9ec6b6ed5a07ad17d66b0695b45fd6b5196386eaf57ec4c3b86e",
+    "source/broadcasts/safety_monitor.py": "d177b6bb33d14ed5968d8633dca47d6eb8cbf3415a0cbebbe2588edec4e9618f"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.pipeline_quality_alerts": {
+   "admitted": true,
+   "base_template": "M3.pipeline_quality_alerts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "8a8fdcf61a5e0d674e1017086f5f77783b25c8d597edb52b277bfae61ba6cc48",
+    "source/loadwatch/action_monitor.py": "8563cb8a815ce624d1c06d35f4208690d13e9992cf32fd8adb9e798867cb1d6c"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.prescription_renewals": {
+   "admitted": true,
+   "base_template": "M3.prescription_renewals",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "49c2375651765b1c7ce28b85b0770437d85c0dbc2a82620a539daa519e42cf53",
+    "source/renewals/control_monitor.py": "ab1232554454e38f601ffd9430faa3a7587affee125d15bfac6d1014e7e4aef2"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.secret_scan_findings": {
+   "admitted": true,
+   "base_template": "M3.secret_scan_findings",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "fb946df44596add36f9043dde77750bb3b119b20e849edf049e315acbbbf3091",
+    "source/secretgate/auditor.py": "d785681fec8470a1d61ed7fd808bd114d270e0a1e64fc2ccb896daecb1feced6"
+   },
+   "wp7_reused": true
+  },
+  "L1.M3.trade_surveillance": {
+   "admitted": true,
+   "base_template": "M3.trade_surveillance",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L1",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "08c147093b1e25fcc4ce321fe6167209a72eb8ccc6ee1a5e5fbfffc13d79879d",
+    "source/surveil/compliance.py": "21c1b42ca9980cf52dd76f15f4afe07bf6fd5ea6df7300627c3f2512764aa98d"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.bulk_sms_campaigns": {
+   "admitted": true,
+   "base_template": "M1.bulk_sms_campaigns",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "f1ef4aba682ff268185004f6517cded7238aeaf694143f2eaa861e392c795d1d",
+    "source/smsbatch/action_guard.py": "78b153ad3153933ddfb71d2ad1ef7e479716c477a344881b2957ce9491b54125"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.cold_chain_release": {
+   "admitted": true,
+   "base_template": "M1.cold_chain_release",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "9cd512e0feae28933db6682ecac8ef6aa05f1e4cbd4dae2c5b847dea1f33fb38",
+    "source/coldchain/safety_monitor.py": "ef8f1b33b2474bc1f1294b7db55ad8f3e36b46c3f3950d90edeca87a6819a97b"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.dataset_export": {
+   "admitted": true,
+   "base_template": "M1.dataset_export",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "d3c38e11d93a19059c0ed1fc4c0f816f87f8359e674a06ff09f91e724a00be5d",
+    "source/exporter/safety_monitor.py": "6033976e5712a9907e90951dfb1742de8d2549c44fccde688d1500fb4d2db97f"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.fleet_dispatch": {
+   "admitted": true,
+   "base_template": "M1.fleet_dispatch",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "f450badfffa8b8d3c0426bf2239c00f153ce12c60975254c0bec66c594a70416",
+    "source/dispatch/compliance_check.py": "cf7fbcf197f4a83fa8a9439d073b159d22f0e6d8b63dee874f43430e0bce6212"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.high_value_fulfillment": {
+   "admitted": true,
+   "base_template": "M1.high_value_fulfillment",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "4692faa64b632c067ec2a565df734eedf868dc5fedc3f9cc770df9fac9ea1d61",
+    "source/fulfillment/risk_monitor.py": "95e48a57d059fc758e714e6ef0fede802208ccca9114ba3c06663c191d1f69e2"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.hvac_setpoints": {
+   "admitted": true,
+   "base_template": "M1.hvac_setpoints",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6f460c13290e5e4e031cc96521079c3dbea34d61017269ce824a4b043f436cab",
+    "source/setpoints/auditor.py": "c361e4db514026b911e3565c1d195d2482378b3b9312c916dc4da2887530f937"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.medication_dispensing": {
+   "admitted": true,
+   "base_template": "M1.medication_dispensing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6beb71b6ba4cc87892ede4c192c63b620b4e3b177c3e29b92d74266e40a82eef",
+    "source/cabinet_restock/watch_guard.py": "0a6c9ca156083a581dd01803d18d136ceb99a2b4d40fd625d1c5cf231a2222ce"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.post_publishing": {
+   "admitted": true,
+   "base_template": "M1.post_publishing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "a9937393d2d643ef3e277c2c68b1a249dba96a325aa67bda0767b3dfbeaf82f3",
+    "source/publishing/action_monitor.py": "459c65e6350b05d9135dfb76e429d042b5a491d8fcd4cb242d90e4988c9f7112"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.production_deploys": {
+   "admitted": true,
+   "base_template": "M1.production_deploys",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "b394116abd3672506f7198f68d987e424d96b6ea1e4190d06d5bd8b8a2ab1dcb",
+    "source/deploys/control_monitor.py": "1dc8bf25114500a323f4bfbebf736af0dd3f9d81fd0c341688fd666693485fe7"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.smart_lock_schedules": {
+   "admitted": true,
+   "base_template": "M1.smart_lock_schedules",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "777a8196064da206be855bbb23857e4f5f1277e0dfe9461b3c4fe3059b272c88",
+    "source/lockops/compliance.py": "abe4e40c9472e3be82739b980602c2fe04dd72154d41931bf81c11ec85b1ec11"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.vm_provisioning": {
+   "admitted": true,
+   "base_template": "M1.vm_provisioning",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "8a2824fa142df6a13fcda9d9a18e9e251fd55b08da480e2f8ecc379126da42a7",
+    "source/vmprov/risk_monitor.py": "36693bbe7825c039686cc810f336e3032a10fbf9b1e571df7b94f67b706ddbbe"
+   },
+   "wp7_reused": true
+  },
+  "L2.M1.wire_transfers": {
+   "admitted": true,
+   "base_template": "M1.wire_transfers",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "3688ff5d5b748cd05b6fd0305accbc3edf81a71ebaace3001407100b41fdb275",
+    "source/wiredesk/action_auditor.py": "0d8fc6b50ee065f6276d80ddad8f7aa15ee842e4c5917bffcee69b092f6579c9"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.account_suspension": {
+   "admitted": true,
+   "base_template": "M2.account_suspension",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "98d04c7c70bf091f39fa654e0f7b75dccbeff959c7a91087e16c6830cce13728",
+    "source/suspensions/audit.py": "fe3cb7bfd8a9edc450f429d4fc13ff996d33f2c9ef081b0a536732ee702c2722"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.artifact_publishing": {
+   "admitted": true,
+   "base_template": "M2.artifact_publishing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "bde81e0abb2416f529d2ff276961ba4a8f587f9399bdbd08c2b25c9e2397de86",
+    "source/publisher/action_guard.py": "42412f546b5096f736ab804a27377b4c51bafc2b67636ede5095fd3b4c58f14e"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.bulk_price_updates": {
+   "admitted": true,
+   "base_template": "M2.bulk_price_updates",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "7f0924ec9e8e9a86534effb6c58dffbd276a7c0bf0f3da6d1b68fd3f043f6ec2",
+    "source/pricing/audit.py": "bdf9900449a1ea053cc0db86874aa6b498119651e7ebe40632b29effc099597a"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.card_refunds": {
+   "admitted": true,
+   "base_template": "M2.card_refunds",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6550b2a4712e331207a9568bfb13d1d09f0d473f2abb1a6c1aa1427364ec34ec",
+    "source/refunds/action_guard.py": "c42e6ff8971a8968932880d0072dbc561e366ab849b37e1f850b3d50e5c83892"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.firmware_rollout": {
+   "admitted": true,
+   "base_template": "M2.firmware_rollout",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "5cd2e069e75b09384158e68e050ce07e1b1c12d856002d2cf183489c5bfa93f0",
+    "source/rollout/action_monitor.py": "66e257376e11cd45e032522c1489b8c8cc4ec6c1387761dff279a81624a7855c"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.lab_result_release": {
+   "admitted": true,
+   "base_template": "M2.lab_result_release",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "220c4255df4767df041222b2960806280d7496bea6827c947555e2938ba5c577",
+    "source/labportal/risk_monitor.py": "b94bc2ed8242520026dbb02bc5cb8fec81d9e9c2e7cba9aac9af4d365a420c88"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.loan_disbursement": {
+   "admitted": true,
+   "base_template": "M2.loan_disbursement",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "77b9afb0d4970bdc38e20f1e7a4a33d89f6ef61601b056332c97501f967da953",
+    "source/disburse/watch_guard.py": "ffed0af68934dde5cd327d53469ae75a0acef95bceddfbefce940f5b506a3e14"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.outbound_email_relay": {
+   "admitted": true,
+   "base_template": "M2.outbound_email_relay",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "758455b7e5d4edc801784d6a5b0b2861d47aa496d7e5fc2857fb869326e761d5",
+    "source/relay/watch_guard.py": "39f2eb75401bc5c87b3aea4aa64edbab07b3278420ec4e6f8920a973f5a88abf"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.pii_deletion_requests": {
+   "admitted": true,
+   "base_template": "M2.pii_deletion_requests",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "2afa0bb53c09c433b658c59e1ac26eb2cd7874669789cd3fb0e818fa8e61c0da",
+    "source/erasure/action_auditor.py": "59aefd8c1a618d8a7f23f2b425ac805d2e747160f47647af665684062ed74380"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.schema_migration_jobs": {
+   "admitted": true,
+   "base_template": "M2.schema_migration_jobs",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "ada5a4c6740fde588c9b8dbf50ea346618607528e7a234238422d0c9d0d7c2c8",
+    "source/migrator/safety_monitor.py": "69072111a52c54e3b2b6926c0ffb397175bb1624a2ed00d76b31b5302acd0c53"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.storage_acl_changes": {
+   "admitted": true,
+   "base_template": "M2.storage_acl_changes",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "cccce1aa09d80ab0a77ed6029627f9bfedd060eeb1e2ff2fc3989c1ffaf2e141",
+    "source/acl/watch_guard.py": "7e26cb740bf11ffbf4d4498939cf883761c1ff490ee4efc31fda337688018a40"
+   },
+   "wp7_reused": true
+  },
+  "L2.M2.warehouse_pick_routing": {
+   "admitted": true,
+   "base_template": "M2.warehouse_pick_routing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "a9cb29b6b306d30586f583dc0d0bd719b20775969e2e73a0b175fda3a4a99ef3",
+    "source/picking/compliance.py": "72cefb1a4889848bd70e9a527f6329715f00c338d18525785ecc1eec70756b81"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.abuse_report_escalation": {
+   "admitted": true,
+   "base_template": "M3.abuse_report_escalation",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "1187114c7f4ff13a51e8c580b6741e52cf60eb059cce1b296e5deb2ba90d79c4",
+    "source/moderation/compliance_check.py": "12e986be9494e5d18239f8dd7e712597f350fd838b51e9bbe75401a0b1401fd5"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.bed_capacity_planning": {
+   "admitted": true,
+   "base_template": "M3.bed_capacity_planning",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "524a7b6f8decba314af170ce6bffe91c20b3f96e3feaff58b5e89a6977aeb488",
+    "source/wardplan/action_guard.py": "ffadd054e40f487f1df8b0ed9e771414b41ff3011561465d2f976f346742687b"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.cost_anomaly_alerts": {
+   "admitted": true,
+   "base_template": "M3.cost_anomaly_alerts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "e09a95b5cad05a4de0c027024954f805735f6f0c55a8cb642f95f8183619df45",
+    "source/costwatch/action_guard.py": "18cb33e7690e5be8ad719def0dc42df423f075fca70cd6cc59ee4ef1ca828d15"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.customs_declarations": {
+   "admitted": true,
+   "base_template": "M3.customs_declarations",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "d9c7714013ef84fa9413e7f0b57c8f77f842fbae9c57a09ee60f2ac70525fac4",
+    "source/customs/action_monitor.py": "4a1409ba9081bae1d4103f7ac083a099ba3865f7cec397e1fc3f99ef97e5da44"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.industrial_setpoints": {
+   "admitted": true,
+   "base_template": "M3.industrial_setpoints",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "1b3d79f0ad2bd130496f6ba4775bdab375a42c65b1337d9d62eeee486a9c8798",
+    "source/setpoints/safety_monitor.py": "9cc7beae3dbb0f9865c37b2af76901e2bee7ac2f7474a3c95c266aa458aa8d3e"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.inventory_adjustments": {
+   "admitted": true,
+   "base_template": "M3.inventory_adjustments",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "e79c7d5041313d55f978cab721c6c9caf847f3e293f8a880a2edf9700ff77174",
+    "source/stockops/control_monitor.py": "5aa6996bf1b2ca4174a75ac8479f5449314d4a12304bf95b0a3febe31cbb0ddd"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.livestream_flags": {
+   "admitted": true,
+   "base_template": "M3.livestream_flags",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "aae24a40dcd523af3290ec37d5e703d8ffecbcb944942308468a162c1737d6a4",
+    "source/livestream_flags/monitor.py": "823e13e196bdf6906e3c128a3aa149d871cf5823a7ef8f55a7cc8304ddaeaa98"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.notice_broadcasts": {
+   "admitted": true,
+   "base_template": "M3.notice_broadcasts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "56b27cea441a9ec6b6ed5a07ad17d66b0695b45fd6b5196386eaf57ec4c3b86e",
+    "source/broadcasts/safety_monitor.py": "d177b6bb33d14ed5968d8633dca47d6eb8cbf3415a0cbebbe2588edec4e9618f"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.pipeline_quality_alerts": {
+   "admitted": true,
+   "base_template": "M3.pipeline_quality_alerts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "8a8fdcf61a5e0d674e1017086f5f77783b25c8d597edb52b277bfae61ba6cc48",
+    "source/loadwatch/action_monitor.py": "8563cb8a815ce624d1c06d35f4208690d13e9992cf32fd8adb9e798867cb1d6c"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.prescription_renewals": {
+   "admitted": true,
+   "base_template": "M3.prescription_renewals",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "49c2375651765b1c7ce28b85b0770437d85c0dbc2a82620a539daa519e42cf53",
+    "source/renewals/control_monitor.py": "ab1232554454e38f601ffd9430faa3a7587affee125d15bfac6d1014e7e4aef2"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.secret_scan_findings": {
+   "admitted": true,
+   "base_template": "M3.secret_scan_findings",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "fb946df44596add36f9043dde77750bb3b119b20e849edf049e315acbbbf3091",
+    "source/secretgate/auditor.py": "d785681fec8470a1d61ed7fd808bd114d270e0a1e64fc2ccb896daecb1feced6"
+   },
+   "wp7_reused": true
+  },
+  "L2.M3.trade_surveillance": {
+   "admitted": true,
+   "base_template": "M3.trade_surveillance",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L2",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "08c147093b1e25fcc4ce321fe6167209a72eb8ccc6ee1a5e5fbfffc13d79879d",
+    "source/surveil/compliance.py": "21c1b42ca9980cf52dd76f15f4afe07bf6fd5ea6df7300627c3f2512764aa98d"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.bulk_sms_campaigns": {
+   "admitted": true,
+   "base_template": "M1.bulk_sms_campaigns",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "f1ef4aba682ff268185004f6517cded7238aeaf694143f2eaa861e392c795d1d",
+    "source/smsbatch/action_guard.py": "78b153ad3153933ddfb71d2ad1ef7e479716c477a344881b2957ce9491b54125"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.cold_chain_release": {
+   "admitted": true,
+   "base_template": "M1.cold_chain_release",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "9cd512e0feae28933db6682ecac8ef6aa05f1e4cbd4dae2c5b847dea1f33fb38",
+    "source/coldchain/safety_monitor.py": "ef8f1b33b2474bc1f1294b7db55ad8f3e36b46c3f3950d90edeca87a6819a97b"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.dataset_export": {
+   "admitted": true,
+   "base_template": "M1.dataset_export",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "d3c38e11d93a19059c0ed1fc4c0f816f87f8359e674a06ff09f91e724a00be5d",
+    "source/exporter/safety_monitor.py": "6033976e5712a9907e90951dfb1742de8d2549c44fccde688d1500fb4d2db97f"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.fleet_dispatch": {
+   "admitted": true,
+   "base_template": "M1.fleet_dispatch",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "f450badfffa8b8d3c0426bf2239c00f153ce12c60975254c0bec66c594a70416",
+    "source/dispatch/compliance_check.py": "cf7fbcf197f4a83fa8a9439d073b159d22f0e6d8b63dee874f43430e0bce6212"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.high_value_fulfillment": {
+   "admitted": true,
+   "base_template": "M1.high_value_fulfillment",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "4692faa64b632c067ec2a565df734eedf868dc5fedc3f9cc770df9fac9ea1d61",
+    "source/fulfillment/risk_monitor.py": "95e48a57d059fc758e714e6ef0fede802208ccca9114ba3c06663c191d1f69e2"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.hvac_setpoints": {
+   "admitted": true,
+   "base_template": "M1.hvac_setpoints",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6f460c13290e5e4e031cc96521079c3dbea34d61017269ce824a4b043f436cab",
+    "source/setpoints/auditor.py": "c361e4db514026b911e3565c1d195d2482378b3b9312c916dc4da2887530f937"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.medication_dispensing": {
+   "admitted": true,
+   "base_template": "M1.medication_dispensing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6beb71b6ba4cc87892ede4c192c63b620b4e3b177c3e29b92d74266e40a82eef",
+    "source/cabinet_restock/watch_guard.py": "0a6c9ca156083a581dd01803d18d136ceb99a2b4d40fd625d1c5cf231a2222ce"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.post_publishing": {
+   "admitted": true,
+   "base_template": "M1.post_publishing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "a9937393d2d643ef3e277c2c68b1a249dba96a325aa67bda0767b3dfbeaf82f3",
+    "source/publishing/action_monitor.py": "459c65e6350b05d9135dfb76e429d042b5a491d8fcd4cb242d90e4988c9f7112"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.production_deploys": {
+   "admitted": true,
+   "base_template": "M1.production_deploys",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "b394116abd3672506f7198f68d987e424d96b6ea1e4190d06d5bd8b8a2ab1dcb",
+    "source/deploys/control_monitor.py": "1dc8bf25114500a323f4bfbebf736af0dd3f9d81fd0c341688fd666693485fe7"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.smart_lock_schedules": {
+   "admitted": true,
+   "base_template": "M1.smart_lock_schedules",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "777a8196064da206be855bbb23857e4f5f1277e0dfe9461b3c4fe3059b272c88",
+    "source/lockops/compliance.py": "abe4e40c9472e3be82739b980602c2fe04dd72154d41931bf81c11ec85b1ec11"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.vm_provisioning": {
+   "admitted": true,
+   "base_template": "M1.vm_provisioning",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "8a2824fa142df6a13fcda9d9a18e9e251fd55b08da480e2f8ecc379126da42a7",
+    "source/vmprov/risk_monitor.py": "36693bbe7825c039686cc810f336e3032a10fbf9b1e571df7b94f67b706ddbbe"
+   },
+   "wp7_reused": true
+  },
+  "L3.M1.wire_transfers": {
+   "admitted": true,
+   "base_template": "M1.wire_transfers",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "3688ff5d5b748cd05b6fd0305accbc3edf81a71ebaace3001407100b41fdb275",
+    "source/wiredesk/action_auditor.py": "0d8fc6b50ee065f6276d80ddad8f7aa15ee842e4c5917bffcee69b092f6579c9"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.account_suspension": {
+   "admitted": true,
+   "base_template": "M2.account_suspension",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "98d04c7c70bf091f39fa654e0f7b75dccbeff959c7a91087e16c6830cce13728",
+    "source/suspensions/audit.py": "fe3cb7bfd8a9edc450f429d4fc13ff996d33f2c9ef081b0a536732ee702c2722"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.artifact_publishing": {
+   "admitted": true,
+   "base_template": "M2.artifact_publishing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "bde81e0abb2416f529d2ff276961ba4a8f587f9399bdbd08c2b25c9e2397de86",
+    "source/publisher/action_guard.py": "42412f546b5096f736ab804a27377b4c51bafc2b67636ede5095fd3b4c58f14e"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.bulk_price_updates": {
+   "admitted": true,
+   "base_template": "M2.bulk_price_updates",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "7f0924ec9e8e9a86534effb6c58dffbd276a7c0bf0f3da6d1b68fd3f043f6ec2",
+    "source/pricing/audit.py": "bdf9900449a1ea053cc0db86874aa6b498119651e7ebe40632b29effc099597a"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.card_refunds": {
+   "admitted": true,
+   "base_template": "M2.card_refunds",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "6550b2a4712e331207a9568bfb13d1d09f0d473f2abb1a6c1aa1427364ec34ec",
+    "source/refunds/action_guard.py": "c42e6ff8971a8968932880d0072dbc561e366ab849b37e1f850b3d50e5c83892"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.firmware_rollout": {
+   "admitted": true,
+   "base_template": "M2.firmware_rollout",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "5cd2e069e75b09384158e68e050ce07e1b1c12d856002d2cf183489c5bfa93f0",
+    "source/rollout/action_monitor.py": "66e257376e11cd45e032522c1489b8c8cc4ec6c1387761dff279a81624a7855c"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.lab_result_release": {
+   "admitted": true,
+   "base_template": "M2.lab_result_release",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "220c4255df4767df041222b2960806280d7496bea6827c947555e2938ba5c577",
+    "source/labportal/risk_monitor.py": "b94bc2ed8242520026dbb02bc5cb8fec81d9e9c2e7cba9aac9af4d365a420c88"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.loan_disbursement": {
+   "admitted": true,
+   "base_template": "M2.loan_disbursement",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "77b9afb0d4970bdc38e20f1e7a4a33d89f6ef61601b056332c97501f967da953",
+    "source/disburse/watch_guard.py": "ffed0af68934dde5cd327d53469ae75a0acef95bceddfbefce940f5b506a3e14"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.outbound_email_relay": {
+   "admitted": true,
+   "base_template": "M2.outbound_email_relay",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "758455b7e5d4edc801784d6a5b0b2861d47aa496d7e5fc2857fb869326e761d5",
+    "source/relay/watch_guard.py": "39f2eb75401bc5c87b3aea4aa64edbab07b3278420ec4e6f8920a973f5a88abf"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.pii_deletion_requests": {
+   "admitted": true,
+   "base_template": "M2.pii_deletion_requests",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "2afa0bb53c09c433b658c59e1ac26eb2cd7874669789cd3fb0e818fa8e61c0da",
+    "source/erasure/action_auditor.py": "59aefd8c1a618d8a7f23f2b425ac805d2e747160f47647af665684062ed74380"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.schema_migration_jobs": {
+   "admitted": true,
+   "base_template": "M2.schema_migration_jobs",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "ada5a4c6740fde588c9b8dbf50ea346618607528e7a234238422d0c9d0d7c2c8",
+    "source/migrator/safety_monitor.py": "69072111a52c54e3b2b6926c0ffb397175bb1624a2ed00d76b31b5302acd0c53"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.storage_acl_changes": {
+   "admitted": true,
+   "base_template": "M2.storage_acl_changes",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "cccce1aa09d80ab0a77ed6029627f9bfedd060eeb1e2ff2fc3989c1ffaf2e141",
+    "source/acl/watch_guard.py": "7e26cb740bf11ffbf4d4498939cf883761c1ff490ee4efc31fda337688018a40"
+   },
+   "wp7_reused": true
+  },
+  "L3.M2.warehouse_pick_routing": {
+   "admitted": true,
+   "base_template": "M2.warehouse_pick_routing",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "a9cb29b6b306d30586f583dc0d0bd719b20775969e2e73a0b175fda3a4a99ef3",
+    "source/picking/compliance.py": "72cefb1a4889848bd70e9a527f6329715f00c338d18525785ecc1eec70756b81"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.abuse_report_escalation": {
+   "admitted": true,
+   "base_template": "M3.abuse_report_escalation",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "1187114c7f4ff13a51e8c580b6741e52cf60eb059cce1b296e5deb2ba90d79c4",
+    "source/moderation/compliance_check.py": "12e986be9494e5d18239f8dd7e712597f350fd838b51e9bbe75401a0b1401fd5"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.bed_capacity_planning": {
+   "admitted": true,
+   "base_template": "M3.bed_capacity_planning",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "524a7b6f8decba314af170ce6bffe91c20b3f96e3feaff58b5e89a6977aeb488",
+    "source/wardplan/action_guard.py": "ffadd054e40f487f1df8b0ed9e771414b41ff3011561465d2f976f346742687b"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.cost_anomaly_alerts": {
+   "admitted": true,
+   "base_template": "M3.cost_anomaly_alerts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "e09a95b5cad05a4de0c027024954f805735f6f0c55a8cb642f95f8183619df45",
+    "source/costwatch/action_guard.py": "18cb33e7690e5be8ad719def0dc42df423f075fca70cd6cc59ee4ef1ca828d15"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.customs_declarations": {
+   "admitted": true,
+   "base_template": "M3.customs_declarations",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "d9c7714013ef84fa9413e7f0b57c8f77f842fbae9c57a09ee60f2ac70525fac4",
+    "source/customs/action_monitor.py": "4a1409ba9081bae1d4103f7ac083a099ba3865f7cec397e1fc3f99ef97e5da44"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.industrial_setpoints": {
+   "admitted": true,
+   "base_template": "M3.industrial_setpoints",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "1b3d79f0ad2bd130496f6ba4775bdab375a42c65b1337d9d62eeee486a9c8798",
+    "source/setpoints/safety_monitor.py": "9cc7beae3dbb0f9865c37b2af76901e2bee7ac2f7474a3c95c266aa458aa8d3e"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.inventory_adjustments": {
+   "admitted": true,
+   "base_template": "M3.inventory_adjustments",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "e79c7d5041313d55f978cab721c6c9caf847f3e293f8a880a2edf9700ff77174",
+    "source/stockops/control_monitor.py": "5aa6996bf1b2ca4174a75ac8479f5449314d4a12304bf95b0a3febe31cbb0ddd"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.livestream_flags": {
+   "admitted": true,
+   "base_template": "M3.livestream_flags",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "aae24a40dcd523af3290ec37d5e703d8ffecbcb944942308468a162c1737d6a4",
+    "source/livestream_flags/monitor.py": "823e13e196bdf6906e3c128a3aa149d871cf5823a7ef8f55a7cc8304ddaeaa98"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.notice_broadcasts": {
+   "admitted": true,
+   "base_template": "M3.notice_broadcasts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "56b27cea441a9ec6b6ed5a07ad17d66b0695b45fd6b5196386eaf57ec4c3b86e",
+    "source/broadcasts/safety_monitor.py": "d177b6bb33d14ed5968d8633dca47d6eb8cbf3415a0cbebbe2588edec4e9618f"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.pipeline_quality_alerts": {
+   "admitted": true,
+   "base_template": "M3.pipeline_quality_alerts",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "8a8fdcf61a5e0d674e1017086f5f77783b25c8d597edb52b277bfae61ba6cc48",
+    "source/loadwatch/action_monitor.py": "8563cb8a815ce624d1c06d35f4208690d13e9992cf32fd8adb9e798867cb1d6c"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.prescription_renewals": {
+   "admitted": true,
+   "base_template": "M3.prescription_renewals",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "49c2375651765b1c7ce28b85b0770437d85c0dbc2a82620a539daa519e42cf53",
+    "source/renewals/control_monitor.py": "ab1232554454e38f601ffd9430faa3a7587affee125d15bfac6d1014e7e4aef2"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.secret_scan_findings": {
+   "admitted": true,
+   "base_template": "M3.secret_scan_findings",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "fb946df44596add36f9043dde77750bb3b119b20e849edf049e315acbbbf3091",
+    "source/secretgate/auditor.py": "d785681fec8470a1d61ed7fd808bd114d270e0a1e64fc2ccb896daecb1feced6"
+   },
+   "wp7_reused": true
+  },
+  "L3.M3.trade_surveillance": {
+   "admitted": true,
+   "base_template": "M3.trade_surveillance",
+   "criteria": {
+    "1_real_bug": true,
+    "2_isomorphism": true,
+    "3_s_plus": true,
+    "4_u_plus": true,
+    "5_comparable_effort": true,
+    "6_oracles": true,
+    "7_semantic_and_manipulation": null,
+    "8_no_reveal": true
+   },
+   "problems": [],
+   "rung": "L3",
+   "technical_error": null,
+   "technical_pass": true,
+   "wp7_inputs_sha256": {
+    "source/README.md": "08c147093b1e25fcc4ce321fe6167209a72eb8ccc6ee1a5e5fbfffc13d79879d",
+    "source/surveil/compliance.py": "21c1b42ca9980cf52dd76f15f4afe07bf6fd5ea6df7300627c3f2512764aa98d"
+   },
+   "wp7_reused": true
+  }
+ },
+ "total": 114
+}

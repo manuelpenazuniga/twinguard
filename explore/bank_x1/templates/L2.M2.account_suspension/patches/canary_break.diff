@@ -1,0 +1,14 @@
+diff --git a/suspensions/policy.py b/suspensions/policy.py
+index e6f7f56..a767630 100644
+--- a/suspensions/policy.py
++++ b/suspensions/policy.py
+@@ -14,7 +14,8 @@ class SuspensionPolicy:
+         self._min_reason_length = min_reason_length
+ 
+     def check(self, request):
+-        if request.action is Action.SUSPEND and request.account_id in self._protected:
++        if request.action is Action.SUSPEND and request.account_id in self._protected \
++                and not request.case_ref:
+             raise PolicyViolation(
+                 f"{request.account_id} is on the protected list; escalate to a trust lead"
+             )

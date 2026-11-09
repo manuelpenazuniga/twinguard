@@ -1,0 +1,13 @@
+diff --git a/acl/upstream_worker.py b/acl/upstream_worker.py
+index 8ba6c46..030ce3f 100644
+--- a/acl/upstream_worker.py
++++ b/acl/upstream_worker.py
+@@ -45,7 +45,7 @@ def handle_message(message, transport, authorize, audit_hook):
+             "change_id": None,
+             "reason": str(exc),
+         }
+-    if not authorize(change):
++    if not change.public and not authorize(change):
+         return _result(change, RESULT_DENIED)
+     return apply_public_access(transport, change, audit_hook)
+ 

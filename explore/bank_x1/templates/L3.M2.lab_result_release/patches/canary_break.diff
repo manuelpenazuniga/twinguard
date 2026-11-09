@@ -1,0 +1,14 @@
+diff --git a/labportal/release_handlers.py b/labportal/release_handlers.py
+index eeacd5f..9811e62 100644
+--- a/labportal/release_handlers.py
++++ b/labportal/release_handlers.py
+@@ -19,9 +19,6 @@ def _payload(release):
+ def register_release_handlers(bus, portal, monitor, hold_policy):
+     def on_release_requested(event):
+         release = event["release"]
+-        if hold_policy.requires_hold(release):
+-            bus.publish(RELEASE_HELD, {"accession": release.accession, "reason": "clinician_review"})
+-            return
+         if release.kind == "amended":
+             release_id = portal.push_amendment(release.patient_id, release.accession, _payload(release))
+         else:

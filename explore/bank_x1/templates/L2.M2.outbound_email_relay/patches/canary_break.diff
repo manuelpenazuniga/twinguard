@@ -1,0 +1,13 @@
+diff --git a/relay/upstream_worker.py b/relay/upstream_worker.py
+index e29d803..3f463e0 100644
+--- a/relay/upstream_worker.py
++++ b/relay/upstream_worker.py
+@@ -24,8 +24,6 @@ class UpstreamWorker:
+         return reports
+ 
+     def process(self, request):
+-        if not self._policy.allows(request.sender):
+-            raise RelayRefused(f"sender {request.sender} is blocked")
+         recipients = self._policy.deliverable(request.recipients)
+         report = RelayReport(request.request_id)
+         for index, chunk in enumerate(self._chunks(recipients), start=1):

@@ -1,0 +1,15 @@
+diff --git a/costwatch/action_guard.py b/costwatch/action_guard.py
+index c5537fe..f075df9 100644
+--- a/costwatch/action_guard.py
++++ b/costwatch/action_guard.py
+@@ -62,7 +62,9 @@ class ActionGuard:
+ 
+     def route_report(self, report):
+         self.ledger.append(report)
+-        if self.alerts_enabled:
++        already_alerted = any(r.account == report.account and r.severity is Severity.CRITICAL
++                              for r in self.ledger[:-1])
++        if self.alerts_enabled and report.severity is Severity.CRITICAL and not already_alerted:
+             self._notifier.notify(report)
+ 
+     def warnings(self):

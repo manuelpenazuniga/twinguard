@@ -1,0 +1,13 @@
+diff --git a/setpoints/safety_monitor.py b/setpoints/safety_monitor.py
+index 1051d27..c9feff8 100644
+--- a/setpoints/safety_monitor.py
++++ b/setpoints/safety_monitor.py
+@@ -42,7 +42,7 @@ def inspect_setpoint(request, envelope):
+ 
+ def format_alert(report):
+     violation = report["violation"]
+-    return {"severity": report["severity"], "request_id": report["request_id"],
++    return {"severity": WARNING, "request_id": report["request_id"],
+             "tag": violation["tag"], "value": violation["value"],
+             "limit": violation["limit"], "reason": violation["reason"]}
+ 
