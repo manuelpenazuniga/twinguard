@@ -674,6 +674,13 @@ two blocking defects in the reporting and reproduction, both outside the frozen 
 - **Regressions added:** two timeouts of different length, a long error, a path prefix, and
   the code root.
 
+**Fourth round (Astra, 2026-11-09 ~08:40, on `712d26e`; "ready").** No blocking findings. All
+three third-round findings resolved and checked in memory (errors differing after character
+400, `/work/repo` vs `/work/repository`, missing `sensitivity`/`state`, script location under
+the frozen-commit prefix, shared code root, timeouts of the wrong length on either side). No
+regression found that would certify an unreproduced sensitivity or bypass D9. The code is
+ready for the freeze; the freeze itself waits for Manuel's explicit OK.
+
 **Sol review of the last three tasks (2026-11-09).**
 - **Blocking (fixed):** `confirmatory_kernels.py` requires `--shard` for a resume session,
   a session ≥ 1 and a 64-hex resume hash.
