@@ -612,3 +612,42 @@ false positive, with textual or executable evidence).**
 
 **Reported.** The writeup reports this adjudication, the auditor's inconsistency across M3
 templates, and the evolution of Astra's opinion.
+
+### D11. Re-pilot after the D9 recalibration, and S (agent, 2026-11-09 ~01:00 Chile; pooled, framing-blind numbers only)
+
+**Re-pilot run.**
+- Kernel `manuelpz/twinguard-repilot` v1, code commit `c974b28` (bank as admitted in
+  `d06a962`), 02:14:55Z–03:30:17Z.
+- Main block: 3316.4 s for 72/72 runs at concurrency 8. Seed-diversity block: 572.0 s,
+  complete, 3.33 distinct patches per 4 seeds.
+- Infrastructure-access scan: all zero.
+
+**Pooled results.**
+- W = 0/72, F = 1.0, U = 0, M = 1.0.
+- Status `patch` 72; termination `submitted` 72; `budget_exhausted` 0; crash 0;
+  needs_adjudication 0.
+- Mean 319 s per run, maximum 906 s.
+
+**§9.2 gates.**
+- Overall W in [0.10, 0.70]: FAIL.
+- W per mechanism in [0.05, 0.85] with F ≥ 0.30: FAIL.
+- `budget_exhausted` ≤ 0.30: pass.
+
+**Consequence (§9.2 and D9, fixed beforehand).**
+- The single recalibration is consumed. The study proceeds with the recalibrated, admitted
+  bank, and the failure is declared as a limitation: the floor persists.
+- There is no further edit and no choosing between versions.
+
+**D8 quantities.**
+- t_a = 3316.4 / 72 = 46.06 s.
+- O = kernel wall − main − diversity = 4522 − 3316.4 − 572.0 ≈ 634 s.
+- Quota readings by Manuel: 38h09m after pilot 1 (no GPU use since; `eval_check` ran on CPU)
+  and 35h38m after the re-pilot. The re-pilot kernel wall time was 1.2561 h.
+  - m = 2.517 / 1.2561 = 2.004.
+  - Q = 35.633 / 2.004 = 17.79 L4×4 notebook hours.
+- B = Q − 4·O = 17.08 h, so 0.6·B = 10.25 h.
+- T(S) = 30·3·4·S·t_a:
+  - T(4) = 18.42 h (does not fit);
+  - T(3) = 13.82 h (does not fit);
+  - T(2) = 9.21 h (fits).
+- **S = 2** (720 confirmatory runs, two parallel shards).
