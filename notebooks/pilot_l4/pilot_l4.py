@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -585,15 +586,19 @@ def server_unreachable():
     # Unix sockets with a path (vLLM engine ZMQ ipc carries serialized objects): an agent
     # that could connect would reach root code paths -> abort. Abstract ones are recorded.
     paths, abstract = set(), 0
+    typed = set()                                    # (path or @abstract, socket type) for Colab
     for line in Path('/proc/net/unix').read_text().splitlines()[1:]:
         parts = line.split()
         if len(parts) >= 8:
+            typed.add((parts[7], int(parts[4], 16)))
             if parts[7].startswith('@'):
                 abstract += 1
             else:
                 paths.add(parts[7])
     connectable = []
-    for path in sorted(paths):
+    if PLATFORM == 'colab':
+        connectable = colab_unix_reach(typed)
+    for path in sorted(paths) if PLATFORM != 'colab' else ():
         probe = (f"{sys.executable} -c \"import socket;s=socket.socket(socket.AF_UNIX);"
                  f"s.settimeout(2);s.connect('{path}')\"")
         if as_user(AGENTS[0], probe) == '0':
@@ -1152,7 +1157,25 @@ def smoke_block(code):
 COLAB_PINNED = ['pandas==3.0.6', 'numpy==2.5.4', 'scipy==1.18.1', 'statsmodels==0.15.0',
                 'pytest==9.2.0']
 COLAB_EXPECTED = '0.19.1 2.10.0+cu128 5.13.1'      # vllm torch transformers, as on Kaggle
-COLAB_SECRET_RE = re.compile(r'KAGGLE_KEY|KAGGLE_USERNAME|HF_TOKEN|token=|api[_-]?key', re.I)
+# credential-like argument names (`--NotebookApp.token X`, `--token=X`, `KAGGLE_KEY=X`, `?token=X`);
+# `--max-num-batched-tokens` or `--thinking-token-budget` are not credentials
+COLAB_SECRET_SCAN = r'''
+import glob, re
+NAME = re.compile(r'(?i)(^|[._?&-])(token|key|api[_-]?key|password|passwd|secret|kaggle_username)$')
+bad = set()
+for c in glob.glob('/proc/[0-9]*/cmdline'):
+    try:
+        a = [x.decode('utf-8', 'replace') for x in open(c, 'rb').read().split(b'\0') if x]
+    except OSError:
+        continue
+    for i, x in enumerate(a):
+        k, eq, v = x.partition('=')
+        if NAME.search(k.lstrip('-')):
+            val = v if eq else (a[i + 1] if i + 1 < len(a) and not a[i + 1].startswith('-') else '')
+            if val.strip():
+                bad.add(c.split('/')[2])
+print(' '.join(sorted(bad, key=int)))
+'''
 COLAB_DENIED = {'content_ls': 'ls /content', 'content_drive_ls': 'ls /content/drive',
                 'net_lo_tcp': f"{sys.executable} -c \"import socket;socket.create_connection(('127.0.0.1',8080),3)\"",
                 'net_tcp_ext': f"{sys.executable} -c \"import socket;socket.create_connection(('8.8.8.8',53),3)\"",
@@ -1211,22 +1234,38 @@ def colab_net_lock():
 
 def colab_hide():
     """/content (Colab's working dir) closed; /proc mounted with hidepid=2 when the runtime
-    allows it (recorded). Either way no visible process command line may carry a credential
-    or token (checked as root; abort otherwise)."""
+    allows it (recorded). Either way no command line VISIBLE TO AN AGENT OR EVALUATOR uid may
+    carry a non-empty credential-like argument (scanned as those uids; abort otherwise)."""
     out = {'content': sh('chmod 0700 /content 2>/dev/null; stat -c %a /content')}
     out['hidepid_rc'] = sh('mount -o remount,rw,hidepid=2 /proc >/dev/null 2>&1; echo $?')
-    leaks = []
-    for c in glob.glob('/proc/[0-9]*/cmdline'):
-        try:
-            text = Path(c).read_bytes().replace(b'\0', b' ').decode(errors='replace')
-        except OSError:
-            continue
-        if COLAB_SECRET_RE.search(text):
-            leaks.append(c.split('/')[2])
+    leaks = {}
+    for u in (AGENTS[0], EVALS[0]):
+        r = sh(f'setpriv --reuid={u} --regid={u} --clear-groups --no-new-privs -- '
+               f'{sys.executable} -I -c {shlex.quote(COLAB_SECRET_SCAN)}')
+        if r.strip():
+            leaks[u] = r.split()
     out['cmdline_secret_pids'] = leaks
     if leaks:
         raise RuntimeError(f'process command lines carry credentials or tokens: {leaks}')
     return out
+
+
+UNIX_TYPES = {1: 'SOCK_STREAM', 2: 'SOCK_DGRAM', 5: 'SOCK_SEQPACKET'}
+
+
+def colab_unix_reach(typed):
+    """Colab: every Unix socket (path AND abstract; abstract ones have no file permissions)
+    probed with its own type by an agent and an evaluator uid; any connect succeeds -> abort."""
+    reach = []
+    for name, t in sorted(typed):
+        kind = UNIX_TYPES.get(t, 'SOCK_STREAM')
+        addr = repr('\0' + name[1:]) if name.startswith('@') else repr(name)
+        probe = (f"{sys.executable} -I -c \"import socket;s=socket.socket(socket.AF_UNIX,"
+                 f"socket.{kind});s.settimeout(2);s.connect({addr})\"")
+        for u in (AGENTS[0], EVALS[0]):
+            if as_user(u, probe) == '0':
+                reach.append(f'{u}:{name}:{kind}')
+    return reach
 
 
 def uds_chat(body, timeout=900):
@@ -1278,7 +1317,10 @@ def colab_capacity(tag, srv=None):
                                'completion_tok_per_s': round(comp / wall, 1),
                                'mean_latency_s': round(sum(o[2] - o[0] for o in ok) / max(1, len(ok)), 1),
                                'errors': [o[1] for o in outs if 'choices' not in o[1]][:3],
-                               'gpu_mem_peak': max(mem, default=None)}
+                               'gpu_mem_peak_mib': max((int(m.split()[0]) for m in mem
+                                                         if m.split() and m.split()[0].isdigit()),
+                                                        default=None)}
+        R['colab_capacity_partial'] = res            # kept even when this phase fails
         save()
         if len(ok) != n:
             raise RuntimeError(f'capacity: {n - len(ok)} of {n} requests failed at concurrency {conc}')
@@ -1490,9 +1532,9 @@ elif __name__ == '__main__':
             elif MODE == 'x1_transfer':
                 phase('9_x1_transfer')(lambda: x1_block(code))()
             else:
-                if PLATFORM == 'colab':
-                    phase('4_colab_capacity')(lambda: colab_capacity(f'tp{tp}_8000', procs[0]))()
-                phase('9_runner_smoke')(lambda: smoke_block(code))()
+                if PLATFORM != 'colab' or \
+                        phase('4_colab_capacity')(lambda: colab_capacity(f'tp{tp}_8000', procs[0]))()['ok']:
+                    phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:
         stop(procs)
         closed = {'ok': True}
@@ -1509,6 +1551,13 @@ elif __name__ == '__main__':
         if not seal['ok'] or not closed['ok']:
             print('SEAL FAILED' if not seal['ok'] else 'CLOSE-OUT FAILED', flush=True)
             sys.exit(1)
+        if PLATFORM == 'colab':
+            failed = sorted(k for k, v in R['phases'].items() if not v.get('ok'))
+            R['colab_failed_phases'] = failed
+            save()
+            if failed or '9_runner_smoke' not in R['phases']:
+                print(f'COLAB RUN FAILED: {failed}', flush=True)
+                sys.exit(1)
         # DONE = the results are sealed; for a shard it also says whether it must be resumed
         print('DONE' + (f" shard_status={R['shard_status']}" if R['shard_status'] else ''),
               flush=True)

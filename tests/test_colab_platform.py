@@ -136,22 +136,57 @@ def test_colab_install_compares_versions_only(monkeypatch, tmp_path):
                 k.colab_install()
 
 
-def test_colab_hide_aborts_on_a_credential_in_a_command_line(monkeypatch, tmp_path):
+def test_colab_secret_scan_flags_credentials_not_token_counts(tmp_path, monkeypatch):
+    """Sol: `--token X`, `--NotebookApp.token X`, `KAGGLE_KEY=X`, `?token=X` and `--api-key X`
+    are credentials; an empty token and vLLM's `--max-num-batched-tokens` are not."""
+    import contextlib
+    import io
     k = load(monkeypatch, tmp_path, PLATFORM='colab')
-    monkeypatch.setattr(k, 'sh', lambda c: '700' if 'stat' in c else '0')
-    proc = tmp_path / 'proc'
-    for pid, cmd in (('1', b'/sbin/init'), ('77', b'python\0script.py')):
-        (proc / pid).mkdir(parents=True)
-        (proc / pid / 'cmdline').write_bytes(cmd)
-    monkeypatch.setattr(k.glob, 'glob', lambda pat, **kw: sorted(str(p) for p in proc.glob('*/cmdline'))
-                        if 'cmdline' in pat else [])
-    real = k.Path
-    monkeypatch.setattr(k, 'Path', lambda x, *a: real(str(x).replace('/proc', str(proc))) if str(x).startswith('/proc') else real(x, *a))
-    assert k.colab_hide()['cmdline_secret_pids'] == []
-    (proc / '99').mkdir()
-    (proc / '99' / 'cmdline').write_bytes(b'jupyter\0--NotebookApp.token=abc')
+    cases = {'1': b'jupyter\0--NotebookApp.token\0abc', '2': b'jupyter\0--NotebookApp.token=',
+             '3': b'vllm\0--max-num-batched-tokens\08192\0--thinking-token-budget\04096',
+             '4': b'x\0KAGGLE_KEY=zz', '5': b'curl\0http://h/?token=q', '6': b'app\0--token\0--other',
+             '7': b'app\0--api-key\0k1', '8': b'app\0--token\0secret'}
+    for pid, c in cases.items():
+        (tmp_path / pid).mkdir()
+        (tmp_path / pid / 'cmdline').write_bytes(c)
+    code = k.COLAB_SECRET_SCAN.replace("'/proc/[0-9]*/cmdline'", repr(str(tmp_path) + '/[0-9]*/cmdline'))
+    code = code.replace("c.split('/')[2]", "c.split('/')[-2]")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exec(code, {})
+    assert buf.getvalue().split() == ['1', '4', '5', '7', '8']
+
+
+def test_colab_hide_scans_as_agent_and_evaluator_and_aborts(monkeypatch, tmp_path):
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    calls = []
+
+    def sh(cmd):
+        calls.append(cmd)
+        if cmd.startswith('setpriv'):
+            return '4242' if f'--reuid={k.EVALS[0]}' in cmd else ''
+        return '700' if 'stat' in cmd else '0'
+    monkeypatch.setattr(k, 'sh', sh)
     with pytest.raises(RuntimeError, match='credentials or tokens'):
         k.colab_hide()
+    scans = [c for c in calls if c.startswith('setpriv')]
+    assert len(scans) == 2 and any(k.AGENTS[0] in c for c in scans)
+    monkeypatch.setattr(k, 'sh', lambda c: '' if c.startswith('setpriv') else '0')
+    assert k.colab_hide()['cmdline_secret_pids'] == {}
+
+
+def test_colab_unix_reach_uses_each_socket_type_and_abstract_names(monkeypatch, tmp_path):
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    seen = []
+
+    def as_user(u, cmd):
+        seen.append((u, cmd))
+        return '0' if 'SOCK_DGRAM' in cmd and u == k.EVALS[0] else '1'
+    monkeypatch.setattr(k, 'as_user', as_user)
+    reach = k.colab_unix_reach({('/run/a.sock', 1), ('/run/d.sock', 2), ('@abs', 5)})
+    assert reach == [f'{k.EVALS[0]}:/run/d.sock:SOCK_DGRAM']
+    assert any('SOCK_SEQPACKET' in c and '\\x00abs' in c for _, c in seen)
+    assert {u for u, _ in seen} == {k.AGENTS[0], k.EVALS[0]}
 
 
 def test_colab_capacity_fails_when_a_request_fails(monkeypatch, tmp_path):
@@ -168,3 +203,5 @@ def test_colab_capacity_fails_when_a_request_fails(monkeypatch, tmp_path):
     monkeypatch.setattr(k, 'uds_chat', chat)
     with pytest.raises(RuntimeError, match='requests failed'):
         k.colab_capacity('tp1_8000')
+    part = k.R['colab_capacity_partial']['conc_1']        # partial result kept (Sol)
+    assert part['ok'] == 3 and part['errors'] and part['gpu_mem_peak_mib'] in (None, 1)
