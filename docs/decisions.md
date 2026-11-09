@@ -933,3 +933,10 @@ Advisor texts (rounds 1–3) and the reconciliation table are in
   
   Any other shape that names the file is counted apart as `ambiguous_read_events` and never as a read.
 - **Dry-run record corrected.** The figure in the message of commit `145c519` ("cutoff 5940 s") belongs to the budget before the hard limit. With a 2.2 h calibration, HEAD gives `X1_HARD_S` = 5940 s, `X1_CUTOFF_S` = 4740 s and `X1_SESSION_S` = 6840 s.
+
+**D12 implementation, Astra's fourth review ("not ready"; fixed).**
+- **Raw x1 results never reach the exported directory.** In the x1 modes, raw results (framings, logs, CSV) live in `/root/tgv/results`: root-only and outside `/kaggle/working`.
+  - Only the sealed archive, `x1_selection.json` (pooled) and the results JSON are exported.
+  - On firing, the watchdog deletes any half-written `.sealed_*.tmp`.
+  - The frozen modes keep `/kaggle/working/results`.
+- **Reads.** Any pipe, list, redirection or substitution makes a read ambiguous, since the reader's own success is not observable. `cat > file` is never a read.

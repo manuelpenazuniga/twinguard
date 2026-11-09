@@ -68,16 +68,19 @@ SCRIPT_FIRST = {'sed', 'awk'}          # first operand is the script (unless -e/
 
 
 def command_reads(cmd, name):
-    """'read' only for an unambiguous read: optionally `cd DIR &&`, then ONE pipeline whose
-    FIRST stage is a reader whose FILE operands (not patterns or scripts) include the file;
+    """'read' only for an unambiguous read: optionally `cd DIR &&`, then ONE simple command
+    (no pipe, list or redirection) that is a reader whose FILE operands (not patterns or
+    scripts) include the file;
     'ambiguous' when the file is named in any other shape; 'none' otherwise."""
     if name not in cmd:
         return 'none'
-    rest = re.sub(r'^\s*cd\s+[^;&|]+&&', '', cmd, count=1)
-    if re.search(r'\|\||&&|;|&|\n|`|\$\(', rest):
+    rest = re.sub(r'^\s*cd\s+[^;&|<>]+&&', '', cmd, count=1)
+    # lists, pipelines (the exit code is the last stage's), redirections and substitutions:
+    # the success of the reader itself is not observable -> ambiguous
+    if re.search(r'\||&|;|\n|`|\$\(|<|>', rest):
         return 'ambiguous'
     try:
-        toks = shlex.split(rest.split('|')[0])
+        toks = shlex.split(rest)
     except ValueError:
         return 'ambiguous'
     if not toks or Path(toks[0]).name not in READERS:

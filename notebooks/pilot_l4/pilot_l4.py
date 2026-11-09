@@ -656,6 +656,10 @@ CHECKPOINT_EVERY_S = 15 * 60
 
 
 SEALED = Path('/kaggle/working/results_sealed.tar.gz')
+# raw results (framings, logs): exported with the session for the frozen modes; for the x1
+# modes they live in a root-only directory OUTSIDE /kaggle/working, so a watchdog exit can
+# never leave them in the output (only the sealed archive and blind summaries are exported)
+RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith('x1_') else Path('/kaggle/working/results')
 SEAL_LOCK = threading.Lock()     # one snapshot/seal at a time (periodic and final)
 
 
@@ -671,7 +675,7 @@ def snapshot_and_seal(kind='periodic'):
 
 def _snapshot_and_seal(kind):
     import tarfile, tempfile
-    res_dir = Path('/kaggle/working/results')
+    res_dir = RESULTS_DIR
     stage = Path(tempfile.mkdtemp(prefix='snap_', dir='/root/tgv'))
     fd, tmp_name = tempfile.mkstemp(prefix='.sealed_', suffix='.tmp', dir='/kaggle/working')
     tmp = Path(tmp_name)
@@ -781,7 +785,7 @@ def scan_logs(name):
     """Pooled count of runs whose agent tool calls touch the infrastructure (declared risk,
     measured). Reads the controller logs; reports counts only (no framing)."""
     import re
-    logs = Path('/kaggle/working/results') / name / 'logs'
+    logs = RESULTS_DIR / name / 'logs'
     hits = {k: 0 for k in SCAN}
     runs = {}
     for f in logs.glob('*.jsonl'):
@@ -847,7 +851,7 @@ def seal_results():
     """Raw results (framings, logs) go into one archive whose hash is reported; only pooled
     numbers and the blind CSV are left in the open (9.2)."""
     import csv as _csv, tarfile
-    res_dir = Path('/kaggle/working/results')
+    res_dir = RESULTS_DIR
     # confirmatory: no blind CSV at all (with the public order and a time cut, the status of
     # template/paraphrase/replicate rows can reveal framings); it stays sealed until decoding
     for name in ('pilot', 'pilot_diversity', 'runner_smoke'):
@@ -952,7 +956,6 @@ def confirmatory_guard():
 
 
 FREEZE = {}
-RESULTS_DIR = Path('/kaggle/working/results')
 BUNDLED = ('harness/', 'runner/', 'bank/templates/', 'bank/spec_matrix.csv', 'bank/render.py', 'bank/__init__.py',
            'bank/admission.py', 'twinguard/twinguard_analysis.py', 'twinguard/twinguard_graph.py',
            'notebooks/model_overlay/', 'notebooks/pilot_l4/pilot_l4.py')
@@ -1174,6 +1177,8 @@ def x1_watchdog():
             R['x1_watchdog'] = {'fired_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
             for u in AGENTS + EVALS:
                 sh(f'pkill -9 -u {u}')
+            for tmp in glob.glob('/kaggle/working/.sealed_*.tmp'):   # a seal cut half-way
+                Path(tmp).unlink(missing_ok=True)
             save()
         finally:
             os._exit(3)
@@ -1207,7 +1212,7 @@ def x1_block(code):
 
 def x1_select(code):
     """The sealed selector on the complete calibration (pooled, framing-free output)."""
-    out_dir = Path('/kaggle/working/results') / 'x1_calibration'
+    out_dir = RESULTS_DIR / 'x1_calibration'
     meta = json.loads((out_dir / 'session_summary.json').read_text())
     if meta['completed'] != meta['scheduled'] or meta['needs_adjudication']:
         return {'deferred': True, 'completed': meta['completed'], 'scheduled': meta['scheduled'],
@@ -1261,7 +1266,7 @@ elif __name__ == '__main__':
             R['verified_revision'] = '52f3f65bc7a02d555763bc923bd1d9094898219d'
         else:
             raise SystemExit('served model files do not match HF 52f3f65: refusing to run')
-        Path('/kaggle/working/results').mkdir(parents=True, exist_ok=True)
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         restored = phase('8a_restore')(restore_previous)()
         if not restored['ok']:
             raise SystemExit('resume archive check failed: refusing to run')

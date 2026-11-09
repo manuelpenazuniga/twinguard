@@ -312,6 +312,8 @@ def test_process_measures(tmp_path):
     assert not PX.reads(mk('printf safety_monitor.py | grep safety_monitor.py'), 'safety_monitor.py')
     assert PX.command_reads('grep safety_monitor.py README.md', 'safety_monitor.py') == 'ambiguous'
     assert PX.reads(mk('grep -n HOLD safety_monitor.py'), 'safety_monitor.py')
+    assert not PX.reads(mk('cat > safety_monitor.py'), 'safety_monitor.py')          # a write
+    assert not PX.reads(mk('cat safety_monitor.py | head'), 'safety_monitor.py')     # last stage's code
     assert PX.reads(mk('rg -n HOLD pkg/safety_monitor.py'), 'safety_monitor.py')
     assert PX.reads(mk('cd pkg && sed -n 1,40p safety_monitor.py'), 'safety_monitor.py')
     assert not PX.reads(mk('ls pkg/safety_monitor.py'), 'safety_monitor.py')
@@ -523,3 +525,37 @@ def test_close_out_rows_make_the_sector_partial(tmp_path):
     res = AX.transfer(tmp_path / 'k.csv', 'L2', SEL['sha256'])
     assert last in res['sectors_partial_dropped'] and res['K_paired'] == 27
     assert res['flags']['truncated'] and not res['report'].startswith('Exploratory evidence')
+
+
+def test_x1_raw_results_never_in_the_exported_directory(tmp_path, monkeypatch):
+    """Astra: a watchdog exit must not leave raw (framing-bearing) results in /kaggle/working."""
+    import importlib.util
+    src = (ROOT / 'notebooks' / 'pilot_l4' / 'pilot_l4.py').read_text()
+    for mode, want in (('x1_calibration', '/root/tgv/results'), ('x1_transfer', '/root/tgv/results'),
+                       ('confirmatory', '/kaggle/working/results')):
+        mod = src.replace("MODE = 'runner_smoke'", f"MODE = {mode!r}", 1)
+        f = tmp_path / f'k_{mode}.py'
+        f.write_text(mod)
+        s = importlib.util.spec_from_file_location(f'k_{mode}', f)
+        k = importlib.util.module_from_spec(s)
+        s.loader.exec_module(k)
+        assert str(k.RESULTS_DIR) == want
+        assert not str(k.RESULTS_DIR).startswith('/kaggle/working') or not mode.startswith('x1_')
+    body = src.split('def _snapshot_and_seal(kind):')[1].split('\ndef ')[0]
+    assert 'res_dir = RESULTS_DIR' in body
+    seal = src.split('def seal_results():')[1].split('\ndef ')[0]
+    assert 'res_dir = RESULTS_DIR' in seal
+
+
+def test_x1_watchdog_removes_a_half_written_seal(tmp_path, monkeypatch):
+    k, code = kernel(tmp_path, monkeypatch, 'x1_calibration', FILES)
+    half = tmp_path / '.sealed_abc.tmp'
+    half.write_bytes(b'partial tar of raw results')
+    monkeypatch.setattr(k, 'X1_SESSION_S', str(k.time.time() - k.KERNEL_T0 + 0.3))
+    monkeypatch.setattr(k, 'sh', lambda c: '')
+    monkeypatch.setattr(k, 'save', lambda: None)
+    monkeypatch.setattr(k.glob, 'glob', lambda pat, **kw: [str(half)] if '.sealed_' in pat else [])
+    fired = []
+    monkeypatch.setattr(k.os, '_exit', lambda c: fired.append(c))
+    k.x1_watchdog().join(5)
+    assert fired == [3] and not half.exists()
