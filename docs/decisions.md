@@ -970,4 +970,7 @@ Argon's independent audit, all findings fixed). `explore/x1_manifest.json` SHA-2
 x1 kernels are built from `39c733f` (its `docs/decisions.md` is the sealed one). Sealed before
 `runner/analyze.py` ran on the confirmatory (both shards complete: s1 archive `9c2bd820…`,
 s2 `db5c343f…`, 360/360 each; only status and phases were read). Later work (D13 / x2) adds
-new files and never edits a file listed in this manifest.
+new files and never edits a sealed file under the prefixes `explore/run_x1.py` checks at analysis
+time (`explore/`, `twinguard/`, `runner/`, `bank/`, `harness/`); the kernel script
+`notebooks/pilot_l4/pilot_l4.py` may change at HEAD (Colab platform, x2 modes) because the x1
+kernels are always built from `39c733f`.
