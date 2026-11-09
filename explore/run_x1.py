@@ -31,8 +31,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 MANIFEST = ROOT / 'explore' / 'x1_manifest.json'
-CHECKED = ('explore/', 'twinguard/twinguard_analysis.py', 'runner/runner.py',
-           'runner/secondary.py', 'bank/', 'harness/')
+CHECKED = ('explore/', 'twinguard/', 'runner/', 'bank/', 'harness/')
+CLAIMS = ROOT / 'results' / 'x1_claims'      # canonical, whatever --out is
 
 
 def sha(b):
@@ -58,14 +58,36 @@ def verify_seal():
     return m, sha(raw)
 
 
-def claim(out):
-    out.mkdir(parents=True, exist_ok=True)
+def claim(sealed, out, claims=None):
+    """One claim per sealed D12 manifest, at a canonical path independent of --out, taken
+    atomically before any result is read."""
+    claims = Path(claims or CLAIMS)
+    claims.mkdir(parents=True, exist_ok=True)
     try:
-        fd = os.open(out / 'CLAIM', os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o444)
+        fd = os.open(claims / f'{sealed}.claim', os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o444)
     except FileExistsError:
-        raise SystemExit(f'{out}/CLAIM exists: the D12 analysis already ran (single run)')
+        raise SystemExit(f'the D12 analysis of seal {sealed[:12]} already ran (single run)')
     with os.fdopen(fd, 'w') as fh:
-        fh.write(json.dumps({'head': git('rev-parse', 'HEAD').decode().strip()}) + '\n')
+        fh.write(json.dumps({'head': git('rev-parse', 'HEAD').decode().strip(),
+                             'out': str(Path(out).resolve())}) + '\n')
+    Path(out).mkdir(parents=True, exist_ok=True)
+
+
+def decoded(confirmatory_out):
+    """The authorized decoding happened: runner/analyze.py sealed its outputs (every recorded
+    hash matches) and the primary analysis is among them."""
+    co = Path(confirmatory_out)
+    h = co / 'analysis_hashes.json'
+    if not h.exists():
+        raise SystemExit('the confirmatory is not decoded through runner/analyze.py yet')
+    rec = json.loads(h.read_text())
+    digests = rec.get('sha256') or {}
+    if 'analysis_output.txt' not in digests:
+        raise SystemExit('analysis_hashes.json does not record the primary analysis run')
+    bad = [n for n, d in digests.items() if not (co / n).exists() or sha((co / n).read_bytes()) != d]
+    if bad:
+        raise SystemExit(f'confirmatory outputs differ from their sealed hashes: {bad[:5]}')
+    return co
 
 
 def safe_extract(archive, dest):
@@ -102,7 +124,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--selection', required=True)
     ap.add_argument('--transfer', nargs='*', default=[])
-    ap.add_argument('--confirmatory-out', default=None)
+    ap.add_argument('--confirmatory-out', required=True,
+                    help='results/confirmatory after runner/analyze.py (always required)')
+    ap.add_argument('--confirmatory-descriptives', action='store_true',
+                    help='also the N comparison and the process measures on the confirmatory')
     ap.add_argument('--confirmatory-shards', nargs='*', default=[])
     ap.add_argument('--out', required=True)
     a = ap.parse_args(argv)
@@ -113,14 +138,10 @@ def main(argv=None):
     chosen = selection['content']['selected']
     if bool(a.transfer) != (chosen is not None):
         raise SystemExit('transfer archives are required exactly when a rung was selected')
-    conf_csv = None
-    if a.confirmatory_out:
-        co = Path(a.confirmatory_out)
-        if not (co / 'analysis_hashes.json').exists():
-            raise SystemExit('the confirmatory is not decoded through runner/analyze.py yet')
-        conf_csv = co / 'runs.csv'
+    co = decoded(a.confirmatory_out)                 # unconditional
+    conf_csv = co / 'runs.csv' if a.confirmatory_descriptives else None
     out = Path(a.out)
-    claim(out)
+    claim(sealed, out)
     res = {'d12_manifest_sha256': sealed, 'calibration': AX.calibration_summary(selection)}
     with tempfile.TemporaryDirectory() as work:
         if chosen:

@@ -908,3 +908,15 @@ Advisor texts (rounds 1–3) and the reconciliation table are in
 - **Process measures.**
   - A read counts only if it succeeded: `read_file` of that path, or a reading `run_command` with exit 0.
   - Added: rejection of the patch (fixed regex) and a count of runs without a log.
+
+**D12 implementation, Astra's second review ("not ready"; fixed).**
+- **6 h cap guaranteed by a hard session limit.**
+  - Each x1 session stops its runner at `X1_HARD_S` after start and kills every agent and evaluator process. The runner's close-out (CPU only, capped at 10 min) then evaluates finished episodes and gives every other scheduled run an `infra_failed` row, like a time cut.
+  - No run starts after `X1_HARD_S` − 20 min.
+  - Calibration: `X1_HARD_S` = 8100 s.
+  - Each transfer shard: `X1_HARD_S` = min(6300 s, (6 h − measured calibration session − 2 × 15 min) / 2).
+  - With 15 min of overhead per session, the three sessions fit in 6 h.
+- **Single run independent of `--out`.** The claim is `results/x1_claims/<seal hash>.claim` (O_EXCL), taken before any result is read.
+- **The decoding gate is unconditional.** `--confirmatory-out` is required, and every hash in its `analysis_hashes.json` must match and include the primary analysis run. The confirmatory descriptives are a separate opt-in.
+- **Effective reads.** A read is a pipeline/list segment whose program is a reader (`cat`, `head`, `tail`, `less`, `more`, `sed`, `awk`, `grep`, `rg`, `nl`, `view`, `bat`) and which names the file as an operand. `echo x | cat` and `ls x` are not reads.
+- **Checked against the seal.** The launcher checks all of `twinguard/`, `runner/`, `bank/`, `harness/` and `explore/`.

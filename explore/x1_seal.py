@@ -17,10 +17,13 @@ OUT = ROOT / 'explore' / 'x1_manifest.json'
 STOP_AT_UTC = '2026-11-11T05:00:00Z'          # Wed 11 02:00 Chile (D12)
 STOP_AT_EPOCH = 1794373200
 EXTRA_PATHS = ['explore', 'docs/decisions.md']  # bundled in the x1 kernels besides build_kernel.PATHS
-BUDGET = {'cap_hours': 6.0, 'calibration_cutoff_s': 7200, 'transfer_cutoff_s_max': 6300,
-          'tail_s_per_session': 900,
-          'rule': 'no run starts after the cutoff; the transfer cutoff is min(6300 s, '
-                  '((6.0 h - measured calibration session) - 2 x 900 s) / 2)'}
+BUDGET = {'cap_hours': 6.0, 'calibration_hard_s': 8100, 'transfer_hard_s_max': 6300,
+          'start_margin_s': 1200, 'close_out_s': 600, 'session_overhead_s': 900,
+          'rule': 'each x1 session stops its runner at X1_HARD_S after start (unfinished runs '
+                  'closed out as infra_failed, close-out capped at close_out_s) and starts no run '
+                  'after X1_HARD_S - start_margin_s; transfer X1_HARD_S = min(6300, (6 h - '
+                  'measured calibration session - 2 x session_overhead_s) / 2), so calibration + '
+                  '2 transfer sessions <= 6 h including session_overhead_s each'}
 
 
 def git(*a):

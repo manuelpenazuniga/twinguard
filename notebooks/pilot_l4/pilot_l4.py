@@ -52,6 +52,8 @@ X1_RUNG = ''                     # x1_transfer: the rung chosen by the sealed se
 X1_SELECTION_SHA256 = ''         # x1_transfer: hash of the calibration kernel's x1_selection.json
 X1_STOP_AT_EPOCH = ''            # x1_transfer: no run starts after it (D12: Wed 11 02:00 Chile)
 X1_CUTOFF_S = ''                 # x1 modes: no run starts later than this after kernel start (6 h cap)
+X1_HARD_S = ''                   # x1 modes: the runner is stopped at this time after kernel start;
+                                 # unfinished runs are closed out (infra_failed), like a time cut
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -712,8 +714,8 @@ def checkpoint():
     save()
 
 
-def run_block(code, mode, name, extra):
-    out_dir = Path('/kaggle/working/results') / name
+def run_block(code, mode, name, extra, hard_at=None):
+    out_dir = RESULTS_DIR / name
     cmd = runner_cmd(code, mode, out_dir, extra)
     t0 = time.time()
     done = threading.Event()
@@ -727,7 +729,16 @@ def run_block(code, mode, name, extra):
     th = threading.Thread(target=loop, daemon=True)
     th.start()
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code))
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code),
+                               timeout=None if hard_at is None else max(1.0, hard_at - time.time()))
+        except subprocess.TimeoutExpired as exc:
+            # x1 hard limit: the runner is killed, then every agent/evaluator process
+            for u in AGENTS + EVALS:
+                sh(f'pkill -9 -u {u}')
+            out = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or '')
+            err = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or '')
+            r = subprocess.CompletedProcess(cmd, 'hard_limit', out, err)
     finally:
         done.set()
         th.join()        # a checkpoint in progress always finishes before anything else
@@ -737,6 +748,9 @@ def run_block(code, mode, name, extra):
     res = {'rc': r.returncode, 'wall_seconds': round(time.time() - t0, 1),
            'stdout_tail': redact(r.stdout[-1500:]), 'stderr_tail': redact(r.stderr[-3000:])}
     R.setdefault('blocks', {})[name] = res
+    if r.returncode == 'hard_limit':
+        res['hard_limit_hit'] = True
+        return res
     if r.returncode != 0:
         raise RuntimeError(f'runner block {name} failed rc={r.returncode}: {redact(r.stderr[-1500:])}')
     try:
@@ -1109,13 +1123,14 @@ def x1_verify(code):
                            f'missing={missing[:5]} extra={extra[:5]}')
     b = m['budget']
     try:
-        cutoff = float(X1_CUTOFF_S)
+        cutoff, hard = float(X1_CUTOFF_S), float(X1_HARD_S)
     except ValueError:
-        raise RuntimeError(f'X1_CUTOFF_S must be a number, got {X1_CUTOFF_S!r}')
-    limit = b['calibration_cutoff_s'] if MODE == 'x1_calibration' else b['transfer_cutoff_s_max']
-    if not 0 < cutoff <= limit:
-        raise RuntimeError(f'X1_CUTOFF_S {cutoff} outside (0, {limit}] for {MODE}')
-    out = {'files': len(m['files']), 'mode': MODE, 'cutoff_s': cutoff}
+        raise RuntimeError(f'X1_CUTOFF_S/X1_HARD_S must be numbers: {X1_CUTOFF_S!r} {X1_HARD_S!r}')
+    limit = b['calibration_hard_s'] if MODE == 'x1_calibration' else b['transfer_hard_s_max']
+    if not 0 < hard <= limit or cutoff != hard - b['start_margin_s'] or cutoff <= 0:
+        raise RuntimeError(f'X1_HARD_S {hard} / X1_CUTOFF_S {cutoff} disagree with the sealed '
+                           f'budget for {MODE} (hard <= {limit}, cutoff = hard - {b["start_margin_s"]})')
+    out = {'files': len(m['files']), 'mode': MODE, 'cutoff_s': cutoff, 'hard_s': hard}
     if MODE == 'x1_calibration' and (SHARD or X1_RUNG or X1_SELECTION_SHA256):
         raise RuntimeError('x1_calibration takes no SHARD, X1_RUNG or X1_SELECTION_SHA256')
     if MODE == 'x1_transfer':
@@ -1137,11 +1152,25 @@ def x1_verify(code):
     return out
 
 
-def x1_calibration(code):
+def x1_args(code):
     x = code / 'explore' / 'bank_x1'
-    res = run_block(code, 'x1_calibration', 'x1_calibration',
-                    ['--bank', str(x / 'templates'), '--spec', str(x / 'spec_calibration.csv'),
-                     '--replicates', '1', '--max-paraphrase', '2'])
+    if MODE == 'x1_calibration':
+        return 'x1_calibration', ['--bank', str(x / 'templates'), '--spec',
+                                  str(x / 'spec_calibration.csv'), '--replicates', '1',
+                                  '--max-paraphrase', '2']
+    return 'x1_transfer', ['--bank', str(x / 'templates'), '--spec',
+                           str(x / f'spec_transfer_{X1_RUNG}.csv'), '--replicates', '1',
+                           '--framings', 'A,N']
+
+
+def x1_block(code):
+    """The x1 block under the hard session limit; past it, the runner's close-out (CPU only)
+    evaluates finished episodes and gives every other scheduled run an infra_failed row."""
+    name, extra = x1_args(code)
+    res = run_block(code, name, name, extra, hard_at=KERNEL_T0 + float(X1_HARD_S))
+    if res.get('hard_limit_hit'):
+        res['close_out'] = run_block(code, name, name, extra + ['--close-out'],
+                                     hard_at=time.time() + X1['budget']['close_out_s'])
     return res
 
 
@@ -1162,12 +1191,6 @@ def x1_select(code):
     s = json.loads(sel.read_text())
     return {'selected': s['selected'], 'rule': s['rule'], 'sha256': sha256(sel)}
 
-
-def x1_transfer(code):
-    x = code / 'explore' / 'bank_x1'
-    return run_block(code, 'x1_transfer', 'x1_transfer',
-                     ['--bank', str(x / 'templates'), '--spec', str(x / f'spec_transfer_{X1_RUNG}.csv'),
-                      '--replicates', '1', '--framings', 'A,N'])
 
 
 
@@ -1232,10 +1255,10 @@ elif __name__ == '__main__':
             elif MODE == 'confirmatory':
                 phase('9_runner_confirmatory')(lambda: confirmatory_block(code))()
             elif MODE == 'x1_calibration':
-                if phase('9_x1_calibration')(lambda: x1_calibration(code))()['ok']:
+                if phase('9_x1_calibration')(lambda: x1_block(code))()['ok']:
                     phase('9b_x1_select')(lambda: x1_select(code))()
             elif MODE == 'x1_transfer':
-                phase('9_x1_transfer')(lambda: x1_transfer(code))()
+                phase('9_x1_transfer')(lambda: x1_block(code))()
             else:
                 phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:

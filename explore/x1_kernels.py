@@ -60,13 +60,15 @@ def main(argv=None):
     if a.stage == 'calibration':
         built.append(build(full, out / 'x1_cal', f'{OWNER}/twinguard-x1-cal',
                            base + ['MODE=x1_calibration',
-                                   f"X1_CUTOFF_S={m['budget']['calibration_cutoff_s']}"]))
+                                   f"X1_HARD_S={m['budget']['calibration_hard_s']}",
+                                   f"X1_CUTOFF_S={m['budget']['calibration_hard_s'] - m['budget']['start_margin_s']}"]))
     else:
         if not a.rung or len(a.selection_sha256) != 64 or a.calibration_hours is None:
             raise SystemExit('transfer needs --rung, --selection-sha256 and --calibration-hours')
         b = m['budget']
-        left = (b['cap_hours'] - a.calibration_hours) * 3600 - 2 * b['tail_s_per_session']
-        cutoff = int(min(b['transfer_cutoff_s_max'], left / 2))
+        left = (b['cap_hours'] - a.calibration_hours) * 3600 - 2 * b['session_overhead_s']
+        hard = int(min(b['transfer_hard_s_max'], left / 2))
+        cutoff = hard - b['start_margin_s']
         if cutoff <= 0:
             raise SystemExit(f'no budget left for the transfer: {left:.0f} s')
         t = m['transfer']
@@ -76,7 +78,7 @@ def main(argv=None):
                                base + ['MODE=x1_transfer', f'SHARD={shard}', f'X1_RUNG={a.rung}',
                                        f'X1_SELECTION_SHA256={a.selection_sha256}',
                                        f"X1_STOP_AT_EPOCH={t['stop_at_epoch']}",
-                                       f'X1_CUTOFF_S={cutoff}'],
+                                       f'X1_HARD_S={hard}', f'X1_CUTOFF_S={cutoff}'],
                                [a.calibration_kernel]))
     print(json.dumps(built, indent=1))
 
