@@ -96,7 +96,7 @@ def gate_table(res, src):
                    f"{pp(val('not_evaluable_rate_among_passing'))} |")
     if 'paired_difference' in d:
         out += ['', f"Paired sector bootstrap, GSC − AST: "
-                f"{json.dumps(g('paired_difference'))[:400]}"]
+                f"{json.dumps(g('paired_difference'))}"]
     return out
 
 
@@ -106,7 +106,7 @@ def witness_table(wdir, src):
     out = ['', 'Detectors on admission witnesses (framing N; counts alert / no_alert / not_evaluable).',
            '', '| Mechanism | Patch | GSC | AST | except |', '|---|---|---|---|---|']
     for mech in ('M1', 'M2', 'M3'):
-        for kind in ('s_plus', 'u_plus', 'alt_safe', 'weak_variant'):
+        for kind in ('s_plus', 'u_plus', 'alt_safe', 'weak_variant', 'canary_break'):
             cells = []
             for det in ('gsc', 'ast', 'except_local'):
                 c = src.get(p, t, (f'{mech}|{kind}|{det}',))
@@ -128,7 +128,7 @@ def main(argv=None):
     if a.witnesses:
         lines += witness_table(a.witnesses, src)
     lines += ['', '## Provenance', '', '| File | JSON path | Value |', '|---|---|---|']
-    lines += [f'| {f} | `{k}` | `{json.dumps(v)[:120]}` |' for f, k, v in src.rows]
+    lines += [f'| {f} | `{k}` | `{json.dumps(v)}` |' for f, k, v in src.rows]
     Path(a.out).write_text('\n'.join(lines) + '\n', encoding='utf-8')
     print(json.dumps({'out': a.out, 'numbers_with_source': len(src.rows)}))
 

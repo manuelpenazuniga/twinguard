@@ -1,6 +1,8 @@
 """Secondary analyses 8.6/8.7 (runner/secondary.py), fixed before the confirmatory runs."""
 import csv
+import hashlib
 import json
+import pytest
 import sys
 from pathlib import Path
 
@@ -21,7 +23,7 @@ def test_qualify_and_code_roots(tmp_path):
     (repo / 'tests').mkdir(parents=True)
     (repo / 'tests' / 'test_x.py').write_text('def release_pallet(): pass\n')
     (repo / 'm.py').write_text('x = 1\n')
-    out = SEC.code_root(repo, tmp_path / 'c')
+    out, _ = SEC.code_root(repo, tmp_path / 'c')
     assert (out / 'm.py').exists() and not (out / 'tests').exists()
 
 
@@ -45,8 +47,13 @@ def test_runs_mode_end_to_end(tmp_path):
     target = next(r for r in runs if r['template_id'] == tid and r['framing'] == 'N')
     shard = tmp_path / ('a' if target in s1 else 'b')
     (shard / 'patches').mkdir()
-    (shard / 'patches' / (target['run_id'].replace(':', '__') + '.patch')).write_text(
-        (ROOT / 'bank' / 'templates' / tid / 'patches' / 'u_plus.diff').read_text())
+    text = (ROOT / 'bank' / 'templates' / tid / 'patches' / 'u_plus.diff').read_text()
+    (shard / 'patches' / (target['run_id'].replace(':', '__') + '.patch')).write_text(text)
+    ev = [json.loads(x) for x in (shard / 'attempts.jsonl').read_text().splitlines()]
+    for e in ev:
+        if e.get('final') and e['run_id'] == target['run_id']:
+            e['patch_sha256'] = hashlib.sha256(text.encode()).hexdigest()
+    (shard / 'attempts.jsonl').write_text(''.join(json.dumps(e) + '\n' for e in ev))
     rows = []
     for d in ('a', 'b'):
         rows += list(csv.DictReader(open(tmp_path / d / 'runs.csv')))
@@ -69,3 +76,31 @@ def test_runs_mode_end_to_end(tmp_path):
     assert rc == 0, (tmp_path / 'o' / 'gate_stderr.txt').read_text()[-2000:]
     gate = json.loads((tmp_path / 'o' / 'gate_output.json').read_text())
     assert gate['n_rows_evaluable'] == len(runs)
+
+
+def test_patch_bound_to_the_evaluated_patch(tmp_path):
+    """Astra day 3e: a missing or different patch file never becomes a silent empty diff."""
+    d = tmp_path / 's'
+    (d / 'patches').mkdir(parents=True)
+    rid = 'confirmatory:M1.x:N:p1:r1'
+    good = 'diff --git a/x b/x\n'
+    sha = hashlib.sha256(good.encode()).hexdigest()
+    (d / 'attempts.jsonl').write_text(json.dumps({'run_id': rid, 'final': True,
+                                                  'patch_sha256': sha}) + '\n')
+    with pytest.raises(SystemExit):                     # missing although not empty
+        SEC.patch_of(SEC.final_events([d]), rid)
+    (d / 'patches' / (rid.replace(':', '__') + '.patch')).write_text('other')
+    with pytest.raises(SystemExit):                     # differs from the evaluated patch
+        SEC.patch_of(SEC.final_events([d]), rid)
+    (d / 'patches' / (rid.replace(':', '__') + '.patch')).write_text(good)
+    assert SEC.patch_of(SEC.final_events([d]), rid) == good
+
+
+def test_code_root_drops_symlinks(tmp_path):
+    repo = tmp_path / 'r'
+    repo.mkdir()
+    (repo / 'a.py').write_text('x = 1\n')
+    (tmp_path / 'outside.py').write_text('secret = 1\n')
+    (repo / 'link.py').symlink_to(tmp_path / 'outside.py')
+    out, n = SEC.code_root(repo, tmp_path / 'c')
+    assert n == 1 and not (out / 'link.py').exists() and (out / 'a.py').exists()

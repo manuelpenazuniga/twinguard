@@ -419,3 +419,34 @@ It is frozen with the runner. These choices are fixed now, before any confirmato
   `except` baselines as `bool(<dict>)`, which is always true. It was recorded only and never
   used to admit. Those fields are not reported; the witness table comes from
   `runner/secondary.py`.
+
+**D10 additions after Astra's review (day 3e), before the freeze.**
+- **Patch binding:** the detectors read each run's patch only from the run's own shard,
+  and only if its sha256 equals the final event's `patch_sha256`.
+  - A missing file is accepted only when the evaluated patch was empty.
+  - Any other mismatch refuses the whole secondary analysis; it never becomes an empty diff.
+- **Failure rule (prespecified):** the secondary analyses never block the primary one.
+  - If they fail, the failure is recorded in `analysis_hashes.json` (`secondary_error`).
+    The single analysis then runs on `runs.csv`, without the `gsc` column.
+  - A non-zero gate exit is recorded and changes nothing else. The gate has a 3 h time limit.
+- **Single run:** `runner/analyze.py` creates `analysis_started.json` atomically (O_EXCL)
+  BEFORE it writes or runs anything. An existing marker, even from an interrupted run,
+  refuses any further run.
+- **Detectors:**
+  - Each depth and each baseline fails independently.
+  - Symbolic links are never followed: they are removed from the code roots, and their
+    number is logged.
+  - `tests` directories are excluded at any depth, as are `.git` and `__pycache__`.
+  - The symbols matched by the manifest are logged per run.
+  - `budget_exhausted` runs use their final diff, even when it is empty.
+  - Every run is rendered in its own framing; witnesses use N.
+- **Resource:**
+  - `evaluate` runs patched code only with `--eval-user` (the study's isolated evaluator)
+    or an explicit `--unisolated`.
+  - `evaluate --freeze` refuses a template absent from the freeze and reports extra files.
+  - `reproduce` compares strictly, by type and with missing ≠ null, and both runs must
+    succeed.
+  - `reproduce --freeze` verifies the code it runs against the freeze.
+  - `reproduce --relabel` rebuilds every label from its patch, tests and oracle. Blind
+    adjudications are listed, not re-decided.
+  - The second-environment CPU test is still to be done (WP12).

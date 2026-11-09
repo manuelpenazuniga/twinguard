@@ -75,6 +75,24 @@ def verify_extraction(root, manifest, freeze_sha):
     return len(frozen_files(manifest))
 
 
+MARKER = 'analysis_started.json'
+
+
+def claim(out, commit):
+    """Mutual exclusion for the single run (9.5): atomically create the marker; if it
+    exists, another run started (or finished, or was interrupted): refuse."""
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(out / MARKER, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError:
+        raise SystemExit('the confirmatory analysis already started once (9.5): refusing')
+    with os.fdopen(fd, 'w') as f:
+        import time
+        f.write(json.dumps({'frozen_commit': commit, 'utc': time.time(), 'pid': os.getpid()}))
+        f.flush()
+        os.fsync(f.fileno())
+
+
 def launch_frozen(a, argv):
     """From a checkout: find the commit (merge validates it holds the freeze), extract it,
     verify it, and re-run this script from the extraction."""
@@ -102,8 +120,8 @@ def main(argv=None):
     ap.add_argument('--exploratory', action='store_true', help='add the flag (never removes it)')
     ap.add_argument('shards', nargs='+')
     a = ap.parse_args(argv)
-    out = Path(a.out)
-    if (out / 'analysis_output.txt').exists():
+    out = Path(a.out).resolve()
+    if (out / MARKER).exists() or (out / 'analysis_output.txt').exists():
         raise SystemExit('the confirmatory analysis already ran once (9.5): refusing to rerun')
     frozen_root = os.environ.get(FROZEN_ENV)
     if frozen_root and Path(frozen_root).resolve() != ROOT:
@@ -121,22 +139,36 @@ def main(argv=None):
     rows, report = M.merge(a.freeze, a.shards, repo=repo)
     if report['code_commit'] != os.environ.get(COMMIT_ENV):
         raise SystemExit('analysis refused: extraction is not of the sessions\' commit')
+    claim(out, report['code_commit'])           # the single attempt is recorded BEFORE it runs
     M.write(rows, report, out)
     # 8.6/8.7 (D10): detectors on every evaluable run's final patch, then the review gate;
     # the analysis reads runs_detectors.csv so its GSC decomposition (Annex A `gsc`) is computed
-    # in the same single run. Detectors never read W.
-    from runner import secondary as SEC
-    gate_rc = SEC.runs_mode(argparse.Namespace(runs=str(out / 'runs.csv'), out=str(out),
-                                               workers=4, shards=a.shards, hashes=False))
+    # in the same single run. Detectors never read W. Prespecified failure rule: the secondary
+    # analyses never block the primary one. If they fail (any exception, a patch that does
+    # not match the evaluated patch), the failure is recorded and the analysis runs on
+    # runs.csv without the gsc column; a non-zero gate exit is recorded and nothing else.
+    secondary = {'gate_rc': None, 'error': None}
+    analysis_input = out / 'runs.csv'
+    try:
+        from runner import secondary as SEC
+        secondary['gate_rc'] = SEC.runs_mode(argparse.Namespace(
+            runs=str(out / 'runs.csv'), out=str(out), workers=4, shards=a.shards, hashes=False))
+        analysis_input = out / 'runs_detectors.csv'
+    except BaseException as exc:          # SystemExit included (PatchMismatch)
+        if isinstance(exc, KeyboardInterrupt):
+            raise
+        secondary['error'] = f'{type(exc).__name__}: {exc}'[:500]
+        for name in ('runs_detectors.csv',):
+            (out / name).unlink(missing_ok=True)
     S = manifest['design']['S']
-    cmd = analysis_cmd(out / 'runs_detectors.csv', report, S, out / 'analysis_output.json',
-                       a.exploratory)
+    cmd = analysis_cmd(analysis_input, report, S, out / 'analysis_output.json', a.exploratory)
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     (out / 'analysis_output.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
     digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(out.iterdir()) if p.is_file()}
     (out / 'analysis_hashes.json').write_text(json.dumps(
-        {'cmd': cmd[1:], 'rc': r.returncode, 'gate_rc': gate_rc,
+        {'cmd': cmd[1:], 'rc': r.returncode, 'gate_rc': secondary['gate_rc'],
+         'secondary_error': secondary['error'],
          'frozen_commit': report['code_commit'],
          'code_root': 'git archive of frozen_commit, files verified against the freeze',
          'sha256': digest}, indent=1))

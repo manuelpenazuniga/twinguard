@@ -58,6 +58,7 @@ FZ_MODEL = {'id': 'm', 'revision': 'v'}
 
 
 EV = {'M': 1, 'oracle': {'W': 0, 'crash': 0}, 'tests': {'passed': 1}}
+EMPTY_SHA = hashlib.sha256(b'').hexdigest()
 
 
 def write_shard(d, runs, shard, freeze_sha, closed=(), env='env', extra_rows=(), started=(),
@@ -88,7 +89,7 @@ def write_shard(d, runs, shard, freeze_sha, closed=(), env='env', extra_rows=(),
             events.append({'run_id': r['run_id'], 'event': 'start'})
         events.append({'run_id': r['run_id'], 'final': True, 'closed_out': cut, 'row': row,
                        'summary': {}, 'needs_adjudication': False,
-                       'evaluation': None if cut else EV})
+                       'patch_sha256': EMPTY_SHA, 'evaluation': None if cut else EV})
     with open(d / 'runs.csv', 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=R.COLUMNS)
         w.writeheader()
@@ -344,3 +345,47 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
                          str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
                          str(tmp_path / 'a'), str(tmp_path / 'b')], capture_output=True, text=True)
     assert r2.returncode != 0 and 'refusing to rerun' in r2.stderr
+
+
+def test_analyze_secondary_failure_never_blocks_primary(tmp_path):
+    """Prespecified (D10): a patch that does not match the evaluated patch makes the
+    secondary analyses fail; the single analysis still runs, on runs.csv, and the failure is
+    recorded."""
+    repo = tmp_path / 'repo'
+    subprocess.run(['git', 'clone', '-q', '--no-hardlinks', str(ROOT), str(repo)], check=True)
+    import shutil
+    for rel in ('runner/analyze.py', 'runner/merge.py', 'runner/runner.py', 'runner/secondary.py'):
+        shutil.copyfile(ROOT / rel, repo / rel)
+    git = lambda *a: subprocess.run(['git', *a], cwd=repo, check=True, capture_output=True,
+                                    text=True).stdout.strip()
+    runs = full()
+    shards = {f'{i}/2': {'schedule_sha256': R.schedule_digest(R.shard_runs(runs, (i, 2)))}
+              for i in (1, 2)}
+    fz = {'design': {'S': 1, 'K': 30, 'schedule_sha256': R.schedule_digest(runs),
+                     'block_order': blocks_of(runs), 'shards': shards},
+          'seeds': {'order_seed': 20261107}, 'environment_id': 'env',
+          'model': {'id': R.MODEL_ID, 'revision': 'v'},
+          'files': {'g': {p: hashlib.sha256((repo / p).read_bytes()).hexdigest()
+                          for p in ('runner/analyze.py', 'runner/secondary.py')}},
+          'templates': {}}
+    (repo / 'freeze').mkdir(exist_ok=True)
+    (repo / 'freeze' / 'manifest.json').write_text(json.dumps(fz))
+    git('add', 'freeze/manifest.json', 'runner')
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'freeze')
+    commit = git('rev-parse', 'HEAD')
+    sha = hashlib.sha256((repo / 'freeze' / 'manifest.json').read_bytes()).hexdigest()
+    real = lambda row: row.update(model_id=R.MODEL_ID)
+    s1, s2 = R.shard_runs(runs, (1, 2)), R.shard_runs(runs, (2, 2))
+    write_shard(tmp_path / 'a', s1, '1/2', sha, commit=commit, mutate=real)
+    write_shard(tmp_path / 'b', s2, '2/2', sha, commit=commit, mutate=real)
+    (tmp_path / 'a' / 'patches').mkdir()
+    (tmp_path / 'a' / 'patches' / (s1[0]['run_id'].replace(':', '__') + '.patch')).write_text('x')
+    out = tmp_path / 'out'
+    r = subprocess.run([sys.executable, str(repo / 'runner' / 'analyze.py'), '--freeze',
+                        str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
+                        str(tmp_path / 'a'), str(tmp_path / 'b')], capture_output=True, text=True)
+    h = json.loads((out / 'analysis_hashes.json').read_text())
+    assert 'differs from the evaluated patch' in h['secondary_error'], r.stderr[-1500:]
+    assert h['cmd'][1].endswith('runs.csv') and h['rc'] == 0
+    assert (out / 'analysis_started.json').exists()
+    assert json.loads((out / 'analysis_output.json').read_text())['analysis_status'] == 'CONFIRMATORY'
