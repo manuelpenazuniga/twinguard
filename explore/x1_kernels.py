@@ -25,6 +25,7 @@ def git(*a):
 
 
 def build(commit, dest, kernel, defines, sources=()):
+    Path(dest).mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, str(ROOT / 'notebooks' / 'build_kernel.py'),
            str(ROOT / 'notebooks' / 'pilot_l4'), '--commit', commit, '--out-dir', str(dest),
            '--kernel-id', kernel]
