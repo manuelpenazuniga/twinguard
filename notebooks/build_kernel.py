@@ -19,9 +19,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PATHS = ['harness', 'bank/__init__.py', 'bank/render.py', 'bank/admission.py', 'bank/templates',
-         'bank/spec_matrix.csv', 'twinguard/twinguard_graph.py', 'twinguard/twinguard_analysis.py',
+         'bank/spec_matrix.csv', 'bank/spec_matrix.csv.sha256', 'twinguard/twinguard_graph.py', 'twinguard/twinguard_analysis.py',
          'tests/fixtures', 'bank/manipulation_check.py', 'notebooks/model_overlay', 'runner',
          'notebooks/pilot_l4/pilot_l4.py', 'freeze']
+# bank/spec_matrix.csv.sha256 added after the freeze (deviation DEV-1): the frozen kernel's
+# verify_freeze matches its BUNDLED prefixes, and 'bank/spec_matrix.csv' also matches the .sha256
+# file listed in the manifest, so the bundle must carry it. The bundle content still comes from
+# the frozen commit (git archive <commit>).
 MARKER = '# @@CODE_BUNDLE@@'
 
 
