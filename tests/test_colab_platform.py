@@ -145,7 +145,8 @@ def test_colab_secret_scan_flags_credentials_not_token_counts(tmp_path, monkeypa
     cases = {'1': b'jupyter\0--NotebookApp.token\0abc', '2': b'jupyter\0--NotebookApp.token=',
              '3': b'vllm\0--max-num-batched-tokens\08192\0--thinking-token-budget\04096',
              '4': b'x\0KAGGLE_KEY=zz', '5': b'curl\0http://h/?token=q', '6': b'app\0--token\0--other',
-             '7': b'app\0--api-key\0k1', '8': b'app\0--token\0secret'}
+             '7': b'app\0--api-key\0k1', '8': b'app\0--token\0secret',
+             '9': b"curl\0http://h/?x=1&token=EXAMPLE", '10': b'curl\0http://h/?x=1&page=2'}
     for pid, c in cases.items():
         (tmp_path / pid).mkdir()
         (tmp_path / pid / 'cmdline').write_bytes(c)
@@ -154,25 +155,30 @@ def test_colab_secret_scan_flags_credentials_not_token_counts(tmp_path, monkeypa
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         exec(code, {})
-    assert buf.getvalue().split() == ['1', '4', '5', '7', '8']
+    assert buf.getvalue().split() == ['SCAN_OK', '1', '4', '5', '7', '8', '9']
 
 
 def test_colab_hide_scans_as_agent_and_evaluator_and_aborts(monkeypatch, tmp_path):
     k = load(monkeypatch, tmp_path, PLATFORM='colab')
-    calls = []
+    monkeypatch.setattr(k, 'sh', lambda c: '700' if 'stat' in c else '0')
+    runs = []
 
-    def sh(cmd):
-        calls.append(cmd)
-        if cmd.startswith('setpriv'):
-            return '4242' if f'--reuid={k.EVALS[0]}' in cmd else ''
-        return '700' if 'stat' in cmd else '0'
-    monkeypatch.setattr(k, 'sh', sh)
+    def fake_run(cmd, **kw):
+        runs.append(cmd)
+        out = 'SCAN_OK 4242' if f'--reuid={k.EVALS[0]}' in cmd else 'SCAN_OK'
+        return type('R', (), {'returncode': 0, 'stdout': out, 'stderr': ''})()
+    monkeypatch.setattr(k.subprocess, 'run', fake_run)
     with pytest.raises(RuntimeError, match='credentials or tokens'):
         k.colab_hide()
-    scans = [c for c in calls if c.startswith('setpriv')]
-    assert len(scans) == 2 and any(k.AGENTS[0] in c for c in scans)
-    monkeypatch.setattr(k, 'sh', lambda c: '' if c.startswith('setpriv') else '0')
+    assert len(runs) == 2 and runs[0][0] == 'setpriv' and f'--reuid={k.AGENTS[0]}' in runs[0]
+    ok = lambda cmd, **kw: type('R', (), {'returncode': 0, 'stdout': 'SCAN_OK', 'stderr': ''})()
+    monkeypatch.setattr(k.subprocess, 'run', ok)
     assert k.colab_hide()['cmdline_secret_pids'] == {}
+    # Sol: a scanner that fails (rc 1, empty stdout) is never read as "no secrets"
+    bad = lambda cmd, **kw: type('R', (), {'returncode': 1, 'stdout': '', 'stderr': 'boom'})()
+    monkeypatch.setattr(k.subprocess, 'run', bad)
+    with pytest.raises(RuntimeError, match='credential scan failed'):
+        k.colab_hide()
 
 
 def test_colab_unix_reach_uses_each_socket_type_and_abstract_names(monkeypatch, tmp_path):

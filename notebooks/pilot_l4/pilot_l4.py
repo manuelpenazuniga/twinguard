@@ -1174,7 +1174,11 @@ for c in glob.glob('/proc/[0-9]*/cmdline'):
             val = v if eq else (a[i + 1] if i + 1 < len(a) and not a[i + 1].startswith('-') else '')
             if val.strip():
                 bad.add(c.split('/')[2])
-print(' '.join(sorted(bad, key=int)))
+        for seg in re.split(r'[?&;]', x)[1:]:          # every URL / query parameter
+            k2, eq2, v2 = seg.partition('=')
+            if eq2 and v2.strip() and NAME.search(k2):
+                bad.add(c.split('/')[2])
+print('SCAN_OK ' + ' '.join(sorted(bad, key=int)))
 '''
 COLAB_DENIED = {'content_ls': 'ls /content', 'content_drive_ls': 'ls /content/drive',
                 'net_lo_tcp': f"{sys.executable} -c \"import socket;socket.create_connection(('127.0.0.1',8080),3)\"",
@@ -1240,10 +1244,14 @@ def colab_hide():
     out['hidepid_rc'] = sh('mount -o remount,rw,hidepid=2 /proc >/dev/null 2>&1; echo $?')
     leaks = {}
     for u in (AGENTS[0], EVALS[0]):
-        r = sh(f'setpriv --reuid={u} --regid={u} --clear-groups --no-new-privs -- '
-               f'{sys.executable} -I -c {shlex.quote(COLAB_SECRET_SCAN)}')
-        if r.strip():
-            leaks[u] = r.split()
+        r = subprocess.run(['setpriv', f'--reuid={u}', f'--regid={u}', '--clear-groups',
+                            '--no-new-privs', '--', sys.executable, '-I', '-c', COLAB_SECRET_SCAN],
+                           capture_output=True, text=True)
+        words = r.stdout.split()
+        if r.returncode != 0 or not words or words[0] != 'SCAN_OK':   # the scan must run
+            raise RuntimeError(f'credential scan failed as {u}: rc={r.returncode} {r.stderr[-300:]}')
+        if words[1:]:
+            leaks[u] = words[1:]
     out['cmdline_secret_pids'] = leaks
     if leaks:
         raise RuntimeError(f'process command lines carry credentials or tokens: {leaks}')
