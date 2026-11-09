@@ -940,3 +940,11 @@ Advisor texts (rounds 1–3) and the reconciliation table are in
   - On firing, the watchdog deletes any half-written `.sealed_*.tmp`.
   - The frozen modes keep `/kaggle/working/results`.
 - **Reads.** Any pipe, list, redirection or substitution makes a read ambiguous, since the reader's own success is not observable. `cat > file` is never a read.
+
+**D12 implementation, Astra's fifth review ("not ready"; fixed).**
+- **No temporary archive can survive a watchdog exit.**
+  - A short lock covers each step on a `.sealed_*.tmp`: creating it, publishing it (`os.replace`) and removing it.
+  - On firing, the watchdog takes that lock, sets a closing flag and removes every open or leftover temporary archive.
+  - After the flag is set, no snapshot can create or publish an archive.
+  - The lock is never held during compression.
+- **Reads.** Help/version requests, any long option outside a short list, and any short option outside a per-reader allowlist make a command ambiguous (e.g. `cat --help file`).

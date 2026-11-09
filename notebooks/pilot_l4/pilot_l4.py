@@ -661,6 +661,9 @@ SEALED = Path('/kaggle/working/results_sealed.tar.gz')
 # never leave them in the output (only the sealed archive and blind summaries are exported)
 RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith('x1_') else Path('/kaggle/working/results')
 SEAL_LOCK = threading.Lock()     # one snapshot/seal at a time (periodic and final)
+TMP_LOCK = threading.Lock()      # short lock: creating, replacing or sweeping a .sealed_*.tmp
+CLOSING = threading.Event()      # x1 watchdog: no new temporary archive after this is set
+OPEN_TMPS = set()                # temporary archives being written in /kaggle/working
 
 
 def snapshot_and_seal(kind='periodic'):
@@ -676,9 +679,13 @@ def snapshot_and_seal(kind='periodic'):
 def _snapshot_and_seal(kind):
     import tarfile, tempfile
     res_dir = RESULTS_DIR
-    stage = Path(tempfile.mkdtemp(prefix='snap_', dir='/root/tgv'))
-    fd, tmp_name = tempfile.mkstemp(prefix='.sealed_', suffix='.tmp', dir='/kaggle/working')
+    with TMP_LOCK:
+        if CLOSING.is_set():
+            raise RuntimeError('session closing: no new snapshot')
+        fd, tmp_name = tempfile.mkstemp(prefix='.sealed_', suffix='.tmp', dir='/kaggle/working')
+        OPEN_TMPS.add(tmp_name)
     tmp = Path(tmp_name)
+    stage = Path(tempfile.mkdtemp(prefix='snap_', dir='/root/tgv'))
     try:
         for block in sorted(d for d in res_dir.iterdir() if d.is_dir()):
             dst = stage / block.name
@@ -700,7 +707,10 @@ def _snapshot_and_seal(kind):
                 t.add(stage, arcname='results')
             raw.flush()
             os.fsync(raw.fileno())
-        os.replace(tmp, SEALED)
+        with TMP_LOCK:
+            if CLOSING.is_set():
+                raise RuntimeError('session closing: archive not published')
+            os.replace(tmp, SEALED)
         dfd = os.open('/kaggle/working', os.O_RDONLY)
         try:
             os.fsync(dfd)
@@ -710,7 +720,9 @@ def _snapshot_and_seal(kind):
     finally:
         if fd is not None:
             os.close(fd)
-        tmp.unlink(missing_ok=True)          # no-op after a successful replace
+        with TMP_LOCK:
+            tmp.unlink(missing_ok=True)      # no-op after a successful replace
+            OPEN_TMPS.discard(tmp_name)
         shutil.rmtree(stage, ignore_errors=True)
 
 
@@ -1177,8 +1189,10 @@ def x1_watchdog():
             R['x1_watchdog'] = {'fired_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
             for u in AGENTS + EVALS:
                 sh(f'pkill -9 -u {u}')
-            for tmp in glob.glob('/kaggle/working/.sealed_*.tmp'):   # a seal cut half-way
-                Path(tmp).unlink(missing_ok=True)
+            with TMP_LOCK:            # no snapshot can create or publish an archive after this
+                CLOSING.set()
+                for tmp in set(OPEN_TMPS) | set(glob.glob('/kaggle/working/.sealed_*.tmp')):
+                    Path(tmp).unlink(missing_ok=True)      # a seal cut half-way
             save()
         finally:
             os._exit(3)

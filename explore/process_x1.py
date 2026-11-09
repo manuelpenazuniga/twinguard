@@ -63,6 +63,13 @@ def succeeded(result):
     return r.get('exit_code', 0) in (0, None)
 
 
+# short options accepted per reader (anything else, any long option except the listed ones,
+# and help/version requests make the command ambiguous)
+SHORT_OK = {'cat': 'nbAvEsT', 'head': 'ncq0123456789', 'tail': 'ncq0123456789',
+            'sed': 'nEre', 'awk': 'Ff', 'grep': 'nirwEFHhclvABCef0123456789',
+            'rg': 'niwFHhclABCef0123456789', 'nl': 'ba', 'less': 'NR', 'more': '', 'view': '',
+            'bat': 'np'}
+LONG_OK = {'--regexp', '--file', '--line-number', '--number'}
 PATTERN_FIRST = {'grep', 'rg'}         # first operand is the pattern (unless -e/-f/--regexp)
 SCRIPT_FIRST = {'sed', 'awk'}          # first operand is the script (unless -e/-f)
 
@@ -86,6 +93,12 @@ def command_reads(cmd, name):
     if not toks or Path(toks[0]).name not in READERS:
         return 'ambiguous'
     prog, args = Path(toks[0]).name, toks[1:]
+    for a in args:
+        if a.startswith('--') and a.split('=')[0] not in LONG_OK:
+            return 'ambiguous'                       # --help, --version, unknown long option
+        if a.startswith('-') and not a.startswith('--') and a != '-' and \
+                any(ch not in SHORT_OK.get(prog, '') for ch in a[1:]):
+            return 'ambiguous'
     explicit = any(a in ('-e', '-f', '--regexp', '--file') or a.startswith(('--regexp=', '--file='))
                    for a in args)
     ops, skip = [], False

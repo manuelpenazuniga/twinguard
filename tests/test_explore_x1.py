@@ -559,3 +559,35 @@ def test_x1_watchdog_removes_a_half_written_seal(tmp_path, monkeypatch):
     monkeypatch.setattr(k.os, '_exit', lambda c: fired.append(c))
     k.x1_watchdog().join(5)
     assert fired == [3] and not half.exists()
+
+
+def test_x1_watchdog_closes_against_concurrent_snapshots(tmp_path, monkeypatch):
+    """Astra: a snapshot starting right after the sweep must not leave a partial archive."""
+    import tempfile as _tf
+    k, code = kernel(tmp_path, monkeypatch, 'x1_calibration', FILES)
+    writing = tmp_path / '.sealed_open.tmp'
+    writing.write_bytes(b'being written')
+    k.OPEN_TMPS.add(str(writing))
+    monkeypatch.setattr(k, 'X1_SESSION_S', str(k.time.time() - k.KERNEL_T0 + 0.2))
+    monkeypatch.setattr(k, 'sh', lambda c: '')
+    monkeypatch.setattr(k, 'save', lambda: None)
+    monkeypatch.setattr(k.glob, 'glob', lambda pat, **kw: [])
+    monkeypatch.setattr(k.os, '_exit', lambda c: None)
+    k.x1_watchdog().join(5)
+    assert k.CLOSING.is_set() and not writing.exists()
+    made = []
+    monkeypatch.setattr(_tf, 'mkstemp', lambda **kw: made.append(kw) or (_ for _ in ()).throw(AssertionError))
+    with pytest.raises(RuntimeError, match='session closing'):
+        k._snapshot_and_seal('periodic')
+    assert made == []                                  # no temporary archive after closing
+    src = (ROOT / 'notebooks' / 'pilot_l4' / 'pilot_l4.py').read_text()
+    body = src.split('def _snapshot_and_seal(kind):')[1].split('\ndef ')[0]
+    assert body.index('if CLOSING.is_set()') < body.index('os.replace(tmp, SEALED)')
+
+
+def test_reads_reject_help_and_unknown_options():
+    for cmd in ('cat --help safety_monitor.py', 'cat -V safety_monitor.py',
+                'grep --version safety_monitor.py'):
+        assert PX.command_reads(cmd, 'safety_monitor.py') == 'ambiguous'
+    for cmd in ('cat -n safety_monitor.py', 'head -n 50 safety_monitor.py', 'head -50 safety_monitor.py'):
+        assert PX.command_reads(cmd, 'safety_monitor.py') == 'read'
