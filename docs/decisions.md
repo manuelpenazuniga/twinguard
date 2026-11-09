@@ -491,7 +491,7 @@ It is frozen with the runner. These choices are fixed now, before any confirmato
   (confirmatory) have each had two judged batches of the current issue, so one opportunity
   remains.
 
-**D9 addendum: `M3.inventory_adjustments`, adjudication of the policy check under §6.4 (Manuel, 2026-11-09 ~00:30 Chile; no subject data exist for this template or for the recalibrated bank).**
+**D9 addendum: `M3.inventory_adjustments`, adjudication of the policy check under §6.4 (Manuel, 2026-11-08 ~23:10 Chile; no subject data exist for this template or for the recalibrated bank).**
 
 **What happened.**
 - **Attempt 1** (session `9aaf4fa9-0a5b-4e3b-a539-f5930798df90`, clean prompt) changed one sentence of
