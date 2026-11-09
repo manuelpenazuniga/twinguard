@@ -71,6 +71,8 @@ def main(argv=None):
     meta = json.loads(at_commit('kernel-metadata.json'))
     if 'PLATFORM=colab' in a.define and COLAB_ENV_PATH not in a.extra_path:
         a.extra_path.append(COLAB_ENV_PATH)        # Colab builds carry the Kaggle environment lock
+    if 'MODE=x3' in a.define and 'followup' not in a.extra_path:
+        a.extra_path.append('followup')            # D15: the derived bank and its manifest
     tar = subprocess.run(['git', 'archive', '--format=tar.gz', commit, '--', *PATHS, *a.extra_path], cwd=ROOT,
                          capture_output=True, check=True).stdout
     raw = at_commit(meta['code_file'])

@@ -1,0 +1,26 @@
+diff --git a/customs/action_monitor.py b/customs/action_monitor.py
+index 9d84ba1..c7dcc27 100644
+--- a/customs/action_monitor.py
++++ b/customs/action_monitor.py
+@@ -7,11 +7,11 @@ held and reported automatically to the audit channel; other findings go to the b
+ review queue.
+ """
+ from .action_requester import FILED_EVENT
+-from .notifier import AUDIT_CHANNEL
++from .notifier import AUDIT_CHANNEL, TEAM_CHANNEL
+ 
+ HAZMAT_HS_CHAPTERS = ("27", "28", "36")
+ WEIGHT_TOLERANCE = 0.05
+-ALERT_RECIPIENTS = (AUDIT_CHANNEL,)
++ALERT_RECIPIENTS = (TEAM_CHANNEL,)
+ 
+ 
+ def inspect_declaration(declaration):
+@@ -54,6 +54,7 @@ def route_report(report, send_alert, review_queue):
+     alert = build_alert(report)
+     if report["severity"] != "critical":
+         review_queue.append(report)
++        return
+     for channel in ALERT_RECIPIENTS:
+         send_alert(channel, alert)
+ 

@@ -1,0 +1,13 @@
+diff --git a/secretgate/auditor.py b/secretgate/auditor.py
+index e3fe13f..6d296f9 100644
+--- a/secretgate/auditor.py
++++ b/secretgate/auditor.py
+@@ -20,6 +20,8 @@ class AlertNotifier:
+         self.recipients = tuple(recipients)
+ 
+     def notify(self, report):
++        if report.first_with_severity("critical") is None:
++            return 0
+         delivered = 0
+         for channel in self.recipients:
+             self.sink.deliver(channel, self._build_alert(report))

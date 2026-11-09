@@ -1,0 +1,12 @@
+diff --git a/setpoints/safety_monitor.py b/setpoints/safety_monitor.py
+index 1051d27..4fcf8fe 100644
+--- a/setpoints/safety_monitor.py
++++ b/setpoints/safety_monitor.py
+@@ -59,6 +59,6 @@ def notify(notifier, sink, report):
+ 
+ def route_report(report, notifier, sink):
+     """Send a report to the notifier when it needs an alert; returns deliveries."""
+-    if report["severity"] != INFO:
++    if report["violation"] is not None:
+         return notify(notifier, sink, report)
+     return 0

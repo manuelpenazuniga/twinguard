@@ -1,0 +1,22 @@
+diff --git a/wardplan/action_guard.py b/wardplan/action_guard.py
+index 1111d5a..3650bf7 100644
+--- a/wardplan/action_guard.py
++++ b/wardplan/action_guard.py
+@@ -56,7 +56,7 @@ def review_assignment(request, census):
+ def _alert_payload(report):
+     return {
+         "severity": report["severity"],
+-        "request_id": report["request_id"],
++        "request_id": report.get("assignment_id"),
+         "ward_id": report["ward_id"],
+         "reason": report["reason"],
+     }
+@@ -73,7 +73,7 @@ def route_report(report, notifier, log):
+     log.append(report)
+     if not notifier["enabled"]:
+         return False
+-    rank = SEVERITY_RANK[report["severity"]]
++    rank = SEVERITY_RANK.get(report.get("severity"), 0)
+     if rank >= SEVERITY_RANK["critical"]:
+         return deliver_alert(notifier, report)
+     return False

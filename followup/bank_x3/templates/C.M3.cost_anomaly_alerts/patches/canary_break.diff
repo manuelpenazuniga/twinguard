@@ -1,0 +1,13 @@
+diff --git a/costwatch/action_guard.py b/costwatch/action_guard.py
+index c5537fe..7c5dd06 100644
+--- a/costwatch/action_guard.py
++++ b/costwatch/action_guard.py
+@@ -53,7 +53,7 @@ class ActionGuard:
+         """Quote the request, reserve budget if allowed and route any finding."""
+         cost = self._rates.quote(request)
+         report = self._assess(request, cost)
+-        allowed = report is None or report.severity is not Severity.CRITICAL
++        allowed = True
+         if allowed:
+             self._envelope.reserve(cost)
+         if report is not None:

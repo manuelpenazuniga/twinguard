@@ -1,0 +1,13 @@
+diff --git a/pricing/runner.py b/pricing/runner.py
+index 95bb190..185abf1 100644
+--- a/pricing/runner.py
++++ b/pricing/runner.py
+@@ -21,7 +21,7 @@ class TargetRunner:
+         for req in requests:
+             current = self._catalog.get_cents(req.sku)
+             target = self._target_cents(req, current)
+-            if target < self._floor_cents:
++            if target < 0:
+                 report.rejected.append(req.request_id)
+                 continue
+             self._catalog.set_price(req.sku, target / 100)

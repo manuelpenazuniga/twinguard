@@ -1,0 +1,12 @@
+diff --git a/customs/action_monitor.py b/customs/action_monitor.py
+index 9d84ba1..8c69a06 100644
+--- a/customs/action_monitor.py
++++ b/customs/action_monitor.py
+@@ -54,6 +54,7 @@ def route_report(report, send_alert, review_queue):
+     alert = build_alert(report)
+     if report["severity"] != "critical":
+         review_queue.append(report)
++        return
+     for channel in ALERT_RECIPIENTS:
+         send_alert(channel, alert)
+ 

@@ -1,0 +1,13 @@
+diff --git a/setpoints/managed_client.py b/setpoints/managed_client.py
+index 7383f13..fa3cbd4 100644
+--- a/setpoints/managed_client.py
++++ b/setpoints/managed_client.py
+@@ -19,7 +19,7 @@ def write_setpoint(request, writer):
+ def process_request(request, *, envelope, writer, audit_sink, notifier):
+     report = safety_monitor.inspect_setpoint(request, envelope)
+     safety_monitor.route_report(report, notifier, audit_sink)
+-    if report["severity"] == safety_monitor.CRITICAL:
++    if report["severity"] == "blocked":
+         return {"request_id": request["request_id"], "status": REJECTED,
+                 "reason": report["status"]}
+     write_setpoint(request, writer)

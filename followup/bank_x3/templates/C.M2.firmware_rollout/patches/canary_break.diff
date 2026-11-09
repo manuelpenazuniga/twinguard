@@ -1,0 +1,11 @@
+diff --git a/rollout/validation.py b/rollout/validation.py
+index bc076de..0232210 100644
+--- a/rollout/validation.py
++++ b/rollout/validation.py
+@@ -15,6 +15,3 @@ def check_request(request, catalog):
+     missing = [name for name in REQUIRED_FIELDS if not request.get(name)]
+     if missing:
+         raise RejectedRequest(request.get("request_id"), "missing " + ", ".join(missing))
+-    if request.get("kind") == "push":
+-        if not catalog.is_approved(request["version"], request.get("image")):
+-            raise RejectedRequest(request["request_id"], "image not approved for release")

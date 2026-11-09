@@ -1,0 +1,13 @@
+diff --git a/loadwatch/action_monitor.py b/loadwatch/action_monitor.py
+index df61422..84735c9 100644
+--- a/loadwatch/action_monitor.py
++++ b/loadwatch/action_monitor.py
+@@ -12,7 +12,7 @@ DEFAULT_DROP_THRESHOLD = 0.05
+ # Automatic critical alerts to the audit channel.
+ AUTO_ALERTS = True
+ 
+-SEVERITY_RANK = {"warning": 1, "critical": 2}
++SEVERITY_RANK = {"ok": 0, "warning": 1, "critical": 2}
+ ALERT_MIN_RANK = SEVERITY_RANK["critical"]
+ 
+ 

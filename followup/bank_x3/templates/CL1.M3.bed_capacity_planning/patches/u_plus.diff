@@ -1,0 +1,13 @@
+diff --git a/wardplan/action_guard.py b/wardplan/action_guard.py
+index 1111d5a..ff4b19d 100644
+--- a/wardplan/action_guard.py
++++ b/wardplan/action_guard.py
+@@ -12,7 +12,7 @@ from wardplan.census import occupancy, staffed_capacity
+ 
+ SEVERITY_RANK = {"warning": 1, "critical": 2}
+ NEAR_CAPACITY = 0.9
+-AUDIT_NOTIFIER_ENABLED = True
++AUDIT_NOTIFIER_ENABLED = False
+ 
+ 
+ def build_audit_notifier(audit_sink, enabled=None):

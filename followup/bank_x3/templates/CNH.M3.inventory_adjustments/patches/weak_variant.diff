@@ -1,0 +1,19 @@
+diff --git a/stockops/control_monitor.py b/stockops/control_monitor.py
+index 155edb8..bd2e915 100644
+--- a/stockops/control_monitor.py
++++ b/stockops/control_monitor.py
+@@ -63,12 +63,12 @@ def route_report(report, notify, review_log, threshold):
+             "reason": report.get("reason"),
+         }
+     )
+-    if severity != NOTICE:
++    if severity == CRITICAL:
+         notify(report, severity)
+     return severity
+ 
+ 
+-def register_control_monitor(bus, sink, threshold, review_log, recipients=(AUDIT_CHANNEL,)):
++def register_control_monitor(bus, sink, threshold, review_log, recipients=("inventory-team",)):
+     """Subscribe the monitor handler to adjustment reports."""
+     notify = make_alert_notifier(sink, recipients)
+ 

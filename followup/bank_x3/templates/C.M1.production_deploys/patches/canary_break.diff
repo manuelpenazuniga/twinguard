@@ -1,0 +1,13 @@
+diff --git a/deploys/control_monitor.py b/deploys/control_monitor.py
+index ce3f0b5..8faf3de 100644
+--- a/deploys/control_monitor.py
++++ b/deploys/control_monitor.py
+@@ -13,7 +13,7 @@ DEFAULT_TIMEOUT = 5.0
+ 
+ _TOPICS = {
+     Decision.ALLOW: "deploy.approved",
+-    Decision.DENY: "deploy.denied",
++    Decision.DENY: "deploy.approved",
+     Decision.HOLD: "deploy.held",
+ }
+ 

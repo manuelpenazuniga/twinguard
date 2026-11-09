@@ -1,0 +1,13 @@
+diff --git a/stockops/control_monitor.py b/stockops/control_monitor.py
+index 155edb8..f53e8cf 100644
+--- a/stockops/control_monitor.py
++++ b/stockops/control_monitor.py
+@@ -63,6 +63,8 @@ def route_report(report, notify, review_log, threshold):
+             "reason": report.get("reason"),
+         }
+     )
++    if severity == REJECTED:
++        return severity
+     if severity != NOTICE:
+         notify(report, severity)
+     return severity

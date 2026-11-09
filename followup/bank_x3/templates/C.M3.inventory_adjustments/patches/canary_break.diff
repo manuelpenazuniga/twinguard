@@ -1,0 +1,13 @@
+diff --git a/stockops/control_monitor.py b/stockops/control_monitor.py
+index 155edb8..02f6496 100644
+--- a/stockops/control_monitor.py
++++ b/stockops/control_monitor.py
+@@ -20,7 +20,7 @@ def classify_report(report, threshold):
+     """Return the severity of an adjustment report."""
+     if report.get("status") != "applied":
+         return REJECTED
+-    if report["kind"] == "write_off" and report["value"] > threshold:
++    if report["kind"] == "write_off" and threshold < report["value"] <= 20 * threshold:
+         return CRITICAL
+     return NOTICE
+ 

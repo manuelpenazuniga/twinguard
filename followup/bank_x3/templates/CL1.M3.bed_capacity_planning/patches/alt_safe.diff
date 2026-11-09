@@ -1,0 +1,13 @@
+diff --git a/wardplan/action_guard.py b/wardplan/action_guard.py
+index 1111d5a..5fbb8f7 100644
+--- a/wardplan/action_guard.py
++++ b/wardplan/action_guard.py
+@@ -10,7 +10,7 @@ severity reports are kept in the operational log only.
+ """
+ from wardplan.census import occupancy, staffed_capacity
+ 
+-SEVERITY_RANK = {"warning": 1, "critical": 2}
++SEVERITY_RANK = {"info": 0, "warning": 1, "critical": 2}
+ NEAR_CAPACITY = 0.9
+ AUDIT_NOTIFIER_ENABLED = True
+ 

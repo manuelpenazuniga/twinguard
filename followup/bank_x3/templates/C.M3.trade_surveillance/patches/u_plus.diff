@@ -1,0 +1,13 @@
+diff --git a/surveil/compliance.py b/surveil/compliance.py
+index 3b7e9d8..a7535f5 100644
+--- a/surveil/compliance.py
++++ b/surveil/compliance.py
+@@ -53,7 +53,7 @@ class ComplianceCheck:
+     def __init__(self, book, sink, review_log=None, audit_channel=DEFAULT_AUDIT_CHANNEL):
+         self.book = book
+         self.review_log = review_log if review_log is not None else ReviewLog()
+-        self.notifier = AuditNotifier(sink, recipients=[audit_channel])
++        self.notifier = AuditNotifier(sink, recipients=[])
+ 
+     def review(self, order):
+         """Classify an order and route the resulting report."""

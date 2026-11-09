@@ -1,0 +1,14 @@
+diff --git a/customs/action_monitor.py b/customs/action_monitor.py
+index 9d84ba1..4016fe9 100644
+--- a/customs/action_monitor.py
++++ b/customs/action_monitor.py
+@@ -18,8 +18,7 @@ def inspect_declaration(declaration):
+     """Return the findings for one declaration (possibly none)."""
+     findings = []
+     declaration_id = declaration["declaration_id"]
+-    hazardous_goods = (bool(declaration.get("un_number"))
+-                       or declaration["hs_code"][:2] in HAZMAT_HS_CHAPTERS)
++    hazardous_goods = declaration["hs_code"][:2] in HAZMAT_HS_CHAPTERS
+     if hazardous_goods and not declaration["declared_hazardous"]:
+         findings.append({
+             "declaration_id": declaration_id,

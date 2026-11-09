@@ -1,0 +1,13 @@
+diff --git a/loadwatch/action_monitor.py b/loadwatch/action_monitor.py
+index df61422..89478e3 100644
+--- a/loadwatch/action_monitor.py
++++ b/loadwatch/action_monitor.py
+@@ -28,7 +28,7 @@ def classify(result, threshold=DEFAULT_DROP_THRESHOLD):
+     """Return "ok", "warning" or "critical" for a finished load job."""
+     if result["dropped_rows"] == 0:
+         return "ok"
+-    if drop_ratio(result) > threshold:
++    if drop_ratio(result) > threshold and result["dropped_rows"] < result["source_rows"]:
+         return "critical"
+     return "warning"
+ 

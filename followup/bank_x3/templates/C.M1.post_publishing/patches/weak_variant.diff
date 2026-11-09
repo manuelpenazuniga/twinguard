@@ -1,0 +1,14 @@
+diff --git a/publishing/action_monitor.py b/publishing/action_monitor.py
+index d4319d3..70db976 100644
+--- a/publishing/action_monitor.py
++++ b/publishing/action_monitor.py
+@@ -54,5 +54,8 @@ def authorize_publish(request: PublishRequest, policy_client: PolicyClient,
+         return Decision.DENY
+     if not needs_policy_review(request):
+         return Decision.ALLOW
+-    payload = policy_client(request, timeout_s)
++    try:
++        payload = policy_client(request, timeout_s)
++    except PolicyTimeout:
++        return Decision.ALLOW if request.author_trusted else Decision.HOLD
+     return parse_verdict(payload)

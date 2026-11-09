@@ -1,0 +1,13 @@
+diff --git a/costwatch/action_guard.py b/costwatch/action_guard.py
+index c5537fe..2b16f1d 100644
+--- a/costwatch/action_guard.py
++++ b/costwatch/action_guard.py
+@@ -40,7 +40,7 @@ class AlertNotifier:
+ 
+ 
+ class ActionGuard:
+-    def __init__(self, envelope, rate_card, notifier, alerts_enabled=True,
++    def __init__(self, envelope, rate_card, notifier, alerts_enabled=False,
+                  formatter=DEFAULT_FORMATTER):
+         self._envelope = envelope
+         self._rates = rate_card

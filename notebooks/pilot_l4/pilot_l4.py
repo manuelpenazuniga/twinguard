@@ -41,7 +41,7 @@ SCRIPT_SHA256 = ''       # set by build_kernel: SHA-256 of this script at the co
 # D13 (x2) runs on Google Colab with one A100; the Kaggle modes never change (build --define):
 PLATFORM = 'kaggle'      # 'kaggle' (L4x4, TP=4, offline) or 'colab' (1x A100, TP=1, see colab_*)
 COLAB_GPU_MEM = '0.90'   # colab: vLLM gpu_memory_utilization (Kaggle keeps the official 0.90)
-COLAB_MODES = ('runner_smoke',)  # the only modes allowed on Colab (x2 modes are added with D13)
+COLAB_MODES = ('runner_smoke', 'x3')  # the only modes allowed on Colab (x3 = D15 follow-up)
 KERNEL_T0 = time.time()
 SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
 STOP_MARGIN_S = 90 * 60          # no run starts later than this before the limit (60 min budget + eval)
@@ -61,6 +61,10 @@ X1_HARD_S = ''                   # x1 modes: the runner is stopped at this time 
                                  # unfinished runs are closed out (infra_failed), like a time cut
 X1_SESSION_S = ''                # x1 modes: absolute end of the whole session (= hard + overhead);
                                  # a watchdog ends the process there (the last sealed checkpoint stays)
+# D15 explicit-request follow-up 'x3' (Colab only; build --define): sessions chain like the
+# confirmatory (SESSION k resumes k-1 with RESUME_SHA256); no run starts after the sealed stop
+# time; unfinished runs are closed out only once it has passed
+X3_MANIFEST_SHA256 = ''          # SHA-256 of followup/x3_manifest.json (OTS-stamped with D15)
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -105,6 +109,8 @@ def gpu_guard():
     gpus = [l for l in smi.splitlines() if l.strip()]
     info = {'gpus': gpus, 'topo': sh('nvidia-smi topo -m'), 'python': sys.version,
             'cpus': os.cpu_count(), 'ram': sh('free -g | head -2')}
+    if PLATFORM != 'colab' and MODE == 'x3':
+        raise SystemExit('x3 runs on Colab only (its sealed environment)')
     if PLATFORM == 'colab':
         if MODE not in COLAB_MODES:
             raise SystemExit(f'mode {MODE!r} never runs on Colab')
@@ -643,7 +649,9 @@ def runner_cmd(code, mode, out_dir, extra):
         raise RuntimeError(f'environment {env_id!r} differs from the frozen {FREEZE["environment_id"]!r}')
     if mode.startswith('x1_') and env_id != X1['environment_id']:
         raise RuntimeError(f'environment {env_id!r} differs from the D12 {X1["environment_id"]!r}')
-    split = 'confirmatory' if mode in ('confirmatory', 'x1_transfer') else 'pilot'
+    if mode == 'x3' and env_id != X3['environment_id']:
+        raise RuntimeError(f'environment {env_id!r} differs from the D15 {X3["environment_id"]!r}')
+    split = 'confirmatory' if mode in ('confirmatory', 'x1_transfer', 'x3') else 'pilot'
     args = ['--split', split, '--out', str(out_dir), '--work', '/tmp/wk',
             '--base-url', f'unix:{UDS}', '--model', served_model(),
             '--model-revision', R['verified_revision'],
@@ -691,7 +699,7 @@ SEALED = Path('/kaggle/working/results_sealed.tar.gz')
 # raw results (framings, logs): exported with the session for the frozen modes; for the x1
 # modes they live in a root-only directory OUTSIDE /kaggle/working, so a watchdog exit can
 # never leave them in the output (only the sealed archive and blind summaries are exported)
-RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith('x1_') else Path('/kaggle/working/results')
+RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith(('x1_', 'x3')) else Path('/kaggle/working/results')
 SEAL_LOCK = threading.Lock()     # one snapshot/seal at a time (periodic and final)
 TMP_LOCK = threading.Lock()      # short lock: creating, replacing or sweeping a .sealed_*.tmp
 CLOSING = threading.Event()      # x1 watchdog: no new temporary archive after this is set
@@ -937,8 +945,8 @@ def restore_previous():
         raise RuntimeError(f'expected exactly one sealed archive with sha256 {RESUME_SHA256}: {prev}')
     import tarfile
     with tarfile.open(match[0]) as t:
-        t.extractall('/kaggle/working')
-    seal = Path('/kaggle/working/results/seal.json')
+        t.extractall(RESULTS_DIR.parent)          # the archive holds results/
+    seal = RESULTS_DIR / 'seal.json'
     kind = json.loads(seal.read_text()) if seal.exists() else {'kind': 'unknown'}
     seal.unlink(missing_ok=True)
     return {'resumed_from': match[0], 'sha256': RESUME_SHA256, 'parent_seal': kind}
@@ -1055,6 +1063,8 @@ def stop_at():
         return min(t, float(X1_STOP_AT_EPOCH), KERNEL_T0 + float(X1_CUTOFF_S))
     if MODE == 'x1_calibration':
         return min(t, KERNEL_T0 + float(X1_CUTOFF_S))
+    if MODE == 'x3':
+        return min(t, float(X3['stop_at_epoch']))
     return min(t, deadline()) if MODE == 'confirmatory' else t
 
 
@@ -1146,6 +1156,126 @@ def smoke_block(code):
     spec.write_text('template_id,split,family,mechanism\nFIXTURE.m1_toy,pilot,logistics,M1\n')
     return run_block(code, 'runner_smoke', 'runner_smoke',
                      ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'])
+
+
+
+# ------------------------------------------------------------------ D15 follow-up (x3, Colab)
+X3 = {}
+X3_OWN = {'followup/x3_manifest.json', 'followup/x3_manifest.json.sha256',
+          'followup/x3_manifest.json.ots'}
+
+
+def x3_verify(code):
+    """The bundle is the sealed D15 package (manifest hash, this script, every listed file with
+    its hash, no extra file); the session chain is well formed (1 starts empty, k resumes)."""
+    mpath = code / 'followup' / 'x3_manifest.json'
+    if not mpath.exists() or sha256(mpath) != X3_MANIFEST_SHA256:
+        raise RuntimeError('x3 manifest missing or its hash differs from X3_MANIFEST_SHA256')
+    m = json.loads(mpath.read_text())
+    X3.update(m)
+    if m['files'].get('notebooks/pilot_l4/pilot_l4.py') != SCRIPT_SHA256:
+        raise RuntimeError('this kernel script is not the D15 script')
+    have = {f.relative_to(code).as_posix() for f in code.rglob('*') if f.is_file()} - X3_OWN
+    bad = sorted(p for p in have & set(m['files']) if sha256(code / p) != m['files'][p])
+    missing = sorted(set(m['files']) - have)
+    extra = sorted(have - set(m['files']))
+    if bad or missing or extra:
+        raise RuntimeError(f'bundle differs from the D15 manifest: bad={bad[:5]} '
+                           f'missing={missing[:5]} extra={extra[:5]}')
+    if not SESSION.isdigit() or int(SESSION) < 1:
+        raise RuntimeError(f'x3: SESSION must be 1, 2, ..., got {SESSION!r}')
+    if (SESSION == '1') != (RESUME_SHA256 == ''):
+        raise RuntimeError('x3: session 1 starts empty; every later session resumes')
+    if SHARD:
+        raise RuntimeError('x3 has no shards')
+    return {'files': len(m['files']), 'session': int(SESSION),
+            'stop_at_epoch': m['stop_at_epoch'], 'm3_start_by_epoch': m['m3_start_by_epoch']}
+
+
+def x3_chain(restored):
+    """Session k resumes exactly session k - 1 of this seal; each session appends its entry
+    (with the parent's seal kind: a periodic snapshot may have lost later events, re-run)."""
+    log = RESULTS_DIR / 'x3_sessions.jsonl'
+    k = int(SESSION)
+    if k == 1:
+        if (RESULTS_DIR / 'x3_main').exists() or log.exists():
+            raise RuntimeError('session 1 must start without x3 results')
+    else:
+        if not log.exists():
+            raise RuntimeError('resumed archive has no x3 session log')
+        prev = json.loads(log.read_text().strip().splitlines()[-1])
+        if (prev['session'], prev['manifest_sha256']) != (k - 1, X3_MANIFEST_SHA256):
+            raise RuntimeError(f'x3 resume chain broken: previous entry {prev}, this session {k}')
+    entry = {'session': k, 'manifest_sha256': X3_MANIFEST_SHA256, 'code_commit': CODE_COMMIT,
+             'parent_sha256': RESUME_SHA256 or None, 'parent_seal': restored.get('parent_seal'),
+             'started_utc': KERNEL_T0, 'stop_at': stop_at()}
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(log, 'a') as f:
+        f.write(json.dumps(entry) + '\n')
+        f.flush()
+        os.fsync(f.fileno())
+    return entry
+
+
+def x3_args(code, name):
+    x = code / 'followup' / 'bank_x3'
+    if name == 'x3_main':
+        return ['--bank', str(x / 'templates'), '--spec', str(x / 'spec_main.csv'),
+                '--replicates', '1']
+    return ['--bank', str(x / 'templates'), '--spec', str(x / 'spec_m3.csv'),
+            '--replicates', '1', '--framings', 'N']
+
+
+def block_complete(name):
+    s = (R.get('blocks', {}).get(name) or {}).get('session') or {}
+    return bool(s.get('scheduled')) and s.get('completed') == s.get('scheduled')
+
+
+def x3_m3_may_run():
+    """Sealed start rule of the M3 ablation (time only, never results): its first run may start
+    only once every main run has its row and before m3_start_by_epoch; once started (in this or
+    an earlier session) it continues until the stop time."""
+    started = (RESULTS_DIR / 'x3_m3').exists()
+    return block_complete('x3_main') and time.time() < stop_at() and (
+        started or time.time() < float(X3['m3_start_by_epoch']))
+
+
+def x3_block(code):
+    res = {'main': run_block(code, 'x3', 'x3_main', x3_args(code, 'x3_main'))}
+    res['m3_rule'] = {'main_complete': block_complete('x3_main'),
+                      'm3_started_before': (RESULTS_DIR / 'x3_m3').exists(),
+                      'now_epoch': time.time(), 'm3_start_by_epoch': X3['m3_start_by_epoch']}
+    if x3_m3_may_run():
+        res['m3'] = run_block(code, 'x3', 'x3_m3', x3_args(code, 'x3_m3'))
+    return res
+
+
+def x3_deadline_reached():
+    return MODE == 'x3' and bool(X3) and time.time() >= float(X3['stop_at_epoch'])
+
+
+def x3_close_out(code):
+    """Past the sealed stop time: evaluate finished episodes and give every unfinished scheduled
+    run of a started block an infra_failed row (time cut; CPU only, the model is never called)."""
+    out = {}
+    for name in ('x3_main', 'x3_m3'):
+        if (RESULTS_DIR / name).exists():
+            out[name] = run_block(code, 'x3', name, x3_args(code, name) + ['--close-out'])
+    return out
+
+
+def x3_status(closed):
+    """complete, closed_at_deadline, or requires_resume (attach this session's sealed archive
+    to session k + 1 with RESUME_SHA256)."""
+    if not closed.get('ok'):
+        return 'close_out_failed'
+    if x3_deadline_reached():
+        return 'closed_at_deadline'
+    if not block_complete('x3_main'):
+        return 'requires_resume'
+    if (RESULTS_DIR / 'x3_m3').exists():
+        return 'complete' if block_complete('x3_m3') else 'requires_resume'
+    return 'complete' if time.time() >= float(X3['m3_start_by_epoch']) else 'requires_resume'
 
 
 # ------------------------------------------------------------------ Colab (D13 x2 only)
@@ -1570,6 +1700,9 @@ elif __name__ == '__main__':
         if MODE.startswith('x1_'):
             if not phase('6_verify_x1')(x1_verify)(code)['ok']:
                 raise SystemExit('bundle is not the sealed D12 package: refusing to run')
+        if MODE == 'x3':
+            if not phase('6_verify_x3')(x3_verify)(code)['ok']:
+                raise SystemExit('bundle is not the sealed D15 package: refusing to run')
         MODEL = model_path()
         R['model_path'] = str(MODEL)
         h = model_hashes()
@@ -1584,9 +1717,12 @@ elif __name__ == '__main__':
         if MODE == 'confirmatory':
             if not phase('8c_session_chain')(session_chain)(restored)['ok']:
                 raise SystemExit('confirmatory session chain check failed: refusing to run')
+        if MODE == 'x3':
+            if not phase('8c_x3_chain')(x3_chain)(restored)['ok']:
+                raise SystemExit('x3 session chain check failed: refusing to run')
         if not isolation(code)['ok']:
             raise SystemExit('isolation checks failed: refusing to run')
-        verified = MODE == 'confirmatory'     # close-out evaluates only under verified isolation
+        verified = MODE in ('confirmatory', 'x3')   # close-out only under verified isolation
 
         tp, gpus = (1, '0') if PLATFORM == 'colab' else (4, '0,1,2,3')
 
@@ -1610,6 +1746,8 @@ elif __name__ == '__main__':
                     phase('9b_x1_select')(lambda: x1_select(code))()
             elif MODE == 'x1_transfer':
                 phase('9_x1_transfer')(lambda: x1_block(code))()
+            elif MODE == 'x3':
+                phase('9_x3')(lambda: x3_block(code))()
             else:
                 if PLATFORM != 'colab' or \
                         phase('4_colab_capacity')(lambda: colab_capacity(f'tp{tp}_8000', procs[0]))()['ok']:
@@ -1620,12 +1758,16 @@ elif __name__ == '__main__':
         if verified and deadline_reached():
             # past the deadline: close even if the server or the main block failed (CPU only)
             closed = phase('9d_close_out')(lambda: confirmatory_close_out(code))()
+        if verified and x3_deadline_reached():
+            closed = phase('9d_x3_close_out')(lambda: x3_close_out(code))()
         seal = phase('10_seal')(seal_results)()
         sh('chmod 0755 /kaggle')
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
         shutil.rmtree('/kaggle/working/model_52f3f65', ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         R['shard_status'] = shard_status(closed) if MODE == 'confirmatory' else None
+        if MODE == 'x3':
+            R['x3_status'] = x3_status(closed) if X3 else 'not_started'
         save()
         if not seal['ok'] or not closed['ok']:
             print('SEAL FAILED' if not seal['ok'] else 'CLOSE-OUT FAILED', flush=True)
@@ -1634,9 +1776,10 @@ elif __name__ == '__main__':
             failed = sorted(k for k, v in R['phases'].items() if not v.get('ok'))
             R['colab_failed_phases'] = failed
             save()
-            if failed or '9_runner_smoke' not in R['phases']:
+            main_phase = '9_x3' if MODE == 'x3' else '9_runner_smoke'
+            if failed or main_phase not in R['phases']:
                 print(f'COLAB RUN FAILED: {failed}', flush=True)
                 sys.exit(1)
         # DONE = the results are sealed; for a shard it also says whether it must be resumed
-        print('DONE' + (f" shard_status={R['shard_status']}" if R['shard_status'] else ''),
-              flush=True)
+        print('DONE' + (f" shard_status={R['shard_status']}" if R['shard_status'] else '')
+              + (f" x3_status={R['x3_status']}" if R.get('x3_status') else ''), flush=True)

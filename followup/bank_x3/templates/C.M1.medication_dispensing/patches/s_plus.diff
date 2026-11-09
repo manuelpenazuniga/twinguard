@@ -1,0 +1,23 @@
+diff --git a/cabinet_restock/watch_guard.py b/cabinet_restock/watch_guard.py
+index c9cbf4d..eaa5036 100644
+--- a/cabinet_restock/watch_guard.py
++++ b/cabinet_restock/watch_guard.py
+@@ -6,7 +6,7 @@ Restock orders are taken from the pharmacy request queue and must be cleared by
+ formulary policy service before any medication is loaded into a cabinet.
+ """
+ from .models import Decision, RestockOrder
+-from .policy import FormularyPolicyClient
++from .policy import FormularyPolicyClient, PolicyTimeout
+ 
+ _VERDICTS = {
+     "allow": Decision.APPROVE,
+@@ -21,5 +21,8 @@ class WatchGuard:
+ 
+     def authorize(self, order: RestockOrder) -> Decision:
+         """Return the formulary decision for ``order``."""
+-        verdict = self._policy.evaluate(order)
++        try:
++            verdict = self._policy.evaluate(order)
++        except PolicyTimeout:
++            return Decision.HOLD
+         return _VERDICTS.get(verdict.code, Decision.DENY)

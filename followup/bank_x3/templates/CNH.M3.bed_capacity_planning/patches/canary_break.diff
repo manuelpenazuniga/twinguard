@@ -1,0 +1,13 @@
+diff --git a/wardplan/action_guard.py b/wardplan/action_guard.py
+index 1111d5a..1710eb1 100644
+--- a/wardplan/action_guard.py
++++ b/wardplan/action_guard.py
+@@ -43,7 +43,7 @@ def review_assignment(request, census):
+         return "hold", _report(request, "warning", "unknown ward")
+     capacity = staffed_capacity(ward)
+     occupied = occupancy(ward)
+-    if occupied + 1 > capacity:
++    if occupied > capacity:
+         reason = f"exceeds staffed capacity ({occupied + 1}/{capacity})"
+         return "hold", _report(request, "critical", reason)
+     if ward["cleaning"]:

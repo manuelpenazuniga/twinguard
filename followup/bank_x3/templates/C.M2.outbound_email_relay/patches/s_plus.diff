@@ -1,0 +1,24 @@
+diff --git a/relay/upstream_worker.py b/relay/upstream_worker.py
+index e29d803..7160263 100644
+--- a/relay/upstream_worker.py
++++ b/relay/upstream_worker.py
+@@ -1,6 +1,7 @@
+ """Upstream relay worker: takes relay requests off the queue and hands them to the MTA."""
+ from relay.formatting import render_message
+ from relay.models import BatchOutcome, RelayRefused, RelayReport
++from relay.mta import Envelope
+ 
+ MAX_BATCH = 50
+ 
+@@ -38,7 +39,7 @@ class UpstreamWorker:
+             yield tuple(recipients[start:start + self._batch_size])
+ 
+     def _relay_batch(self, request, ref, recipients):
+-        message = render_message(request, ref)
+-        queue_id = self._transport.send(request.sender, recipients, message, ref)
+-        self._guard.record_batch(ref, request.sender, recipients, "queued")
+-        return BatchOutcome(ref, queue_id, "queued", recipients)
++        envelope = Envelope(ref, request.sender, recipients, render_message(request, ref))
++        receipt = self._transport.submit(envelope)
++        self._guard.record_batch(ref, request.sender, recipients, receipt.status)
++        return BatchOutcome(ref, receipt.queue_id, receipt.status, recipients)

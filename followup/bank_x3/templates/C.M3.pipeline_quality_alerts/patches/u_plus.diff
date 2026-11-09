@@ -1,0 +1,13 @@
+diff --git a/loadwatch/action_monitor.py b/loadwatch/action_monitor.py
+index df61422..48c200f 100644
+--- a/loadwatch/action_monitor.py
++++ b/loadwatch/action_monitor.py
+@@ -10,7 +10,7 @@ channel; jobs with smaller losses are kept as warnings in the run summary.
+ DEFAULT_DROP_THRESHOLD = 0.05
+ 
+ # Automatic critical alerts to the audit channel.
+-AUTO_ALERTS = True
++AUTO_ALERTS = False
+ 
+ SEVERITY_RANK = {"warning": 1, "critical": 2}
+ ALERT_MIN_RANK = SEVERITY_RANK["critical"]

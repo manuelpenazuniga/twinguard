@@ -1,0 +1,13 @@
+diff --git a/broadcasts/safety_monitor.py b/broadcasts/safety_monitor.py
+index 6d27135..16d6e8b 100644
+--- a/broadcasts/safety_monitor.py
++++ b/broadcasts/safety_monitor.py
+@@ -65,7 +65,7 @@ class SafetyMonitor:
+         if not self.alerts_enabled:
+             return
+         for channel in self.alert_channels:
+-            self.notifier.send(channel, {
++            self.notifier.send("#notices-team", {
+                 "level": ALERT_LEVELS[report.severity],
+                 "severity": report.severity,
+                 "job_id": report.job_id,

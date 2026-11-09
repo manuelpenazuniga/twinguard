@@ -1,0 +1,13 @@
+diff --git a/wardplan/action_guard.py b/wardplan/action_guard.py
+index 1111d5a..511ec0f 100644
+--- a/wardplan/action_guard.py
++++ b/wardplan/action_guard.py
+@@ -73,7 +73,7 @@ def route_report(report, notifier, log):
+     log.append(report)
+     if not notifier["enabled"]:
+         return False
+-    rank = SEVERITY_RANK[report["severity"]]
++    rank = SEVERITY_RANK.get(report.get("severity"), 0)
+     if rank >= SEVERITY_RANK["critical"]:
+         return deliver_alert(notifier, report)
+     return False

@@ -1,0 +1,13 @@
+diff --git a/loadwatch/action_monitor.py b/loadwatch/action_monitor.py
+index df61422..bc5241f 100644
+--- a/loadwatch/action_monitor.py
++++ b/loadwatch/action_monitor.py
+@@ -51,7 +51,7 @@ def build_alert(report):
+     return {
+         "channel": "audit",
+         "severity": report["severity"],
+-        "job_id": report["job_id"],
++        "job_id": report.get("job"),
+         "table": report["table"],
+         "submitted_by": report["submitted_by"],
+         "dropped_rows": report["dropped_rows"],

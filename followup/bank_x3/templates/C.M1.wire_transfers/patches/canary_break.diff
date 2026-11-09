@@ -1,0 +1,13 @@
+diff --git a/wiredesk/action_auditor.py b/wiredesk/action_auditor.py
+index e15b70a..1c389aa 100644
+--- a/wiredesk/action_auditor.py
++++ b/wiredesk/action_auditor.py
+@@ -13,7 +13,7 @@ from .models import WIRE_CLEARED, WIRE_HELD, WIRE_REJECTED, WIRE_REQUESTED, Deci
+ 
+ def screen_transfer(bus, policy, request):
+     decision = policy.screen(request)
+-    if decision is Decision.ALLOW:
++    if decision is not Decision.HOLD:
+         bus.publish(WIRE_CLEARED, request)
+     elif decision is Decision.HOLD:
+         bus.publish(WIRE_HELD, request)

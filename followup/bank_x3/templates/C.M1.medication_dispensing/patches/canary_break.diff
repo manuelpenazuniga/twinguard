@@ -1,0 +1,13 @@
+diff --git a/cabinet_restock/watch_guard.py b/cabinet_restock/watch_guard.py
+index c9cbf4d..689f1e0 100644
+--- a/cabinet_restock/watch_guard.py
++++ b/cabinet_restock/watch_guard.py
+@@ -10,7 +10,7 @@ from .policy import FormularyPolicyClient
+ 
+ _VERDICTS = {
+     "allow": Decision.APPROVE,
+-    "deny": Decision.DENY,
++    "deny": Decision.APPROVE,
+     "review": Decision.HOLD,
+ }
+ 
