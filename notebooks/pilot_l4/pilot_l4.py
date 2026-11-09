@@ -51,6 +51,7 @@ X1_MANIFEST_SHA256 = ''          # SHA-256 of explore/x1_manifest.json (OTS-stam
 X1_RUNG = ''                     # x1_transfer: the rung chosen by the sealed selector
 X1_SELECTION_SHA256 = ''         # x1_transfer: hash of the calibration kernel's x1_selection.json
 X1_STOP_AT_EPOCH = ''            # x1_transfer: no run starts after it (D12: Wed 11 02:00 Chile)
+X1_CUTOFF_S = ''                 # x1 modes: no run starts later than this after kernel start (6 h cap)
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -858,6 +859,11 @@ def seal_results():
 def restore_previous():
     """Resume: a previous version's sealed results attached as a kernel source."""
     prev = glob.glob('/kaggle/input/**/results_sealed.tar.gz', recursive=True)
+    if MODE == 'x1_transfer':
+        # the attached input is the calibration kernel (its selection); never a resume
+        if RESUME_SHA256:
+            raise RuntimeError('x1_transfer never resumes')
+        return {'resumed_from': None, 'attached_not_restored': [sha256(x) for x in prev]}
     if not RESUME_SHA256:
         if prev:
             raise RuntimeError(f'sealed results attached but no RESUME_SHA256 defined: {prev}')
@@ -983,7 +989,9 @@ def stop_at():
     """No run starts after the session margin or after the frozen confirmatory deadline."""
     t = KERNEL_T0 + SESSION_LIMIT_S - STOP_MARGIN_S
     if MODE == 'x1_transfer':
-        return min(t, float(X1_STOP_AT_EPOCH))
+        return min(t, float(X1_STOP_AT_EPOCH), KERNEL_T0 + float(X1_CUTOFF_S))
+    if MODE == 'x1_calibration':
+        return min(t, KERNEL_T0 + float(X1_CUTOFF_S))
     return min(t, deadline()) if MODE == 'confirmatory' else t
 
 
@@ -1091,16 +1099,33 @@ def x1_verify(code):
     X1.update(m)
     if m['files'].get('notebooks/pilot_l4/pilot_l4.py') != SCRIPT_SHA256:
         raise RuntimeError('this kernel script is not the D12 script')
-    bad = [p for p, h in m['files'].items() if (code / p).exists() and sha256(code / p) != h]
-    missing = [p for p in m['files'] if not (code / p).exists()]
-    if bad or missing:
-        raise RuntimeError(f'bundle differs from the D12 manifest: bad={bad[:5]} missing={missing[:5]}')
-    out = {'files': len(m['files']), 'mode': MODE}
+    own = {'explore/x1_manifest.json', 'explore/x1_manifest.json.sha256', 'explore/x1_manifest.json.ots'}
+    have = {f.relative_to(code).as_posix() for f in code.rglob('*') if f.is_file()} - own
+    bad = sorted(p for p in have & set(m['files']) if sha256(code / p) != m['files'][p])
+    missing = sorted(set(m['files']) - have)
+    extra = sorted(have - set(m['files']))
+    if bad or missing or extra:
+        raise RuntimeError(f'bundle differs from the D12 manifest: bad={bad[:5]} '
+                           f'missing={missing[:5]} extra={extra[:5]}')
+    b = m['budget']
+    try:
+        cutoff = float(X1_CUTOFF_S)
+    except ValueError:
+        raise RuntimeError(f'X1_CUTOFF_S must be a number, got {X1_CUTOFF_S!r}')
+    limit = b['calibration_cutoff_s'] if MODE == 'x1_calibration' else b['transfer_cutoff_s_max']
+    if not 0 < cutoff <= limit:
+        raise RuntimeError(f'X1_CUTOFF_S {cutoff} outside (0, {limit}] for {MODE}')
+    out = {'files': len(m['files']), 'mode': MODE, 'cutoff_s': cutoff}
+    if MODE == 'x1_calibration' and (SHARD or X1_RUNG or X1_SELECTION_SHA256):
+        raise RuntimeError('x1_calibration takes no SHARD, X1_RUNG or X1_SELECTION_SHA256')
     if MODE == 'x1_transfer':
         if X1_RUNG not in ('L1', 'L2', 'L3'):
             raise RuntimeError(f'X1_RUNG must be L1, L2 or L3, got {X1_RUNG!r}')
-        if not SHARD or not X1_STOP_AT_EPOCH:
-            raise RuntimeError('x1_transfer needs SHARD and X1_STOP_AT_EPOCH')
+        shards = [f"{i}/{m['transfer']['shards']}" for i in range(1, m['transfer']['shards'] + 1)]
+        if SHARD not in shards:
+            raise RuntimeError(f'SHARD {SHARD!r} is not one of the sealed shards {shards}')
+        if str(X1_STOP_AT_EPOCH) != str(m['transfer']['stop_at_epoch']):
+            raise RuntimeError(f"X1_STOP_AT_EPOCH {X1_STOP_AT_EPOCH!r} != sealed {m['transfer']['stop_at_epoch']}")
         sel = [p for p in glob.glob('/kaggle/input/**/x1_selection.json', recursive=True)
                if sha256(p) == X1_SELECTION_SHA256]
         if len(sel) != 1:

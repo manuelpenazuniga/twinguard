@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 
 from bank import admission  # noqa: E402
 from bank.render import ACTOR, PLACEHOLDERS  # noqa: E402
-from explore.build_x1 import X1, exposure  # noqa: E402
+from explore.build_x1 import X1, exposure, tree_digest  # noqa: E402
 
 BANK = ROOT / 'bank' / 'templates'
 ISSUE_KEYS = {'problem_statement', 'issue_paraphrases'}
@@ -118,7 +118,8 @@ def main(argv=None):
            'admitted': sum(r['admitted'] for r in res.values()), 'total': len(res),
            'not_admitted': sorted(k for k, r in res.items() if not r['admitted']),
            'templates': res,
-           'digests_match_build': all(build['templates'].get(k) for k in res)}
+           'digests_match_build': sorted(build['templates']) == sorted(res) and all(
+               build['templates'][k] == tree_digest(X1 / 'templates' / k) for k in res)}
     Path(a.out).write_text(json.dumps(out, indent=1, sort_keys=True) + '\n', encoding='utf-8')
     print(json.dumps({k: out[k] for k in ('admitted', 'total', 'not_admitted')}, indent=1))
 

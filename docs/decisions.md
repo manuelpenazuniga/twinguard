@@ -862,3 +862,49 @@ selection.
 
 Advisor texts (rounds 1–3) and the reconciliation table are in
 `docs/audits/d12_deliberation/`.
+
+**D12 implementation (2026-11-09; Astra's first review "not ready", fixed before the seal).**
+- **Code.**
+  - `explore/` holds the derived bank and its builders.
+  - Fixed texts: `x1_texts.py`, one clean Claude session.
+  - Other-family audit: `x1_audit.py` (gpt-6.1-sol); passed, and is bound to the hash of the texts.
+  - Admission: `admit_x1.py`, 114/114, with the build digests recomputed.
+  - Rung selector: `select_x1.py`, run inside the calibration kernel.
+  - Analysis: `analyze_x1.py` and `process_x1.py`, both libraries.
+  - The ONLY entry point is `run_x1.py`.
+  - Sealing: `x1_seal.py` writes `explore/x1_manifest.json`, which is OTS-stamped.
+  - Kernels: `x1_kernels.py`.
+  - Runner flags `--max-paraphrase` and `--framings`: their defaults reproduce the frozen schedule and shard digests, tested against `freeze/manifest.json`.
+- **Selection ties.** Fallback ties are exact: the distance to 0.35 is rounded to 1e-9, since W is a ratio of counts.
+- **Fail-closed kernel modes** (`x1_calibration`, `x1_transfer`). The kernel refuses to run unless all of these hold:
+  - the bundle is exactly the sealed file set (no missing, no different, no extra file);
+  - the script hash is the sealed one;
+  - the per-session start cutoff is within the sealed budget;
+  - for the transfer: the shard is one of the sealed shards; the stop time equals the sealed one (Wed 11 05:00 UTC); and `X1_RUNG` equals the `selected` field of the attached calibration `x1_selection.json`, whose hash is fixed at build time.
+  
+  The calibration archive attached to the transfer kernel is never restored.
+- **Budget.** The 6 h cap is enforced through start cutoffs.
+  - Calibration: no run starts after 2 h.
+  - Each transfer shard: no run starts after min(1.75 h, ((6 h − measured calibration session) − 2 × 15 min tail) / 2).
+  - Runs already in flight finish (≤ 60 min each by the harness budget). The hours actually used are reported.
+- **Single analysis.** `run_x1.py` checks four things before reading any result:
+  - the D12 seal, i.e. the manifest hash, its OTS proof, and every analysis file of the checkout against its sealed hash;
+  - an atomic `results/x1/CLAIM` (O_EXCL), so a second run is refused;
+  - that the transfer rows come from a code commit holding the sealed manifest;
+  - for confirmatory inputs, that the authorized decoding through `runner/analyze.py` has happened.
+- **Transfer analysis checks.**
+  - Every row is checked against the sealed schedule: run id, seed, framing, paraphrase; no extra rows.
+  - Sectors enter only when complete.
+  - K counts templates with a PAIRED A − N difference; the inference needs K ≥ 18 and ≥ 3 per mechanism.
+- **Report wording.**
+  - "Exploratory evidence" is used only when no flag is raised; otherwise "Exploratory difference under flags …; not read as evidence".
+  - Floor/ceiling and zero variance are both reported when both hold.
+  - Frozen labels containing "equivalent" are renamed to "bounded".
+- **Descriptives.**
+  - F, M, U by mechanism and sector.
+  - Literal U+ adoption: docstring-free AST per file, after the evaluator's patch application.
+  - Gate sensitivity: GSC depth 2 among U = 1 runs; NA if U = 0.
+  - The calibration summary with every rung's denominators and the selection hash; prescribed texts for "none" and for C.
+- **Process measures.**
+  - A read counts only if it succeeded: `read_file` of that path, or a reading `run_command` with exit 0.
+  - Added: rejection of the patch (fixed regex) and a count of runs without a log.

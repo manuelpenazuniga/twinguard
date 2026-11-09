@@ -16,6 +16,11 @@ sys.path.insert(0, str(ROOT))
 OUT = ROOT / 'explore' / 'x1_manifest.json'
 STOP_AT_UTC = '2026-11-11T05:00:00Z'          # Wed 11 02:00 Chile (D12)
 STOP_AT_EPOCH = 1794373200
+EXTRA_PATHS = ['explore', 'docs/decisions.md']  # bundled in the x1 kernels besides build_kernel.PATHS
+BUDGET = {'cap_hours': 6.0, 'calibration_cutoff_s': 7200, 'transfer_cutoff_s_max': 6300,
+          'tail_s_per_session': 900,
+          'rule': 'no run starts after the cutoff; the transfer cutoff is min(6300 s, '
+                  '((6.0 h - measured calibration session) - 2 x 900 s) / 2)'}
 
 
 def git(*a):
@@ -26,7 +31,7 @@ def bundle_paths():
     src = (ROOT / 'notebooks' / 'build_kernel.py').read_text()
     import ast
     import re
-    return ast.literal_eval(re.search(r'PATHS = (\[.*?\])', src, re.S).group(1)) + ['explore']
+    return ast.literal_eval(re.search(r'PATHS = (\[.*?\])', src, re.S).group(1)) + EXTRA_PATHS
 
 
 def main(argv=None):
@@ -37,17 +42,24 @@ def main(argv=None):
     if commit != git('rev-parse', 'HEAD').decode().strip() or \
             git('status', '--porcelain', '--untracked-files=no').strip():
         raise SystemExit('seal from a clean checkout of HEAD')
-    listed = git('ls-tree', '-r', '--name-only', commit, '--', *bundle_paths(),
-                 'docs/decisions.md').decode().split('\n')
+    listed = git('ls-tree', '-r', '--name-only', commit, '--', *bundle_paths()).decode().split('\n')
     files = {}
-    for p in sorted(x for x in listed if x and x != 'explore/x1_manifest.json'
-                    and not x.endswith('x1_manifest.json.sha256')):
+    own = {'explore/x1_manifest.json', 'explore/x1_manifest.json.sha256', 'explore/x1_manifest.json.ots'}
+    for p in sorted(x for x in listed if x and x not in own):
         files[p] = hashlib.sha256(git('show', f'{commit}:{p}')).hexdigest()
     from explore import select_x1 as S
     from explore import analyze_x1 as A
     freeze = json.loads(git('show', f'{commit}:freeze/manifest.json'))
     texts = json.loads(git('show', f'{commit}:explore/bank_x1/texts.json'))
     adm = json.loads(git('show', f'{commit}:explore/bank_x1/admission.json'))
+    audit = json.loads(git('show', f'{commit}:explore/bank_x1/audit.json'))
+    texts_sha = hashlib.sha256(git('show', f'{commit}:explore/bank_x1/texts.json')).hexdigest()
+    build_sha = hashlib.sha256(git('show', f'{commit}:explore/bank_x1/build.json')).hexdigest()
+    if not audit.get('pass') or audit.get('texts_sha256') != texts_sha:
+        raise SystemExit('the other-family audit must pass on these exact texts')
+    if adm['admitted'] != adm['total'] or adm.get('build_sha256') != build_sha \
+            or not adm.get('digests_match_build'):
+        raise SystemExit('the admission must cover this exact build, all admitted')
     manifest = {
         'package': 'TwinGuard D12 exploratory plan (x1)',
         'commit': commit,
@@ -61,7 +73,9 @@ def main(argv=None):
                   'contributing_sha256': texts['contributing_sha256'],
                   'preface_l2': texts['preface_l2'], 'preface_c': texts['preface_c']},
         'admission': {'admitted': adm['admitted'], 'total': adm['total'],
-                      'not_admitted': adm['not_admitted']},
+                      'not_admitted': adm['not_admitted'], 'build_sha256': build_sha},
+        'audit': {'auditor_model': audit['auditor_model'], 'prompt_sha256': audit['prompt_sha256'],
+                  'texts_sha256': texts_sha, 'answer': audit['answer']},
         'calibration': {'spec': 'explore/bank_x1/spec_calibration.csv', 'paraphrases': [1, 2],
                         'replicates': 1, 'framings': ['N', 'P', 'A'], 'runs': 144},
         'selection': {'order': S.ORDER, 'control': S.CONTROL, 'primary_W': S.PRIMARY,
@@ -76,7 +90,8 @@ def main(argv=None):
             'floor_or_ceiling': [A.FLOOR, A.CEIL], 'competence_dF': A.F_FLAG,
             'budget_exhausted_rate': A.BUDGET_FLAG}, 'bootstrap': [A.DRAWS, A.SEED]},
         'process_measures': 'explore/process_x1.py',
-        'budget_hours_cap': 6.0,
+        'budget': BUDGET,
+        'bundle_paths': bundle_paths(),
         'files': files,
     }
     text = json.dumps(manifest, indent=1) + '\n'
