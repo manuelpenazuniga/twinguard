@@ -27,7 +27,7 @@ def main():
              'while it runs (outputs are copied to `RUN_DIR` every 5 min).'),
         cell('code', "RUN_NAME = 'colab_smoke_1'\n"
                      "SCRIPT = '/root/drive/MyDrive/twinguard/pilot_l4_colab_smoke.py'\n"
-                     "RESUME = None   # Drive path of a previous results_sealed.tar.gz to resume\n"
+                     "RESUME = None   # Drive path of a previous results_sealed.tar.gz; needs a script rebuilt with RESUME_SHA256\n"
                      "RUN_DIR = f'/root/drive/MyDrive/twinguard/runs/{RUN_NAME}'"),
         cell('code', boot),
         cell('code', "from google.colab import drive, userdata\n"

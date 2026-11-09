@@ -518,6 +518,7 @@ def isolation(code):
     UDS_DIR.chmod(0o700)
     if PLATFORM == 'colab':
         out['net_lock'] = colab_net_lock()
+        out['hide'] = colab_hide()
     work = Path('/tmp/wk'); work.mkdir(exist_ok=True); work.chmod(0o711)
     oracle = next((code / 'bank' / 'templates').glob('*/oracle/oracle.py'))
     probes = {'kernel_src_ls': 'ls /kaggle/src', 'kernel_src_cat': 'cat /kaggle/src/script.py',
@@ -579,6 +580,8 @@ def server_unreachable():
                 reach.setdefault(port, []).append(host)
     out['tcp_listeners'] = len(ports)
     out['tcp_reachable_by_agent'] = reach            # expected: the TCPStore rendezvous only
+    if PLATFORM == 'colab' and reach:                # Colab: all egress of the uid is rejected
+        failures.append(f'tcp reachable on colab: {reach}')
     # Unix sockets with a path (vLLM engine ZMQ ipc carries serialized objects): an agent
     # that could connect would reach root code paths -> abort. Abstract ones are recorded.
     paths, abstract = set(), 0
@@ -1148,8 +1151,10 @@ def smoke_block(code):
 # evaluator uid, and refuses any mode but COLAB_MODES.
 COLAB_PINNED = ['pandas==3.0.6', 'numpy==2.5.4', 'scipy==1.18.1', 'statsmodels==0.15.0',
                 'pytest==9.2.0']
-COLAB_EXPECTED = 'vllm 0.19.1 torch 2.10.0+cu128 transformers 5.13.1'
-COLAB_DENIED = {'content_ls': 'ls /content/drive', 'proc_env_cat': 'cat /proc/1/environ',
+COLAB_EXPECTED = '0.19.1 2.10.0+cu128 5.13.1'      # vllm torch transformers, as on Kaggle
+COLAB_SECRET_RE = re.compile(r'KAGGLE_KEY|KAGGLE_USERNAME|HF_TOKEN|token=|api[_-]?key', re.I)
+COLAB_DENIED = {'content_ls': 'ls /content', 'content_drive_ls': 'ls /content/drive',
+                'net_lo_tcp': f"{sys.executable} -c \"import socket;socket.create_connection(('127.0.0.1',8080),3)\"",
                 'net_tcp_ext': f"{sys.executable} -c \"import socket;socket.create_connection(('8.8.8.8',53),3)\"",
                 'net_dns_https': f"{sys.executable} -c \"import socket;socket.create_connection(('pypi.org',443),3)\"",
                 'net_metadata': f"{sys.executable} -c \"import socket;socket.create_connection(('169.254.169.254',80),3)\""}
@@ -1176,7 +1181,8 @@ def colab_install():
         raise RuntimeError('pip failed:\n' + (r.stdout + r.stderr)[-4000:])
     ver = sh(f'{sys.executable} -c "import vllm,torch,transformers;print(vllm.__version__,torch.__version__,transformers.__version__)"')
     freeze = sh(f'{sys.executable} -m pip freeze')
-    out = {'n_wheels': len(wheels), 'vllm_torch_transformers': ver,
+    Path('/kaggle/working/pip_freeze.txt').write_text(freeze + '\n')     # open output, synced
+    out = {'python': sys.version,'n_wheels': len(wheels), 'vllm_torch_transformers': ver,
            'versions_as_kaggle': ver == COLAB_EXPECTED,
            'pip_freeze_sha256': hashlib.sha256(freeze.encode()).hexdigest(),
            'wheel_names_sha256': hashlib.sha256('\n'.join(Path(w).name for w in wheels).encode()).hexdigest(),
@@ -1187,18 +1193,40 @@ def colab_install():
 
 
 def colab_net_lock():
-    """Colab has internet: every agent and evaluator uid gets an owner-matched REJECT on all
-    non-loopback egress (IPv4 and IPv6). Verified by the isolation probes (fail closed)."""
+    """Colab has internet and local services (Jupyter and others): every agent and evaluator
+    uid gets an owner-matched REJECT on ALL egress, loopback included (IPv4 and IPv6),
+    inserted first in OUTPUT. The model is reached only by root through the Unix socket.
+    Verified by the isolation probes and server_unreachable (fail closed)."""
     rules = []
     for tool in ('iptables', 'ip6tables'):
         for u in AGENTS + EVALS:
-            rule = f'OUTPUT -m owner --uid-owner {u} ! -o lo -j REJECT'
+            rule = f'OUTPUT -m owner --uid-owner {u} -j REJECT'
             if sh(f'{tool} -C {rule} >/dev/null 2>&1; echo $?') != '0':
-                rc = sh(f'{tool} -A {rule} >/dev/null 2>&1; echo $?')
+                rc = sh(f'{tool} -I {rule.replace("OUTPUT", "OUTPUT 1", 1)} >/dev/null 2>&1; echo $?')
                 if rc != '0':
                     raise RuntimeError(f'{tool} owner rule failed for {u} (rc {rc})')
             rules.append(f'{tool}:{u}')
     return {'rules': len(rules)}
+
+
+def colab_hide():
+    """/content (Colab's working dir) closed; /proc mounted with hidepid=2 when the runtime
+    allows it (recorded). Either way no visible process command line may carry a credential
+    or token (checked as root; abort otherwise)."""
+    out = {'content': sh('chmod 0700 /content 2>/dev/null; stat -c %a /content')}
+    out['hidepid_rc'] = sh('mount -o remount,rw,hidepid=2 /proc >/dev/null 2>&1; echo $?')
+    leaks = []
+    for c in glob.glob('/proc/[0-9]*/cmdline'):
+        try:
+            text = Path(c).read_bytes().replace(b'\0', b' ').decode(errors='replace')
+        except OSError:
+            continue
+        if COLAB_SECRET_RE.search(text):
+            leaks.append(c.split('/')[2])
+    out['cmdline_secret_pids'] = leaks
+    if leaks:
+        raise RuntimeError(f'process command lines carry credentials or tokens: {leaks}')
+    return out
 
 
 def uds_chat(body, timeout=900):
@@ -1207,24 +1235,54 @@ def uds_chat(body, timeout=900):
     return json.loads(raw) if st == 200 else {'http_error': st, 'body': raw[:1500].decode(errors='replace')}
 
 
-def colab_capacity(tag):
-    """KV capacity, memory and throughput at concurrency 1/4/8 through the root-only socket."""
+def colab_capacity(tag, srv=None):
+    """KV capacity, memory (sampled under load) and throughput at concurrency 1/4/8 through the
+    root-only socket. Every request must succeed; errors are recorded; preemptions are counted
+    in the live server log."""
+    def refresh():
+        log = getattr(srv, 'log_path', None)
+        if log and Path(log).exists():
+            shutil.copyfile(log, f'/kaggle/working/vllm_{tag}.log')
+    refresh()
     msgs = long_prompt()
-    res = {'kv': kv_info(tag), 'gpu_mem': sh('nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader')}
+    q = 'nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader'
+    res = {'kv': kv_info(tag), 'gpu_mem_idle': sh(q)}
     for conc in (1, 4, 8):
         n = max(4, conc * 2)
         body = {'messages': msgs, 'max_tokens': 1024, 'seed': 3, **SAMPLING,
                 'chat_template_kwargs': {'enable_thinking': True}}
+        mem, done = [], threading.Event()
+
+        def sample():
+            while not done.wait(2):
+                mem.append(sh(q))
+        th = threading.Thread(target=sample, daemon=True)
+        th.start()
         t0 = time.time()
+
+        def one(i):
+            a = time.time()
+            try:
+                r = uds_chat(body)
+            except Exception as exc:
+                r = {'error': f'{type(exc).__name__}: {exc}'[:500]}
+            return a, r, time.time()
         with ThreadPoolExecutor(conc) as ex:
-            outs = list(ex.map(lambda i: (time.time(), uds_chat(body), time.time()), range(n)))
+            outs = list(ex.map(one, range(n)))
         wall = time.time() - t0
+        done.set()
+        th.join(5)
         ok = [o for o in outs if 'choices' in o[1]]
         comp = sum(o[1]['usage']['completion_tokens'] for o in ok)
         res[f'conc_{conc}'] = {'requests': n, 'ok': len(ok), 'wall_s': round(wall, 1),
                                'completion_tok_per_s': round(comp / wall, 1),
-                               'mean_latency_s': round(sum(o[2] - o[0] for o in ok) / max(1, len(ok)), 1)}
+                               'mean_latency_s': round(sum(o[2] - o[0] for o in ok) / max(1, len(ok)), 1),
+                               'errors': [o[1] for o in outs if 'choices' not in o[1]][:3],
+                               'gpu_mem_peak': max(mem, default=None)}
         save()
+        if len(ok) != n:
+            raise RuntimeError(f'capacity: {n - len(ok)} of {n} requests failed at concurrency {conc}')
+    refresh()
     log = Path(f'/kaggle/working/vllm_{tag}.log').read_text(errors='replace')
     res['preemption_lines'] = sum('preempt' in l.lower() for l in log.splitlines())
     return res
@@ -1433,7 +1491,7 @@ elif __name__ == '__main__':
                 phase('9_x1_transfer')(lambda: x1_block(code))()
             else:
                 if PLATFORM == 'colab':
-                    phase('4_colab_capacity')(lambda: colab_capacity(f'tp{tp}_8000'))()
+                    phase('4_colab_capacity')(lambda: colab_capacity(f'tp{tp}_8000', procs[0]))()
                 phase('9_runner_smoke')(lambda: smoke_block(code))()
     finally:
         stop(procs)

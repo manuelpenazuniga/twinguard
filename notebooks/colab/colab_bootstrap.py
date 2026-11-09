@@ -10,7 +10,8 @@ on Kaggle). Runs in the Colab notebook process as root, BEFORE the kernel script
      kernel script expects), then forgets the credentials;
   4. copies the built kernel script (notebooks/build_kernel.py --define PLATFORM=colab ...)
      from Drive to /kaggle/src/script.py (root only) and, to resume, a previous
-     results_sealed.tar.gz into /kaggle/input/prev/;
+     results_sealed.tar.gz into /kaggle/input/prev/ (a resume needs a script REBUILT with
+     --define RESUME_SHA256=<sha256 of that archive>; the script refuses any other archive);
   5. runs the script and copies its open outputs (pilot_results.json, the sealed archive,
      vLLM logs) to the Drive run folder every few minutes and at the end.
 Drive is mounted under /root (0700), never under /content, so no agent uid can read it.
@@ -27,7 +28,7 @@ UV_PY = '/opt/uv-python'
 CACHE = '/kaggle/input/kagglehub'
 WHEELHOUSE = 'metric/gemma-4-developer-agent-wheelhouse'
 MODEL = 'google/gemma-4/other/gemma-4-31b-it-qat-w4a16-ct/2'
-SYNC = ('pilot_results.json', 'results_sealed.tar.gz', 'x2_selection.json')
+SYNC = ('pilot_results.json', 'results_sealed.tar.gz', 'x2_selection.json', 'pip_freeze.txt')
 
 
 def sh(cmd, check=True):
@@ -52,7 +53,8 @@ def venv():
         sh(f'{env} uv python install 3.12')
         sh(f'{env} uv venv --seed --python 3.12 {VENV}')
         sh(f'chmod -R a+rX {UV_PY} {VENV}')
-    return sh(f'{VENV}/bin/python -c "import sys;print(sys.version)"')
+    return {'python': sh(f'{VENV}/bin/python -c "import sys;print(sys.version)"'),
+            'uv': sh('uv --version', check=False)}
 
 
 def downloads(user, key):
@@ -89,11 +91,11 @@ def sync(run_dir):
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     w = Path('/kaggle/working')
-    for name in SYNC:
-        if (w / name).exists():
-            shutil.copyfile(w / name, run_dir / name)
-    for log in w.glob('vllm_*.log'):
-        shutil.copyfile(log, run_dir / log.name)
+    names = [n for n in SYNC if (w / n).exists()] + [p.name for p in w.glob('vllm_*.log')]
+    for name in names:          # copy, then rename: an interruption never destroys the last copy
+        tmp = run_dir / f'.{name}.part'
+        shutil.copyfile(w / name, tmp)
+        os.replace(tmp, run_dir / name)
 
 
 def run(run_dir, every_s=300):
