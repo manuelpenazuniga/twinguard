@@ -92,10 +92,12 @@ def sync(run_dir):
     run_dir.mkdir(parents=True, exist_ok=True)
     w = Path('/kaggle/working')
     names = [n for n in SYNC if (w / n).exists()] + [p.name for p in w.glob('vllm_*.log')]
+    names += [f'install/{p.name}' for p in w.glob('install/*.log')]      # pip logs of colab_install
     for name in names:          # copy, then rename: an interruption never destroys the last copy
-        tmp = run_dir / f'.{name}.part'
+        dst = run_dir / name.replace('/', '_')
+        tmp = dst.with_name(f'.{dst.name}.part')
         shutil.copyfile(w / name, tmp)
-        os.replace(tmp, run_dir / name)
+        os.replace(tmp, dst)
 
 
 def run(run_dir, every_s=300):

@@ -322,3 +322,19 @@ def test_colab_capacity_fails_when_a_request_fails(monkeypatch, tmp_path):
         k.colab_capacity('tp1_8000')
     part = k.R['colab_capacity_partial']['conc_1']        # partial result kept (Sol)
     assert part['ok'] == 3 and part['errors'] and part['gpu_mem_peak_mib'] in (None, 1)
+
+
+def test_bootstrap_sync_copies_install_logs(tmp_path, monkeypatch):
+    """Sol: colab_install's pip logs (/kaggle/working/install/*.log) reach Drive."""
+    spec = importlib.util.spec_from_file_location('cb', ROOT / 'notebooks' / 'colab' / 'colab_bootstrap.py')
+    cb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cb)
+    work = tmp_path / 'working'
+    (work / 'install').mkdir(parents=True)
+    (work / 'install' / '1_lock.log').write_text('pip log')
+    (work / 'pilot_results.json').write_text('{}')
+    real = cb.Path
+    monkeypatch.setattr(cb, 'Path', lambda p, *a: work if p == '/kaggle/working' else real(p, *a))
+    cb.sync(tmp_path / 'drive')
+    assert (tmp_path / 'drive' / 'install_1_lock.log').read_text() == 'pip log'
+    assert not list((tmp_path / 'drive').glob('.*.part'))
