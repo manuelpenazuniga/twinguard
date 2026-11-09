@@ -1229,7 +1229,11 @@ def colab_install():
     if sys.version_info[:2] != (3, 12):
         raise RuntimeError(f'the wheelhouse is cp312; this interpreter is {sys.version}')
     env = code_dir() / COLAB_ENV
+    if not all((env / f).is_file() for f in ('kaggle_freeze.txt', 'lock_base.txt')):
+        raise FileNotFoundError(f'{COLAB_ENV} not in the code bundle (build with PLATFORM=colab)')
     kaggle = (env / 'kaggle_freeze.txt').read_text()
+    logs = Path('/kaggle/working/install')
+    logs.mkdir(parents=True, exist_ok=True)
     whl = sorted(glob.glob('/kaggle/input/**/gemma-4-developer-agent-wheelhouse/**/*.whl',
                            recursive=True))
     if not whl:
@@ -1245,24 +1249,39 @@ def colab_install():
     got = {Path(w).name: hashlib.sha256(Path(w).read_bytes()).hexdigest() for w in wheels}
     if got != kaggle_wheel_hashes(kaggle):
         raise RuntimeError('wheelhouse files differ from the ones installed on Kaggle')
-    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', '--require-hashes',
-                        '--extra-index-url', COLAB_TORCH_INDEX, '-r', str(env / 'lock_base.txt')],
-                       capture_output=True, text=True)
-    if r.returncode:
-        raise RuntimeError('pip (Kaggle image packages) failed:\n' + (r.stdout + r.stderr)[-4000:])
-    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', '--force-reinstall',
-                        *wheels], capture_output=True, text=True)
-    if r.returncode:
-        raise RuntimeError('pip (wheelhouse) failed:\n' + (r.stdout + r.stderr)[-4000:])
+    def step(tag, cmd):
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        (logs / f'{tag}.log').write_text(f'$ {cmd}\n{r.stdout}\n--- stderr\n{r.stderr}\nrc={r.returncode}\n')
+        if r.returncode:
+            raise RuntimeError(f'{tag} failed:\n' + (r.stdout + r.stderr)[-4000:])
+        return r.stdout
+    step('1_lock', [sys.executable, '-m', 'pip', 'install', '--no-deps', '--require-hashes',
+                    '--extra-index-url', COLAB_TORCH_INDEX, '-r', str(env / 'lock_base.txt')])
+    step('2_wheelhouse', [sys.executable, '-m', 'pip', 'install', '--no-deps', '--force-reinstall',
+                          *wheels])
     ver = sh(f'{sys.executable} -c "import vllm,torch,transformers;print(vllm.__version__,torch.__version__,transformers.__version__)"')
-    freeze = sh(f'{sys.executable} -m pip freeze --all')
+    freeze = step('3_freeze', [sys.executable, '-m', 'pip', 'freeze', '--all']).strip()
     Path('/kaggle/working/pip_freeze.txt').write_text(freeze + '\n')     # open output, synced
+    names = {n for n, _ in freeze_lines(freeze)}
+    missing = sorted({'vllm', 'torch', 'transformers', 'numpy', 'pandas', 'pytest', 'adk-submission'} - names)
+    if missing:
+        raise RuntimeError(f'freeze lacks required packages: {missing}')
     not_kaggle = sorted(freeze_lines(freeze) - freeze_lines(kaggle))
+    try:                                                   # diagnostics only, never gate
+        chk = subprocess.run([sys.executable, '-m', 'pip', 'check'], capture_output=True, text=True)
+        (logs / 'pip_check.log').write_text(chk.stdout + chk.stderr)
+    except Exception:                                      # noqa: BLE001
+        pass
+    diag = sh(f'{sys.executable} -c "import torch,platform;print(torch.version.cuda, '
+              f'torch.backends.cudnn.version(), platform.libc_ver())"')
     out = {'python': sys.version, 'n_wheels': len(wheels), 'vllm_torch_transformers': ver,
            'versions_as_kaggle': ver == COLAB_EXPECTED, 'not_as_on_kaggle': not_kaggle,
            'n_packages': len(freeze_lines(freeze)),
            'pip_freeze_sha256': hashlib.sha256(freeze.encode()).hexdigest(),
            'kaggle_freeze_sha256': hashlib.sha256(kaggle.encode()).hexdigest(),
+           'lock_sha256': hashlib.sha256((env / 'lock_base.txt').read_bytes()).hexdigest(),
+           'pip': sh(f'{sys.executable} -m pip --version'), 'uv': sh('uv --version'),
+           'torch_cuda_cudnn_libc': diag, 'nvcc': sh('nvcc --version | tail -1'),
            'driver': sh('nvidia-smi --query-gpu=driver_version --format=csv,noheader')}
     if not out['versions_as_kaggle']:
         raise RuntimeError(f'package versions differ from the Kaggle serving stack: {ver!r}')

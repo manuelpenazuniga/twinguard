@@ -114,7 +114,11 @@ def test_notebook_embeds_the_bootstrap(tmp_path):
                for s in srcs)
 
 
-def _install_env(monkeypatch, tmp_path, k, kaggle_extra=''):
+REQ = ''.join(f'{n}==1\n' for n in ('vllm', 'torch', 'transformers', 'numpy', 'pandas', 'pytest',
+                                       'adk-submission'))
+
+
+def _install_env(monkeypatch, tmp_path, k):
     import hashlib
     whl = tmp_path / 'kaggle' / 'input' / 'x' / 'gemma-4-developer-agent-wheelhouse' / 'v' / 'a-1-py3-none-any.whl'
     whl.parent.mkdir(parents=True, exist_ok=True)
@@ -123,43 +127,54 @@ def _install_env(monkeypatch, tmp_path, k, kaggle_extra=''):
     code = tmp_path / 'code'
     env = code / k.COLAB_ENV
     env.mkdir(parents=True, exist_ok=True)
-    (env / 'lock_base.txt').write_text('numpy==2.0.2 \\\n    --hash=sha256:00\n')
+    (env / 'lock_base.txt').write_text('numpy==1 \\\n    --hash=sha256:00\n')
     (env / 'kaggle_freeze.txt').write_text(
-        f'a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256={h}\nnumpy==2.0.2\n' + kaggle_extra)
+        f'a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256={h}\n' + REQ)
     monkeypatch.setattr(k, 'code_dir', lambda: code)
     wh = tmp_path / 'wh'
     wh.mkdir(exist_ok=True)
-    monkeypatch.setattr(k, 'Path', lambda *a: wh if a == ('/tmp/wheelhouse',) else Path(*a))
+    work = tmp_path / 'work'
+    real_path = Path
+
+    def fake_path(*a):
+        if a == ('/tmp/wheelhouse',):
+            return wh
+        if a and str(a[0]).startswith('/kaggle/working'):
+            return real_path(str(work) + str(a[0])[len('/kaggle/working'):], *a[1:])
+        return real_path(*a)
+    monkeypatch.setattr(k, 'Path', fake_path)
     monkeypatch.setattr(k.glob, 'glob', lambda pat, **kw: [str(whl)] if pat.endswith('*.whl') else [])
-    monkeypatch.setattr(k.os, 'symlink', lambda src, dst: Path(dst).write_bytes(Path(src).read_bytes()))
-    calls = []
-    monkeypatch.setattr(k.subprocess, 'run', lambda cmd, **kw: calls.append(cmd) or
-                        type('R', (), {'returncode': 0, 'stdout': '', 'stderr': ''})())
-    writes = {}
-    real_write = Path.write_text
-    monkeypatch.setattr(Path, 'write_text', lambda self, t, *a, **kw: writes.setdefault(str(self), t)
-                        if str(self).startswith('/kaggle') else real_write(self, t, *a, **kw))
-    return calls, writes, h
+    monkeypatch.setattr(k.os, 'symlink', lambda src, dst: real_path(dst).write_bytes(real_path(src).read_bytes()))
+    calls, state = [], {'freeze': ''}
+
+    def run(cmd, **kw):
+        calls.append(cmd)
+        out = state['freeze'] if 'freeze' in cmd else ''
+        return type('R', (), {'returncode': 0, 'stdout': out, 'stderr': ''})()
+    monkeypatch.setattr(k.subprocess, 'run', run)
+    return calls, state, h, work
 
 
 def test_colab_install_replicates_kaggle(monkeypatch, tmp_path):
     """Colab installs Kaggle's package versions (hashed lock, --no-deps), then the wheelhouse files
     exactly as Kaggle, and must end with a freeze that is a subset of Kaggle's."""
     k = load(monkeypatch, tmp_path, PLATFORM='colab')
-    calls, writes, h = _install_env(monkeypatch, tmp_path, k)
-    freeze_ok = f'a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256={h}\nnumpy==2.0.2\npip==26.0'
-    for printed, freeze, err in (('0.19.1 2.10.0+cu128 5.13.1', freeze_ok, None),
-                                 ('0.20.0 2.10.0+cu128 5.13.1', freeze_ok, 'versions differ'),
-                                 ('0.19.1 2.10.0+cu128 5.13.1', freeze_ok + '\nnumpy==2.5.4', 'not as on Kaggle'),
-                                 ('0.19.1 2.10.0+cu128 5.13.1', freeze_ok + '\nextra==1', 'not as on Kaggle')):
-        monkeypatch.setattr(k, 'sh', lambda c, p=printed, f=freeze: p if 'import vllm' in c else
-                            (f if 'freeze' in c else 'x'))
+    calls, state, h, work = _install_env(monkeypatch, tmp_path, k)
+    ok = f'a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256={h}\n' + REQ + 'pip==26.0\n'
+    for printed, freeze, err in (('0.19.1 2.10.0+cu128 5.13.1', ok, None),
+                                 ('0.20.0 2.10.0+cu128 5.13.1', ok, 'versions differ'),
+                                 ('0.19.1 2.10.0+cu128 5.13.1', ok + 'numpy==2.5.4\n', 'not as on Kaggle'),
+                                 ('0.19.1 2.10.0+cu128 5.13.1', ok + 'extra==1\n', 'not as on Kaggle'),
+                                 ('0.19.1 2.10.0+cu128 5.13.1', '', 'lacks required'),       # Sol P2
+                                 ('0.19.1 2.10.0+cu128 5.13.1', 'pip==26.0\n', 'lacks required')):
+        monkeypatch.setattr(k, 'sh', lambda c, p=printed: p if 'import vllm' in c else 'x')
+        state['freeze'] = freeze
         calls.clear()
         if err is None:
             out = k.colab_install()
             assert out['versions_as_kaggle'] and out['not_as_on_kaggle'] == []
-            assert '/kaggle/working/pip_freeze.txt' in writes
-            lock, wheels = calls
+            assert (work / 'pip_freeze.txt').exists() and (work / 'install' / '1_lock.log').exists()
+            lock, wheels = calls[:2]
             assert {'--no-deps', '--require-hashes', '-r'} <= set(lock)
             assert {'--no-deps', '--force-reinstall'} <= set(wheels) and '--require-hashes' not in wheels
         else:
@@ -169,12 +184,47 @@ def test_colab_install_replicates_kaggle(monkeypatch, tmp_path):
 
 def test_colab_install_rejects_a_wheel_kaggle_did_not_install(monkeypatch, tmp_path):
     k = load(monkeypatch, tmp_path, PLATFORM='colab')
-    calls, _, _ = _install_env(monkeypatch, tmp_path, k)
+    calls, _, _, _ = _install_env(monkeypatch, tmp_path, k)
     env = tmp_path / 'code' / k.COLAB_ENV
     (env / 'kaggle_freeze.txt').write_text('a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256=' + '0' * 64 + '\n')
     with pytest.raises(RuntimeError, match='wheelhouse files differ'):
         k.colab_install()
     assert calls == []                                  # nothing installed
+
+
+def test_colab_install_requires_the_bundled_lock(monkeypatch, tmp_path):
+    """Sol P1: a bundle without notebooks/colab/kaggle_env fails before pip, with a clear reason."""
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    calls, _, _, _ = _install_env(monkeypatch, tmp_path, k)
+    (tmp_path / 'code' / k.COLAB_ENV / 'lock_base.txt').unlink()
+    with pytest.raises(FileNotFoundError, match='not in the code bundle'):
+        k.colab_install()
+    assert calls == []
+
+
+def test_colab_build_bundles_the_kaggle_env(tmp_path):
+    """Sol P1: a PLATFORM=colab build carries the lock; a Kaggle build is unchanged."""
+    import base64
+    import io
+    import subprocess
+    import sys
+    import tarfile
+
+    def names(*defs):
+        out = tmp_path / ('o' + str(len(defs)))
+        subprocess.run([sys.executable, str(ROOT / 'notebooks' / 'build_kernel.py'),
+                        str(ROOT / 'notebooks' / 'pilot_l4'), '--out-dir', str(out),
+                        *[x for d in defs for x in ('--define', d)]], check=True, capture_output=True)
+        src = (out / 'pilot_l4.py').read_text()
+        ns = {}
+        i = src.index('CODE_B64')
+        exec(src[:src.index('\n', i) + 1], ns)
+        tar = tarfile.open(fileobj=io.BytesIO(base64.b64decode(ns['CODE_B64'])), mode='r:gz')
+        return set(tar.getnames())
+    colab = names('PLATFORM=colab', 'MODE=runner_smoke')
+    assert 'notebooks/colab/kaggle_env/lock_base.txt' in colab
+    assert 'notebooks/colab/kaggle_env/kaggle_freeze.txt' in colab
+    assert not any('kaggle_env' in n for n in names('MODE=runner_smoke'))
 
 
 def test_kaggle_env_lock_matches_the_kaggle_freeze():

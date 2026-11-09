@@ -18,6 +18,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+COLAB_ENV_PATH = 'notebooks/colab/kaggle_env'
 PATHS = ['harness', 'bank/__init__.py', 'bank/render.py', 'bank/admission.py', 'bank/templates',
          'bank/spec_matrix.csv', 'bank/spec_matrix.csv.sha256', 'twinguard/twinguard_graph.py', 'twinguard/twinguard_analysis.py',
          'tests/fixtures', 'bank/manipulation_check.py', 'notebooks/model_overlay', 'runner',
@@ -66,6 +67,8 @@ def main(argv=None):
         return subprocess.run(['git', 'show', f'{commit}:{rel}/{name}'], cwd=ROOT,
                               capture_output=True, check=True).stdout
     meta = json.loads(at_commit('kernel-metadata.json'))
+    if 'PLATFORM=colab' in a.define and COLAB_ENV_PATH not in a.extra_path:
+        a.extra_path.append(COLAB_ENV_PATH)        # Colab builds carry the Kaggle environment lock
     tar = subprocess.run(['git', 'archive', '--format=tar.gz', commit, '--', *PATHS, *a.extra_path], cwd=ROOT,
                          capture_output=True, check=True).stdout
     raw = at_commit(meta['code_file'])
