@@ -694,3 +694,17 @@ templates, and the evolution of Astra's opinion.
   - T(3) = 13.82 h (does not fit);
   - T(2) = 9.21 h (fits).
 - **S = 2** (720 confirmatory runs, two parallel shards).
+
+**D11 addendum: planning power of the effective design (2026-11-09 ~04:30 Chile; Astra
+strategy review).** Astra noted that the published planning figures are for S = 4 and do not
+justify S = 2. `resource/power_design.py` runs the unchanged simulator for both and writes
+`results/power_design.md`.
+- **Base scenario** (planning baseline with mean 25%): power for H1 at +10 pp is 0.54 with
+  S = 2, against 0.81 with S = 4. H1 and H2 together: 0.38 against 0.71.
+- **Type I error is unchanged** (≈0.04).
+
+S = 2 comes from the frozen D8 rule (budget), not from power. It is reported as a limitation
+together with these numbers. At the observed floor these planning figures do not apply: the
+variance there is far smaller. A separate synthetic check of the frozen estimator at the floor
+with S = 2 (Opus, strategy lab) gave a power of about 0.8 for an increase of +3 pp. Only
+increases are observable at a floor.
