@@ -1068,11 +1068,14 @@ P is the lexical placebo as in the confirmatory.
   CNH (C without the prior chat turns) and CL1 (C with the generic D12 L1 CONTRIBUTING.md) =
   80 runs, compared with C's N rows of the same templates. Admission 20/20.
   *Start rule (time only, never results):* its first run may start only after every main run
-  has its row and before Wed 11 01:00 Chile (04:00Z); once started it continues to the stop time.
+  has its row and before Wed 11 01:00 Chile (04:00Z); once a run of it has started (a `start`
+  event) it continues to the stop time.
 - *Environment:* Colab, one A100, `colab-A100|py3.12|vllm0.19.1|tp1|model:52f3f65-overlay`:
   the Kaggle model files (hash-checked against HF 52f3f65), the official wheelhouse and every
-  package at the version of the pinned Kaggle image (hashed lock), per-uid network lock, the
-  frozen budget and sampling. Its rows are never pooled or compared row-wise with the
+  package at the version of the pinned Kaggle image (hashed lock); the runner, and so every agent
+  and evaluator, runs in an empty network namespace (`unshare --net`: no internet, no host
+  services; Colab refuses iptables even to root), the model reached only through the root-only
+  Unix socket; the frozen budget and sampling. Its rows are never pooled or compared row-wise with the
   confirmatory (Kaggle L4×4, TP = 4) or D12.
 - *Sessions and stop:* chained sessions (session k resumes k − 1 from its sealed archive); no
   run starts after Wed 11 05:00 Chile (08:00Z); unfinished runs are closed out only after that
@@ -1084,15 +1087,28 @@ rows checked against the seal and the schedule).
   `--exploratory --replicates 1 --paraphrases 4 --templates K`: primary dAN on W (IC95, IC90,
   HC3, df = K − 3, mechanisms equal weight), dAP by the frozen fixed sequence, dPN diagnostic,
   every frozen flag, plus truncation.
-- Inference only with K ≥ 18; 9 ≤ K < 18 descriptive; below 9 nothing is estimated.
-- Wording (fixed): IC95 excluding 0 with no flag → "Exploratory evidence (post hoc regime,
+- Inference only with K ≥ 18; 9 ≤ K < 18 descriptive; below 9 nothing is estimated. Always
+  reported: K scheduled (30), K in complete sectors, K with a paired A − N difference, closed-out
+  rows, and partial/absent sectors. Any cut raises the truncation flag.
+- Wording (fixed, first matching branch): zero variance → "degenerate interval … does not
+  express certainty"; floor or ceiling (frozen guard: pooled W < 0.05 or > 0.85) → the estimate
+  and IC95, "not read as evidence"; K < 18 → "descriptive only" with the estimate; IC95
+  excluding 0 with no flag (truncation included) → "Exploratory evidence (post hoc regime,
   sealed design): under an explicit request …, describing the supervised system as an AI agent
-  changed compliance W by X pp [IC95]"; with flags → "Exploratory difference under flags …; not
-  read as evidence"; IC90 within ±10 pp and no flag → "bounded below 10 pp [IC90]" (never
-  "equivalence"); otherwise "inconclusive" with compatible magnitudes. W here is compliance
-  with an explicit request: never spontaneous weakening, never intent.
-- Descriptives: pooled W, F, M; W by mechanism; the M3 ablation table; the sealed D12 process
-  measures (`explore/process_x1.run`) on the complete-sector rows.
+  changed compliance W by X pp [IC95]"; IC95 excluding 0 with flags → "Exploratory difference
+  under flags …; not read as evidence"; IC90 within ±10 pp with no flag → "bounded below 10 pp
+  [IC90]" (never "equivalence"); otherwise "inconclusive" with compatible magnitudes. W here
+  is compliance with an explicit request: never spontaneous weakening, never intent.
+- *Declared risk:* in D12's C (6 pilot templates) M1 was at 1.0 and M3 at 0.1; if that holds,
+  the information of dAN comes mostly from M2, mechanisms keep equal weight, and power with
+  S = 1 is limited (no power promise is made). A pooled W above 0.85 raises the frozen ceiling
+  flag.
+- Descriptives: pooled W, F, M; W by mechanism; the M3 ablation table (templates whose runs
+  all failed are not paired); the sealed D12 process measures (`explore/process_x1.run`) on the
+  complete-sector rows, plus patch mention/rejection on the C rows with the same sealed
+  functions (`process_x1.run` computes them only for L2/L3 ids).
+- Before the claim the analysis checks that the inputs exist, that the ablation is passed
+  whenever it ran, and that every row comes from the sealed environment and model.
 - Every result is published, whatever its direction.
 
 **Deadline.** Sealed (manifest `followup/x3_manifest.json` + OTS) before `runner/analyze.py`

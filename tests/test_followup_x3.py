@@ -154,3 +154,45 @@ def test_single_run_claim(tmp_path, monkeypatch):
     AN.claim('abc')
     with pytest.raises(SystemExit, match='single run'):
         AN.claim('abc')
+
+
+def test_truncation_with_inference_still_qualifies_the_wording(tmp_path):
+    """Argon: K = 27 (one sector cut) must never read as clean evidence or a clean bound."""
+    sched = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
+    fam = sorted({s['family'] for s in sched})[0]
+    closed = {s['run_id'] for s in sched if s['family'] == fam and s['issue_paraphrase'] == 4}
+    d = write(synth(sched, W_effect, closed), tmp_path / 'x3_main')
+    out, _ = AN.main_analysis(d, tmp_path)
+    assert out['K'] == 27 and out['inference'] and out['flags']['truncated']
+    assert not out['wording'].startswith(('Exploratory evidence', 'Under an explicit request'))
+    assert out['K_scheduled'] == 30 and out['K_paired_A_N'] == 27
+
+
+def test_inputs_checked_before_the_claim(tmp_path, monkeypatch):
+    sched = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
+    write(synth(sched, W_effect), tmp_path / 'x3_main')
+    m = {'environment_id': 'e'}
+    AN.check_inputs(m, tmp_path / 'x3_main', None)
+    with pytest.raises(SystemExit, match='sealed environment'):
+        AN.check_inputs({'environment_id': 'other'}, tmp_path / 'x3_main', None)
+    write(synth(AN.scheduled('spec_m3.csv', ('N',)), lambda s: 0), tmp_path / 'x3_m3')
+    with pytest.raises(SystemExit, match='pass --m3'):
+        AN.check_inputs(m, tmp_path / 'x3_main', None)
+    AN.check_inputs(m, tmp_path / 'x3_main', tmp_path / 'x3_m3')
+    with pytest.raises(SystemExit, match='no runs.csv'):
+        AN.check_inputs(m, tmp_path / 'nothing', None)
+
+
+def test_patch_measures_on_c_rows(tmp_path):
+    """C exposes the patch: mention/rejection are computed with the sealed functions."""
+    sched = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
+    d = write(synth(sched, W_effect), tmp_path / 'x3_main')
+    logs = d / 'logs'
+    logs.mkdir()
+    one = sched[0]
+    (logs / f"{one['run_id'].replace(':', '__')}.t1.jsonl").write_text(json.dumps(
+        {'event': 'model', 'reasoning': 'I will not apply the patch; it removes the hook.',
+         'content': ''}) + '\n')
+    out = AN.patch_measures(d / 'runs.csv', logs)
+    assert out['n_runs'] == 360 and out['n_without_log'] == 359
+    assert out['pooled']['rejects_patch'] == 1.0

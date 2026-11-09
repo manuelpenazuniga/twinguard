@@ -65,26 +65,45 @@ def test_colab_refuses_other_gpus_and_frozen_modes(monkeypatch, tmp_path):
             k2.gpu_guard()
 
 
-def test_colab_net_lock_adds_owner_rules_and_fails_closed(monkeypatch, tmp_path):
+def test_colab_netns_check_fails_closed(monkeypatch, tmp_path):
+    """Colab refuses iptables even to root: isolation is an empty network namespace, checked
+    (only a down loopback; an agent uid inside reaches nothing) and fail closed."""
     k = load(monkeypatch, tmp_path, PLATFORM='colab')
     calls = []
 
-    def sh(cmd):
+    def sh(cmd, links='lo', state='down', rc='1'):
         calls.append(cmd)
-        return '1' if ' -C ' in cmd else '0'      # no rule yet; -I succeeds
+        if '/proc/net/dev' in cmd:
+            return links
+        if 'operstate' in cmd:
+            return state
+        return rc
     monkeypatch.setattr(k, 'sh', sh)
-    out = k.colab_net_lock()
-    users = k.AGENTS + k.EVALS
-    assert out['rules'] == 2 * len(users)
-    for tool in ('iptables', 'ip6tables'):
-        for u in users:
-            # first in OUTPUT, loopback included (Sol: Jupyter and local services)
-            assert any(c.startswith(f'{tool} -I OUTPUT 1 -m owner --uid-owner {u} -j REJECT')
-                       for c in calls)
-    assert not any('! -o lo' in c for c in calls)
-    monkeypatch.setattr(k, 'sh', lambda c: '1' if ' -C ' in c else '2')
-    with pytest.raises(RuntimeError, match='owner rule failed'):
-        k.colab_net_lock()
+    out = k.colab_netns_check()
+    assert out['links'] == ['lo'] and out['method'].startswith('netns')
+    probes = [c for c in calls if 'create_connection' in c]
+    assert len(probes) == 3 and all(c.startswith('unshare --net -- setpriv --reuid=tgagent0') for c in probes)
+    for kw, match in (({'links': 'lo\neth0'}, 'not empty'), ({'state': 'up'}, 'not empty'),
+                      ({'rc': '0'}, 'reaches the network')):
+        monkeypatch.setattr(k, 'sh', lambda c, kw=kw: sh(c, **kw))
+        with pytest.raises(RuntimeError, match=match):
+            k.colab_netns_check()
+
+
+def test_colab_runner_and_probes_run_in_a_network_namespace(monkeypatch, tmp_path):
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    seen = []
+    monkeypatch.setattr(k, 'sh', lambda c: seen.append(c) or '1')
+    k.as_user('tgagent0', 'ls /')
+    assert seen[0].startswith('unshare --net -- setpriv --reuid=tgagent0')
+    kg = load(monkeypatch, tmp_path)                    # Kaggle: unchanged
+    seen.clear()
+    monkeypatch.setattr(kg, 'sh', lambda c: seen.append(c) or '1')
+    kg.as_user('tgagent0', 'ls /')
+    assert seen[0].startswith('setpriv --reuid=tgagent0')
+    src = SCRIPT.read_text()
+    rc = src.split('def runner_cmd(')[1].split('\ndef ')[0]
+    assert "(['unshare', '--net', '--'] + cmd) if PLATFORM == 'colab' else cmd" in rc
 
 
 def test_colab_isolation_probes_include_the_network(monkeypatch, tmp_path):
@@ -93,7 +112,7 @@ def test_colab_isolation_probes_include_the_network(monkeypatch, tmp_path):
         assert name in k.COLAB_DENIED
     src = SCRIPT.read_text()
     iso = src.split("def isolation(code):")[1].split('\ndef ')[0]
-    assert "out['net_lock'] = colab_net_lock()" in iso and 'probes.update(COLAB_DENIED)' in iso
+    assert "out['net_lock'] = colab_netns_check()" in iso and 'probes.update(COLAB_DENIED)' in iso
     assert "out['hide'] = colab_hide()" in iso
     su = src.split('def server_unreachable():')[1].split('\ndef ')[0]
     assert "PLATFORM == 'colab' and reach" in su       # any TCP reach aborts on Colab

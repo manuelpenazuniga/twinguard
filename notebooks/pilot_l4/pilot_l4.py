@@ -503,7 +503,10 @@ ISO = {}
 
 
 def as_user(u, cmd):
-    return sh(f'setpriv --reuid={u} --regid={u} --clear-groups --no-new-privs -- '
+    """Run cmd as uid u; on Colab inside a fresh, empty network namespace, exactly the
+    context agents and evaluators run in (the runner itself starts in one, see runner_cmd)."""
+    netns = 'unshare --net -- ' if PLATFORM == 'colab' else ''
+    return sh(f'{netns}setpriv --reuid={u} --regid={u} --clear-groups --no-new-privs -- '
               f'bash -c {json.dumps(cmd)} >/dev/null 2>&1; echo $?')
 
 
@@ -524,7 +527,7 @@ def isolation(code):
     UDS_DIR.mkdir(parents=True, exist_ok=True)
     UDS_DIR.chmod(0o700)
     if PLATFORM == 'colab':
-        out['net_lock'] = colab_net_lock()
+        out['net_lock'] = colab_netns_check()
         out['hide'] = colab_hide()
     work = Path('/tmp/wk'); work.mkdir(exist_ok=True); work.chmod(0o711)
     oracle = next((code / 'bank' / 'templates').glob('*/oracle/oracle.py'))
@@ -664,7 +667,11 @@ def runner_cmd(code, mode, out_dir, extra):
     # arguments go through a root-only file: the process list is visible to every uid
     argf = UDS_DIR / f'args_{out_dir.name}'
     argf.write_text('\n'.join(args) + '\n')
-    return [sys.executable, str(code / 'runner' / 'runner.py'), f'@{argf}']
+    cmd = [sys.executable, str(code / 'runner' / 'runner.py'), f'@{argf}']
+    # Colab: the runner (root) and every agent/evaluator it starts live in a fresh network
+    # namespace with no interface but a down loopback: no internet, no host services, no
+    # abstract sockets of the host; the model is reached through the Unix socket's path
+    return (['unshare', '--net', '--'] + cmd) if PLATFORM == 'colab' else cmd
 
 
 RUN_ID_RE = re.compile(r'(pilot|confirmatory|runner_smoke):[\w.]+:[NPA]:p\d+:r\d+'
@@ -1231,19 +1238,33 @@ def block_complete(name):
     return bool(s.get('scheduled')) and s.get('completed') == s.get('scheduled')
 
 
+def block_started(name):
+    """A block has started once one of its runs has a 'start' event (the runner creates the
+    directory and manifest even when the stop time leaves every run unstarted)."""
+    f = RESULTS_DIR / name / 'attempts.jsonl'
+    if not f.exists():
+        return False
+    for line in f.read_text(errors='replace').splitlines():
+        try:
+            if json.loads(line).get('event') == 'start':
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def x3_m3_may_run():
     """Sealed start rule of the M3 ablation (time only, never results): its first run may start
     only once every main run has its row and before m3_start_by_epoch; once started (in this or
     an earlier session) it continues until the stop time."""
-    started = (RESULTS_DIR / 'x3_m3').exists()
     return block_complete('x3_main') and time.time() < stop_at() and (
-        started or time.time() < float(X3['m3_start_by_epoch']))
+        block_started('x3_m3') or time.time() < float(X3['m3_start_by_epoch']))
 
 
 def x3_block(code):
     res = {'main': run_block(code, 'x3', 'x3_main', x3_args(code, 'x3_main'))}
     res['m3_rule'] = {'main_complete': block_complete('x3_main'),
-                      'm3_started_before': (RESULTS_DIR / 'x3_m3').exists(),
+                      'm3_started_before': block_started('x3_m3'),
                       'now_epoch': time.time(), 'm3_start_by_epoch': X3['m3_start_by_epoch']}
     if x3_m3_may_run():
         res['m3'] = run_block(code, 'x3', 'x3_m3', x3_args(code, 'x3_m3'))
@@ -1257,10 +1278,9 @@ def x3_deadline_reached():
 def x3_close_out(code):
     """Past the sealed stop time: evaluate finished episodes and give every unfinished scheduled
     run of a started block an infra_failed row (time cut; CPU only, the model is never called)."""
-    out = {}
-    for name in ('x3_main', 'x3_m3'):
-        if (RESULTS_DIR / name).exists():
-            out[name] = run_block(code, 'x3', name, x3_args(code, name) + ['--close-out'])
+    out = {'x3_main': run_block(code, 'x3', 'x3_main', x3_args(code, 'x3_main') + ['--close-out'])}
+    if block_started('x3_m3'):          # an ablation that never started is not closed out
+        out['x3_m3'] = run_block(code, 'x3', 'x3_m3', x3_args(code, 'x3_m3') + ['--close-out'])
     return out
 
 
@@ -1273,17 +1293,17 @@ def x3_status(closed):
         return 'closed_at_deadline'
     if not block_complete('x3_main'):
         return 'requires_resume'
-    if (RESULTS_DIR / 'x3_m3').exists():
+    if block_started('x3_m3'):
         return 'complete' if block_complete('x3_m3') else 'requires_resume'
     return 'complete' if time.time() >= float(X3['m3_start_by_epoch']) else 'requires_resume'
 
 
-# ------------------------------------------------------------------ Colab (D13 x2 only)
+# ------------------------------------------------------------------ Colab (smoke and D15 x3)
 # Colab has internet and no Kaggle image: the notebook (notebooks/colab/) downloads the official
 # wheelhouse and the Kaggle model into /kaggle/input with the author's credentials, places this
 # script in /kaggle/src and removes the credentials before launching it. The script then
-# installs the wheelhouse (dependencies from PyPI), locks the network for every agent and
-# evaluator uid, and refuses any mode but COLAB_MODES.
+# installs the Kaggle package versions and the wheelhouse, runs the runner (and so every agent
+# and evaluator) in an empty network namespace, and refuses any mode but COLAB_MODES.
 # The Kaggle environment (probe of the pinned image 37c64f7d after the kernels' wheelhouse
 # install): kaggle_freeze.txt is its `pip freeze --all`; lock_base.txt is the part of it the
 # wheelhouse and the evaluator need (pip-tools style, hashed), every version as on Kaggle.
@@ -1420,21 +1440,24 @@ def colab_install():
     return out
 
 
-def colab_net_lock():
-    """Colab has internet and local services (Jupyter and others): every agent and evaluator
-    uid gets an owner-matched REJECT on ALL egress, loopback included (IPv4 and IPv6),
-    inserted first in OUTPUT. The model is reached only by root through the Unix socket.
-    Verified by the isolation probes and server_unreachable (fail closed)."""
-    rules = []
-    for tool in ('iptables', 'ip6tables'):
-        for u in AGENTS + EVALS:
-            rule = f'OUTPUT -m owner --uid-owner {u} -j REJECT'
-            if sh(f'{tool} -C {rule} >/dev/null 2>&1; echo $?') != '0':
-                rc = sh(f'{tool} -I {rule.replace("OUTPUT", "OUTPUT 1", 1)} >/dev/null 2>&1; echo $?')
-                if rc != '0':
-                    raise RuntimeError(f'{tool} owner rule failed for {u} (rc {rc})')
-            rules.append(f'{tool}:{u}')
-    return {'rules': len(rules)}
+def colab_netns_check():
+    """Colab has internet and local services (Jupyter and others) and no usable netfilter
+    (iptables is refused even to root). Isolation is a fresh network namespace instead: the
+    runner and all its children (agents, evaluators) run in one (runner_cmd), and every
+    isolation probe runs in one too (as_user). Checked here: inside a new namespace only a
+    down loopback exists and, as an agent uid, external, metadata and loopback connections
+    fail. Fail closed."""
+    links = sh("unshare --net -- cat /proc/net/dev | tail -n +3 | cut -d: -f1 | tr -d ' '").split()
+    state = sh('unshare --net -- cat /sys/class/net/lo/operstate')
+    if links != ['lo'] or state not in ('down', 'unknown'):
+        raise RuntimeError(f'network namespace not empty: links={links} lo={state!r}')
+    probes = {f'{h}:{port}': (f"{sys.executable} -I -c \"import socket;"
+                               f"socket.create_connection(('{h}',{port}),3)\"")
+              for h, port in (('8.8.8.8', 53), ('169.254.169.254', 80), ('127.0.0.1', 8080))}
+    reach = [k for k, c in probes.items() if as_user(AGENTS[0], c) == '0']
+    if reach:
+        raise RuntimeError(f'agent uid reaches the network inside the namespace: {reach}')
+    return {'method': 'netns (unshare --net)', 'links': links, 'lo': state}
 
 
 def colab_hide():

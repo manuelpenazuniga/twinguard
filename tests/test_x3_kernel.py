@@ -92,6 +92,9 @@ def test_m3_start_rule_is_time_only(monkeypatch, tmp_path):
     k.X3['m3_start_by_epoch'] = now - 1
     assert not k.x3_m3_may_run()                          # too late to start
     (k.RESULTS_DIR / 'x3_m3').mkdir(parents=True)
+    (k.RESULTS_DIR / 'x3_m3' / 'manifest.json').write_text('{}')
+    assert not k.x3_m3_may_run()          # Argon: a directory without a started run is not a start
+    (k.RESULTS_DIR / 'x3_m3' / 'attempts.jsonl').write_text(json.dumps({'event': 'start'}) + '\n')
     assert k.x3_m3_may_run()                              # started earlier: continues
     k.X3['stop_at_epoch'] = now - 1
     assert not k.x3_m3_may_run()                          # past the stop time: nothing starts
@@ -108,6 +111,8 @@ def test_x3_status(monkeypatch, tmp_path):
     k.X3['m3_start_by_epoch'] = now - 1
     assert k.x3_status({'ok': True}) == 'complete'           # ablation not eligible
     (k.RESULTS_DIR / 'x3_m3').mkdir(parents=True)
+    assert k.x3_status({'ok': True}) == 'complete'           # created, never started
+    (k.RESULTS_DIR / 'x3_m3' / 'attempts.jsonl').write_text(json.dumps({'event': 'start'}) + '\n')
     k.R['blocks'] = blocks(360, 40)
     assert k.x3_status({'ok': True}) == 'requires_resume'
     k.R['blocks'] = blocks(360, 80)
@@ -127,9 +132,13 @@ def test_stop_at_and_close_out_only_after_the_stop_time(monkeypatch, tmp_path):
     assert k.x3_deadline_reached()
     calls = []
     monkeypatch.setattr(k, 'run_block', lambda code, mode, name, extra: calls.append((name, extra)) or {})
-    (k.RESULTS_DIR / 'x3_main').mkdir(parents=True)
+    (k.RESULTS_DIR / 'x3_m3').mkdir(parents=True)             # created but never started
     k.x3_close_out(tmp_path)
     assert calls == [('x3_main', k.x3_args(tmp_path, 'x3_main') + ['--close-out'])]
+    (k.RESULTS_DIR / 'x3_m3' / 'attempts.jsonl').write_text(json.dumps({'event': 'start'}) + '\n')
+    calls.clear()
+    k.x3_close_out(tmp_path)
+    assert [c[0] for c in calls] == ['x3_main', 'x3_m3']
 
 
 def test_x3_args():

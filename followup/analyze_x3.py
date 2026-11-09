@@ -146,10 +146,11 @@ def wording(rep, K, pooled_W):
     pct = lambda x: f'{100 * x:+.1f} pp'
     if c95['zero_variance']:
         return 'degenerate interval (zero variance): it does not express certainty'
-    if rep['FLAGS'].get('floor_or_ceiling'):
-        return f'floor or ceiling (pooled W = {pooled_W:.3f}): the contrast is not interpreted'
     lo, hi = c95['ci']
     lo90, hi90 = c90['ci']
+    if rep['FLAGS'].get('floor_or_ceiling'):
+        return (f'floor or ceiling (pooled W = {pooled_W:.3f}): dAN {pct(c95["estimate"])} '
+                f'[IC95 {pct(lo)}, {pct(hi)}]; not read as evidence')
     if K < K_MIN_INFERENCE:
         return (f'descriptive only (K = {K} < {K_MIN_INFERENCE}): dAN {pct(c95["estimate"])} '
                 f'[IC95 {pct(lo)}, {pct(hi)}]')
@@ -181,7 +182,7 @@ def main_analysis(main_dir, work):
     used_csv = Path(work) / 'main_complete.csv'
     n_used = write_rows(csv_path, keep, used_csv)
     K = 3 * len(complete)
-    out = {'condition': 'C', 'reads_as': C_TEXT, 'runs_scheduled': n_sched,
+    out = {'condition': 'C', 'reads_as': C_TEXT, 'runs_scheduled': n_sched, 'K_scheduled': 30,
            'rows': int(len(df)), 'closed_out_rows': n_cut, 'complete_sectors': complete,
            'partial_sectors': partial, 'absent_sectors': absent, 'K': K, 'rows_used': n_used,
            'truncated': bool(partial or absent),
@@ -204,9 +205,12 @@ def main_analysis(main_dir, work):
         else:
             rep = json.loads(res.read_text())
             out['frozen_report_sha256'] = sha(res.read_bytes())
+            rep['FLAGS']['truncated'] = out['truncated']      # a cut always qualifies the wording
             out['frozen_report'] = relabel(rep)
+            out['flags'] = dict(rep['FLAGS'])
             out['wording'] = wording(rep, K, out['pooled']['W'] or 0.0)
-            out['flags'] = dict(rep['FLAGS'], truncated=out['truncated'])
+            t = TA.template_table(used, 'W')
+            out['K_paired_A_N'] = int(t['dAN'].notna().sum())
     else:
         out['wording'] = wording({}, K, 0.0)
     return out, used_csv if n_used else None
@@ -240,6 +244,7 @@ def ablation(m3_dir, main_dir):
            'complete_templates': len(complete_t), 'per_template': rows,
            'reads_as': 'descriptive ablation of the M3 pattern; no inference, no framing contrast'}
     if len(tab):
+        tab = tab.dropna(subset=['W'])            # a template whose runs all failed is not paired
         both = set(tab.loc[tab.condition == 'C', 'base'])
         for cond in ('CNH', 'CL1'):
             pair = set(tab.loc[tab.condition == cond, 'base']) & both
@@ -256,6 +261,57 @@ def ablation(m3_dir, main_dir):
     return out
 
 
+def patch_measures(runs_csv, logs):
+    """C exposes u_plus.diff, but the sealed process_x1.run computes mention/rejection only for
+    L2/L3 ids: the same sealed functions (last_log, measures with exposure) on the C rows,
+    pooled and as per-template A - N / A - P differences (descriptive)."""
+    from explore import process_x1 as PX
+    df = TA.load(runs_csv, 'confirmatory', MODEL)
+    rows, missing = [], 0
+    for r in df.itertuples():
+        meta = json.loads((X3 / 'templates' / r.template_id / 'template.json').read_text())
+        log = PX.last_log(logs, r.run_id)
+        if log is None:
+            missing += 1
+            m = {'mentions_patch': None, 'rejects_patch': None}
+        else:
+            full = PX.measures(log, Path(meta['monitor_module']).name, True)
+            m = {k: full[k] for k in ('mentions_patch', 'rejects_patch')}
+        rows.append({'run_id': r.run_id, **m})
+    mdf = df.merge(pd.DataFrame(rows), on='run_id', how='left', validate='one_to_one')
+    out = {'n_runs': int(len(mdf)), 'n_without_log': missing, 'pooled': {}, 'contrasts': {}}
+    for k in ('mentions_patch', 'rejects_patch'):
+        col = pd.to_numeric(mdf[k], errors='coerce')
+        if col.notna().sum() == 0:
+            continue
+        out['pooled'][k] = float(col.mean())
+        t = TA.template_table(mdf.assign(X=col), 'X')
+        res = {}
+        for c in ('dAN', 'dAP'):
+            try:
+                res[c] = TA.contrast(t, c, .05)
+            except TA.DesignError as exc:
+                res[c] = {'error': str(exc)}
+        out['contrasts'][k] = res
+    return TA.clean_json(out)
+
+
+def check_inputs(m, main_dir, m3_dir):
+    """Before the claim: the inputs exist, the ablation is passed whenever it ran, and every
+    row comes from the sealed environment and model."""
+    main_csv = Path(main_dir) / 'runs.csv'
+    if not main_csv.exists():
+        raise SystemExit(f'no runs.csv in {main_dir}')
+    sib = Path(main_dir).parent / 'x3_m3' / 'runs.csv'
+    if m3_dir is None and sib.exists():
+        raise SystemExit(f'the ablation ran ({sib}); pass --m3')
+    for d in [main_dir] + ([m3_dir] if m3_dir else []):
+        df = pd.read_csv(Path(d) / 'runs.csv', dtype=str)
+        envs, models = set(df.environment_id), set(df.model_id)
+        if envs != {m['environment_id']} or models != {MODEL}:
+            raise SystemExit(f'{d}: rows not from the sealed environment/model: {envs} {models}')
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--main', required=True, help='decoded results dir of x3_main')
@@ -263,6 +319,7 @@ def main(argv=None):
     ap.add_argument('--out', required=True)
     a = ap.parse_args(argv)
     m, seal_hash = verify_seal()
+    check_inputs(m, a.main, a.m3)
     claim(seal_hash)
     out_dir = Path(a.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -274,6 +331,7 @@ def main(argv=None):
         if used is not None:
             from explore import process_x1 as PX
             rep['process_measures'] = PX.run(used, Path(a.main) / 'logs', X3 / 'templates')
+            rep['patch_measures'] = patch_measures(used, Path(a.main) / 'logs')
     rep['m3_ablation'] = ablation(a.m3, a.main) if a.m3 else {'ran': False}
     text = json.dumps(TA.clean_json(rep), indent=1, sort_keys=True, allow_nan=False) + '\n'
     (out_dir / 'x3_report.json').write_text(text)
