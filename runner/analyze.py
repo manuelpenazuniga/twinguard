@@ -76,6 +76,29 @@ def verify_extraction(root, manifest, freeze_sha):
 
 
 MARKER = 'analysis_started.json'
+SECONDARY_TIMEOUT_S = 4 * 3600       # detectors + gate; then the primary analysis runs anyway
+SECONDARY_OUTPUTS = ('runs_detectors.csv', 'detectors.jsonl', 'gate_output.json',
+                     'gate_stderr.txt', 'secondary_status.json')
+
+
+def run_secondary(out, shards, timeout=SECONDARY_TIMEOUT_S):
+    """The whole secondary phase (detectors + gate) in its own process group, bounded in
+    time; on timeout the group (pool workers included) is killed. Returns None on success,
+    else the error text. Success = secondary_status.json written after the gate."""
+    import signal
+    cmd = [sys.executable, str(ROOT / 'runner' / 'secondary.py'), 'runs', '--runs',
+           str(out / 'runs.csv'), '--out', str(out), '--no-hashes', *map(str, shards)]
+    p = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         text=True, start_new_session=True)
+    try:
+        _, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(p.pid, signal.SIGKILL)
+        p.communicate()
+        return f'secondary phase exceeded {timeout} s: killed'
+    if not (out / 'secondary_status.json').exists():   # a gate exit code alone is recorded
+        return f'secondary phase failed (rc {p.returncode}): {err[-400:]}'
+    return None
 
 
 def claim(out, commit):
@@ -149,16 +172,12 @@ def main(argv=None):
     # runs.csv without the gsc column; a non-zero gate exit is recorded and nothing else.
     secondary = {'gate_rc': None, 'error': None}
     analysis_input = out / 'runs.csv'
-    try:
-        from runner import secondary as SEC
-        secondary['gate_rc'] = SEC.runs_mode(argparse.Namespace(
-            runs=str(out / 'runs.csv'), out=str(out), workers=4, shards=a.shards, hashes=False))
+    secondary['error'] = run_secondary(out, a.shards)
+    if secondary['error'] is None:
+        secondary['gate_rc'] = json.loads((out / 'secondary_status.json').read_text())['gate_rc']
         analysis_input = out / 'runs_detectors.csv'
-    except BaseException as exc:          # SystemExit included (PatchMismatch)
-        if isinstance(exc, KeyboardInterrupt):
-            raise
-        secondary['error'] = f'{type(exc).__name__}: {exc}'[:500]
-        for name in ('runs_detectors.csv',):
+    else:
+        for name in SECONDARY_OUTPUTS:
             (out / name).unlink(missing_ok=True)
     S = manifest['design']['S']
     cmd = analysis_cmd(analysis_input, report, S, out / 'analysis_output.json', a.exploratory)

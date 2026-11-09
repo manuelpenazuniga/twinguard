@@ -214,6 +214,8 @@ def runs_mode(a):
                        timeout=GATE_TIMEOUT_S)
     (out / 'gate_output.json').write_text(r.stdout)
     (out / 'gate_stderr.txt').write_text(r.stderr)
+    (out / 'secondary_status.json').write_text(json.dumps({'gate_rc': r.returncode,
+                                                           'runs': len(jobs)}))
     if getattr(a, 'hashes', True):      # analyze.py hashes the whole directory itself
         digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                   for p in sorted(out.iterdir()) if p.is_file()}
@@ -269,6 +271,7 @@ def main(argv=None):
     r.add_argument('--runs', required=True)
     r.add_argument('--out', required=True)
     r.add_argument('--workers', type=int, default=4)
+    r.add_argument('--no-hashes', dest='hashes', action='store_false')
     r.add_argument('shards', nargs='+')
     w = sub.add_parser('witnesses')
     w.add_argument('--out', required=True)

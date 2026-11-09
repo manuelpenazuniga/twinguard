@@ -98,3 +98,17 @@ def test_strict_diff():
     assert cli._diff({'a': True}, {'a': 1}) == ['.a']
     assert cli._diff({'a': [1, 2]}, {'a': [1, 2, 3]}) == ['.a']
     assert cli._diff({'a': 0.1}, {'a': 0.1}) == []
+
+
+def test_relabel_keeps_the_recorded_budget_state():
+    """Astra day 3f: the recorded episode summary is part of the label (budget_exhausted)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('tg_resource_cli2', CLI)
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    tid = 'M1.cold_chain_release'
+    patch = (T / tid / 'patches' / 's_plus.diff').read_text()
+    rid, lab = cli._relabel_one(('x', tid, 'N', patch, {'budget_exhausted': True}, None))
+    assert lab[0] == 'budget_exhausted' and lab[1] == 0
+    rid, lab = cli._relabel_one(('x', tid, 'N', patch, {}, None))
+    assert lab[0] == 'patch'

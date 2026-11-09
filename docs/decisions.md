@@ -450,3 +450,23 @@ It is frozen with the runner. These choices are fixed now, before any confirmato
   - `reproduce --relabel` rebuilds every label from its patch, tests and oracle. Blind
     adjudications are listed, not re-decided.
   - The second-environment CPU test is still to be done (WP12).
+
+**D10 additions after Astra's review (day 3f).**
+- **Time limit:** the whole secondary phase (detectors and gate) runs in its own process
+  group with a 4 h limit. On timeout the group, pool workers included, is killed, and the
+  single analysis runs on `runs.csv`.
+- **Success test:** the phase succeeded if and only if `secondary_status.json` was written
+  after the gate. A non-zero gate exit is only recorded. On failure every secondary output
+  is removed before hashing.
+- **`reproduce --relabel`:**
+  - It uses each run's recorded episode summary, so `budget_exhausted` stays part of the
+    label.
+  - It runs only with `--eval-user U1,U2,...` (one exclusive uid per concurrent
+    evaluation, purged after each one, as in the runner) or with `--unisolated`.
+  - Its temporary directories can be traversed by the evaluator uid.
+- **`reproduce --freeze` checks:**
+  - every frozen file (code groups and templates) against its hash;
+  - that the published commit holds this exact manifest;
+  - that the published gate exit code was 0;
+  - with `--relabel`, the detectors recomputed from the patches;
+  - `tables.md` regenerated and identical when it is published.

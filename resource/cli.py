@@ -29,6 +29,7 @@ and is meant only for patches you trust.
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -83,14 +84,42 @@ def check_hashes(tdir, freeze):
     return {'checked': len(rel), 'mismatch': bad, 'extra': extra}
 
 
-def frozen_code(freeze, paths):
-    """The code this command runs must be the frozen code (when a freeze is given)."""
-    fz = json.loads(Path(freeze).read_text())
+def frozen_inputs(freeze, commit=None):
+    """Every frozen file (code groups and templates) present in this checkout with its
+    frozen hash; and, in a git checkout, the freeze manifest is the one held by the
+    published commit."""
+    fz_bytes = Path(freeze).read_bytes()
+    fz = json.loads(fz_bytes)
     files = {}
     for g in fz['files'].values():
         files.update(g)
-    bad = [p for p in paths if files.get(p) != sha256((ROOT / p).read_bytes())]
-    return {'checked': len(paths), 'mismatch': bad}
+    for t in fz.get('templates', {}).values():
+        files.update(t['files'])
+    bad = [p for p, h in files.items()
+           if not (ROOT / p).is_file() or sha256((ROOT / p).read_bytes()) != h]
+    binding = None
+    if commit:
+        r = subprocess.run(['git', 'show', f'{commit}:freeze/manifest.json'], cwd=str(ROOT),
+                           capture_output=True)
+        binding = r.returncode == 0 and r.stdout == fz_bytes
+        if not binding:
+            bad.append(f'freeze manifest is not the one held by commit {commit}')
+    return {'checked': len(files), 'mismatch': bad, 'freeze_held_by_commit': binding}
+
+
+def redetect(res, shard_dirs, workers):
+    """Detector states recomputed from the patches and compared with runs_detectors.csv."""
+    import csv
+    from concurrent.futures import ProcessPoolExecutor
+    finals = SEC.final_events(shard_dirs)
+    rows = list(csv.DictReader(open(res / 'runs_detectors.csv', encoding='utf-8')))
+    jobs = [(r['run_id'], r['template_id'], r['framing'], SEC.patch_of(finals, r['run_id']))
+            for r in rows if r['status'] in SEC.EVALUABLE]
+    with ProcessPoolExecutor(workers) as ex:
+        got = {rid: s for rid, s, _ in ex.map(SEC.one_run, jobs)}
+    want = {r['run_id']: r for r in rows}
+    bad = [rid for rid, s in got.items() if any(s[c] != want[rid][c] for c in SEC.DETECTORS)]
+    return {'recomputed': len(got), 'mismatch': bad[:50], 'n_mismatch': len(bad)}
 
 
 def evaluate(a):
@@ -106,12 +135,15 @@ def evaluate(a):
         raise SystemExit('evaluate runs the patched code: pass --eval-user USER (Linux, as root: '
                          'the study\'s isolated evaluator) or --unisolated to run it as yourself')
     patch = Path(a.patch).read_text(encoding='utf-8') if a.patch else ''
-    with tempfile.TemporaryDirectory(prefix='tg_eval_') as work:
-        ev = RN.evaluate(tdir, a.framing, patch, Path(work) / 'ev', a.eval_user)
+    work = traversable_tmp('tg_eval_')
+    try:
+        ev = RN.evaluate(tdir, a.framing, patch, work / 'ev', a.eval_user)
         status, W, F, M, crash = RN.outcome({}, ev)
         before, after, err = SEC.patched_pair(tdir.name, a.framing, patch, Path(work) / 'det') \
             if tdir.parent == SEC.BANK else _pair_outside_bank(tdir, a.framing, patch, work)
         det = {c: 'not_evaluable' for c in SEC.DETECTORS} if err else SEC.detect(before, after, meta)[0]
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
     applied = not (ev.get('apply_error'))
     out = {'template_id': meta['template_id'], 'mechanism': meta['mechanism'],
            'framing': a.framing, 'patch_sha256': sha256(patch.encode()),
@@ -166,21 +198,50 @@ def _diff(a, b, path=''):
     return []
 
 
-def relabel(res, shard_dirs, workers, eval_user):
+def traversable_tmp(prefix):
+    """A temporary directory the evaluator uid can traverse (runner.evaluate then makes its
+    own stage directories private to that uid)."""
+    d = Path(tempfile.mkdtemp(prefix=prefix))
+    d.chmod(0o711)
+    return d
+
+
+def relabel(res, shard_dirs, workers, eval_users, unisolated):
     """Rebuild every evaluable run's labels from its patch: the evaluated patch (bound by
     hash to the final event), applied to a clean render, visible tests and the external
-    oracle; compared with runs.csv. Runs decided by blind adjudication are listed, not
-    re-decided."""
+    oracle, with the run's RECORDED episode summary (budget_exhausted is part of the
+    label); compared with runs.csv. Runs decided by blind adjudication are listed, not
+    re-decided. With --eval-user U1,U2,...: one exclusive evaluator uid per concurrent
+    evaluation (as the study's runner slots); otherwise --unisolated is required."""
     import csv
-    from concurrent.futures import ProcessPoolExecutor
+    import queue
+    from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+    if not eval_users and not unisolated:
+        raise SystemExit('--relabel runs patched code: pass --eval-user U1,U2,... or --unisolated')
     finals = SEC.final_events(shard_dirs)
     rows = [r for r in csv.DictReader(open(res / 'runs.csv', encoding='utf-8'))
             if r['status'] in SEC.EVALUABLE]
     adjudicated = sorted(r['run_id'] for r in rows if finals[r['run_id']][1].get('needs_adjudication'))
     jobs = [(r['run_id'], r['template_id'], r['framing'], SEC.patch_of(finals, r['run_id']),
-             eval_user) for r in rows if r['run_id'] not in adjudicated]
-    with ProcessPoolExecutor(workers) as ex:
-        got = dict(ex.map(_relabel_one, jobs))
+             finals[r['run_id']][1].get('summary') or {})
+            for r in rows if r['run_id'] not in adjudicated]
+    if eval_users:
+        users = queue.Queue()
+        for u in eval_users:
+            users.put(u)
+
+        def slot(job):
+            u = users.get()
+            try:
+                return _relabel_one((*job, u))
+            finally:
+                RN.purge_user(u)
+                users.put(u)
+        with ThreadPoolExecutor(len(eval_users)) as ex:
+            got = dict(ex.map(slot, jobs))
+    else:
+        with ProcessPoolExecutor(workers) as ex:
+            got = dict(ex.map(_relabel_one, [(*j, None) for j in jobs]))
     want = {r['run_id']: r for r in rows}
     diff = [rid for rid, lab in got.items()
             if [str(x) for x in lab] != [want[rid][k] for k in ('status', 'W', 'F', 'M', 'crash')]]
@@ -189,10 +250,13 @@ def relabel(res, shard_dirs, workers, eval_user):
 
 
 def _relabel_one(job):
-    run_id, tid, framing, patch, eval_user = job
-    with tempfile.TemporaryDirectory(prefix='tg_relabel_') as work:
-        ev = RN.evaluate(SEC.BANK / tid, framing, patch, Path(work) / 'ev', eval_user)
-    lab = RN.outcome({}, ev)
+    run_id, tid, framing, patch, summary, eval_user = job
+    work = traversable_tmp('tg_relabel_')
+    try:
+        ev = RN.evaluate(SEC.BANK / tid, framing, patch, work / 'ev', eval_user)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    lab = RN.outcome(summary, ev)
     return run_id, tuple('' if x is None else x for x in lab)
 
 
@@ -205,12 +269,9 @@ def reproduce(a):
                                                or sha256((res / n).read_bytes()) != d)]
     report['hashes'] = {'checked': len(h['sha256']), 'mismatch': bad}
     if a.freeze:
-        report['code'] = frozen_code(a.freeze, ['twinguard/twinguard_analysis.py',
-                                                'twinguard/twinguard_gate.py',
-                                                'twinguard/twinguard_graph.py',
-                                                'runner/runner.py', 'runner/secondary.py'])
+        report['code'] = frozen_inputs(a.freeze, h.get('frozen_commit'))
     else:
-        report['code'] = {'note': 'no --freeze: the checkout code was not verified'}
+        report['code'] = {'mismatch': ['no --freeze: the checkout code was not verified']}
     import twinguard_analysis as ta
     csv_name = Path(h['cmd'][1]).name
     ta.load(res / csv_name, 'confirmatory', model='')
@@ -237,16 +298,28 @@ def reproduce(a):
         r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT / 'twinguard'))
         try:
             d = _diff(json.loads((res / 'gate_output.json').read_text()), json.loads(r.stdout))
-            report['gate_output'] = {'identical': r.returncode == 0 and not d, 'rc': r.returncode,
-                                     'differences': d}
+            report['gate_output'] = {'identical': r.returncode == 0 and h.get('gate_rc') == 0
+                                     and not d, 'rc': r.returncode,
+                                     'published_rc': h.get('gate_rc'), 'differences': d}
         except (json.JSONDecodeError, FileNotFoundError):
             report['gate_output'] = {'identical': False, 'rc': r.returncode}
     if a.relabel:
-        report['labels'] = relabel(res, a.relabel, a.workers, a.eval_user)
+        users = a.eval_user.split(',') if a.eval_user else None
+        report['labels'] = relabel(res, a.relabel, a.workers, users, a.unisolated)
+        if (res / 'runs_detectors.csv').exists():
+            report['detectors'] = redetect(res, a.relabel, a.workers)
+    if (res / 'tables.md').exists():
+        with tempfile.TemporaryDirectory(prefix='tg_tables_') as tmp:
+            t = subprocess.run([sys.executable, str(HERE / 'tables.py'), '--results', str(res),
+                                '--out', str(Path(tmp) / 't.md')], capture_output=True, text=True)
+            report['tables'] = {'identical': t.returncode == 0 and
+                                (Path(tmp) / 't.md').read_text() == (res / 'tables.md').read_text()}
     ok = (not bad and report['analysis_output']['identical']
           and report.get('gate_output', {}).get('identical', True)
           and not report['code'].get('mismatch')
-          and report.get('labels', {}).get('n_label_mismatch', 0) == 0)
+          and report.get('labels', {}).get('n_label_mismatch', 0) == 0
+          and report.get('detectors', {}).get('n_mismatch', 0) == 0
+          and report.get('tables', {}).get('identical', True))
     report['reproduced'] = bool(ok)
     print(json.dumps(report, indent=1))
     return 0 if ok else 1
@@ -269,7 +342,9 @@ def main(argv=None):
     r.add_argument('--relabel', nargs='+', metavar='SHARD_DIR',
                    help='rebuild every label from its patch, tests and oracle')
     r.add_argument('--workers', type=int, default=4)
-    r.add_argument('--eval-user')
+    r.add_argument('--eval-user', help='comma-separated evaluator uids, one per concurrent evaluation')
+    r.add_argument('--unisolated', action='store_true',
+                   help='relabel runs patched code as yourself')
     a = ap.parse_args(argv)
     return evaluate(a) if a.cmd == 'evaluate' else reproduce(a)
 

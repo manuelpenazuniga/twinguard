@@ -291,7 +291,9 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     git = lambda *a: subprocess.run(['git', *a], cwd=repo, check=True, capture_output=True,
                                     text=True).stdout.strip()
     import shutil
-    for rel in ('runner/analyze.py', 'runner/merge.py', 'runner/runner.py', 'runner/secondary.py'):
+    for rel in ('runner/analyze.py', 'runner/merge.py', 'runner/runner.py', 'runner/secondary.py',
+                'resource/cli.py', 'resource/tables.py'):
+        (repo / rel).parent.mkdir(exist_ok=True)
         shutil.copyfile(ROOT / rel, repo / rel)      # the working-tree code under test
     runs = full()
     shards = {f'{i}/2': {'schedule_sha256': R.schedule_digest(R.shard_runs(runs, (i, 2)))}
@@ -305,7 +307,7 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
           'files': {'g': files}, 'templates': {}}
     (repo / 'freeze').mkdir(exist_ok=True)
     (repo / 'freeze' / 'manifest.json').write_text(json.dumps(fz))
-    git('add', 'freeze/manifest.json', 'runner')
+    git('add', 'freeze/manifest.json', 'runner', 'resource')
     git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'freeze')
     commit = git('rev-parse', 'HEAD')
     sha = hashlib.sha256((repo / 'freeze' / 'manifest.json').read_bytes()).hexdigest()
@@ -331,15 +333,18 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     assert hashes['gate_rc'] == 0 and (out / 'gate_output.json').exists()
     assert not (out / 'secondary_hashes.json').exists()              # one hash file: analyze's
     # resource contract (17): the published labels and tables reproduce from the results dir
-    rep = subprocess.run([sys.executable, str(ROOT / 'resource' / 'cli.py'), 'reproduce',
-                          '--results', str(out)], capture_output=True, text=True)
+    fzp = str(repo / 'freeze' / 'manifest.json')
+    rep = subprocess.run([sys.executable, str(repo / 'resource' / 'cli.py'), 'reproduce',
+                          '--results', str(out), '--freeze', fzp], capture_output=True, text=True)
     report = json.loads(rep.stdout)
+    assert report['code']['freeze_held_by_commit'] is True and not report['code']['mismatch']
+    assert report['gate_output']['identical']
     assert report['hashes']['mismatch'] == [] and report['schema'] == 'ok'
     assert report['analysis_rc']['published'] == report['analysis_rc']['reproduced']
     assert report['analysis_output']['identical'] and report['reproduced'], report
     (out / 'runs.csv').write_text((out / 'runs.csv').read_text().replace(',patch,', ',no_patch,', 1))
-    rep = subprocess.run([sys.executable, str(ROOT / 'resource' / 'cli.py'), 'reproduce',
-                          '--results', str(out)], capture_output=True, text=True)
+    rep = subprocess.run([sys.executable, str(repo / 'resource' / 'cli.py'), 'reproduce',
+                          '--results', str(out), '--freeze', fzp], capture_output=True, text=True)
     assert rep.returncode != 0                                # a changed label is caught
     r2 = subprocess.run([sys.executable, str(repo / 'runner' / 'analyze.py'), '--freeze',
                          str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
