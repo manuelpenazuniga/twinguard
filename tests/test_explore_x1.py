@@ -623,8 +623,25 @@ def test_all_closed_out_sector_is_absent_and_process_rows_are_complete_sectors(t
     write(rows, tmp_path / 'k.csv')
     res = AX.transfer(tmp_path / 'k.csv', 'L2', SEL['sha256'])
     assert last in res['sectors_absent'] and last not in res['sectors_partial_dropped']
-    out = AX.complete_sector_rows(tmp_path / 'k.csv', 'L2', tmp_path / 'done.csv')
+    out, n = AX.complete_sector_rows(tmp_path / 'k.csv', 'L2', tmp_path / 'done.csv')
     import csv as _csv
     kept = list(_csv.DictReader(open(out, newline='')))
     assert kept and all(r['family'] != last for r in kept)
     assert len(kept) == sum(1 for r in rows if r['family'] != last)
+
+
+def test_transfer_without_complete_sectors_reports_instead_of_crashing(tmp_path):
+    """Astra: a cut before any transfer sector completes leaves only closed_out rows; the
+    single analysis must still write its report (process measures unavailable, n = 0)."""
+    import explore.run_x1 as RX
+    rows = transfer_rows('L2', eff)
+    for r in rows:
+        r.update(status='infra_failed', W='', F='', M='', crash='', termination='closed_out')
+    write(rows, tmp_path / 'k.csv')
+    res = AX.transfer(tmp_path / 'k.csv', 'L2', SEL['sha256'])
+    assert res['K_paired'] == 0 and not res['sectors_complete']
+    logs = tmp_path / 'logs'
+    logs.mkdir()
+    pt = RX.process_transfer(tmp_path / 'k.csv', 'L2', logs, tmp_path)
+    assert pt == {'available': False, 'n_runs': 0, 'reason': 'no complete transfer sector'}
+    json.dumps({'transfer': res, 'process_transfer': pt}, allow_nan=False)

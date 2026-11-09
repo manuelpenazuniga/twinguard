@@ -957,3 +957,8 @@ Advisor texts (rounds 1–3) and the reconciliation table are in
 - *Conveniente:* the transfer process measures now use the complete sectors only
   (`analyze_x1.complete_sector_rows`).
 - *Opcional:* a sector whose rows are all closed out is reported as absent, not partial.
+
+**D12 implementation, Astra's sixth review ("not ready"; fixed).** Argon's fixes verified. One
+Imprescindible: a transfer cut before any sector completes (only `closed_out` rows) made the
+process measures raise after the single-run claim. `run_x1.process_transfer` now reports
+`{'available': False, 'n_runs': 0}` in that case and the report is written (regression test).

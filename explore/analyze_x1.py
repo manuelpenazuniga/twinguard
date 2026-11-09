@@ -160,7 +160,8 @@ def means_by(used, keys, var):
 
 
 def complete_sector_rows(csv_path, rung, out_path):
-    """The raw rows of the transfer's complete sectors only (for the process measures)."""
+    """The raw rows of the transfer's complete sectors only (for the process measures);
+    returns (path, number of rows), which is 0 when no sector is complete."""
     import csv
     df = TA.load(csv_path, 'confirmatory', MODEL)
     complete, _, _ = check_against_schedule(df, rung)
@@ -173,7 +174,7 @@ def complete_sector_rows(csv_path, rung, out_path):
         w = csv.DictWriter(fh, fieldnames=fields)
         w.writeheader()
         w.writerows(rows)
-    return out_path
+    return out_path, len(rows)
 
 
 def transfer(csv_path, rung, selection, patches_dir=None, confirmatory_csv=None):

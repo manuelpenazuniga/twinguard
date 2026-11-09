@@ -120,6 +120,17 @@ def load_transfer(archives, sealed_sha, work):
     return merged, patches
 
 
+def process_transfer(runs, chosen, logs, work):
+    """Process measures on the complete sectors of the transfer; none complete (a cut before
+    any sector finished) is a valid outcome of the sealed pipeline: reported, never a crash
+    after the single-run claim."""
+    from explore import analyze_x1 as AX, process_x1 as PX
+    done, n = AX.complete_sector_rows(runs, chosen, Path(work) / 'runs_complete.csv')
+    if n == 0:
+        return {'available': False, 'n_runs': 0, 'reason': 'no complete transfer sector'}
+    return PX.run(done, logs, ROOT / 'explore' / 'bank_x1' / 'templates')
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--selection', required=True)
@@ -153,8 +164,7 @@ def main(argv=None):
             for i in range(len(a.transfer)):
                 for p in (Path(work) / f's{i}' / 'results' / 'x1_transfer' / 'logs').glob('*.jsonl'):
                     (logs / p.name).write_bytes(p.read_bytes())
-            done = AX.complete_sector_rows(runs, chosen, Path(work) / 'runs_complete.csv')
-            res['process_transfer'] = PX.run(done, logs, ROOT / 'explore' / 'bank_x1' / 'templates')
+            res['process_transfer'] = process_transfer(runs, chosen, logs, work)
         if conf_csv and a.confirmatory_shards:
             clogs = Path(work) / 'clogs'
             clogs.mkdir()
