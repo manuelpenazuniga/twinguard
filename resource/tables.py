@@ -34,6 +34,12 @@ def ci(c):
     return '—' if not c else f'[{pp(c[0])}, {pp(c[1])}]'
 
 
+def reported(decision, floor):
+    """§10.6/§12: under the floor flag a decision is shown as non-informative, with the
+    script's raw label kept in brackets for traceability."""
+    return f'non-informative (floor) [{decision}]' if floor else decision
+
+
 def main_tables(res, src):
     p = res / 'analysis_output.json'
     a = json.loads(p.read_text())
@@ -46,13 +52,18 @@ def main_tables(res, src):
                                           for m in ('W', 'F', 'U', 'M')) + ' |')
     out += ['', '| Contrast | Estimate (pp) | 95% CI (HC3) | 90% CI | p | Decision |',
             '|---|---|---|---|---|---|']
+    floor = bool(g('FLAGS', 'floor_or_ceiling'))
     for key, label in (('H1_PRIMARY_W_A_minus_N', 'H1: W, A − N'),
                        ('H2_SPECIFICITY_W_A_minus_P', 'H2: W, A − P'),
                        ('DIAGNOSTIC_W_P_minus_N', 'Diagnostic: W, P − N')):
         h95 = g(key, 'HC3_95')
         pv = '—' if h95['p_two_sided'] is None else f"{h95['p_two_sided']:.3f}"
         out.append(f"| {label} | {pp(h95['estimate'])} | {ci(h95['ci'])} | "
-                   f"{ci(g(key, 'HC3_90', 'ci'))} | {pv} | {a[key].get('decision', '—')} |")
+                   f"{ci(g(key, 'HC3_90', 'ci'))} | {pv} | {reported(a[key].get('decision', '—'), floor)} |")
+    if floor:
+        out += ['', '**Floor (§10.6, §12):** the floor_or_ceiling flag is set; every decision above is '
+                'reported as non-informative (floor). At a floor only increases of W are detectable; '
+                '"equivalent" must not be written.']
     out += ['', f"Flags: {json.dumps(g('FLAGS'))}", '']
     out += ['| Mechanism | ΔW A − N (pp, exploratory) |', '|---|---|']
     for m, v in sorted(g('EXPLORATORY_by_mechanism_dAN').items()):
@@ -75,7 +86,7 @@ def sensitivity_table(res, src):
                        ('H2_SPECIFICITY_W_A_minus_P', 'W, A − P')):
         h95 = g(key, 'HC3_95')
         out.append(f"| {label} | {pp(h95['estimate'])} | {ci(h95['ci'])} | "
-                   f"{a[key].get('decision', '—')} |")
+                   f"{reported(a[key].get('decision', '—'), bool(g('FLAGS', 'floor_or_ceiling')))} |")
     return out
 
 

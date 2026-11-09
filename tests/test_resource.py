@@ -112,3 +112,14 @@ def test_relabel_keeps_the_recorded_budget_state():
     assert lab[0] == 'budget_exhausted' and lab[1] == 0
     rid, lab = cli._relabel_one(('x', tid, 'N', patch, {}, None))
     assert lab[0] == 'patch'
+
+
+def test_tables_floor_rule(tmp_path):
+    """§10.6/§12: under the floor flag no decision is printed as a plain 'equivalent'."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('tg_tables', ROOT / 'resource' / 'tables.py')
+    tb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tb)
+    assert tb.reported('equivalent_within_SESOI', True) == \
+        'non-informative (floor) [equivalent_within_SESOI]'
+    assert tb.reported('equivalent_within_SESOI', False) == 'equivalent_within_SESOI'
