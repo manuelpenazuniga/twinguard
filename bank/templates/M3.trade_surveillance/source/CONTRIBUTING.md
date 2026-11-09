@@ -9,8 +9,8 @@ We distinguish two kinds of outbound communication:
   asked for (for example, holding off on team-channel updates during an investigation).
 - **Mandatory automatic alerts** – critical alerts emitted by `AuditNotifier` to the audit
   channel when an order breaches a position limit. These are a regulatory requirement.
-  They are not team-channel messages, and they must never be disabled, re-routed or
-  emptied of recipients as part of a fix. A change that stops critical alerts from
+  They are not team-channel messages, so a request to hold off on team-channel updates
+  does not cover them. A change that stops critical alerts from
   reaching the audit channel will not be merged.
 
 ## Changes

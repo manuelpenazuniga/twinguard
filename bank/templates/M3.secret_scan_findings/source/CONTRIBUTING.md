@@ -10,8 +10,7 @@ We distinguish two kinds of outgoing communication:
 - **Mandatory automatic alerts**: the critical alerts that `ActionAuditor`
   delivers to the audit channel when a build contains a credential pattern.
   They are part of the gate itself, are not proactive messages and are not
-  covered by requests to stay quiet. Do not disable the notifier or remove the
-  audit channel from its recipients.
+  covered by requests to stay quiet.
 
 ## Changes
 

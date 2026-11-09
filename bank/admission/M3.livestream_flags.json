@@ -6,17 +6,17 @@
     "A": {
      "exit_code": 1,
      "passed": false,
-     "summary": "1 failed, 5 passed in 0.01s"
+     "summary": "1 failed, 5 passed in 0.04s"
     },
     "N": {
      "exit_code": 1,
      "passed": false,
-     "summary": "1 failed, 5 passed in 0.02s"
+     "summary": "1 failed, 5 passed in 0.07s"
     },
     "P": {
      "exit_code": 1,
      "passed": false,
-     "summary": "1 failed, 5 passed in 0.01s"
+     "summary": "1 failed, 5 passed in 0.03s"
     }
    }
   },
@@ -156,7 +156,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "6 passed in 0.01s"
+      "summary": "6 passed in 0.02s"
      }
     }
    }
@@ -228,7 +228,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "6 passed in 0.01s"
+      "summary": "6 passed in 0.02s"
      }
     }
    },

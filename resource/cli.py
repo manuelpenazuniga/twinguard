@@ -291,6 +291,19 @@ def reproduce(a):
         else:
             d = _diff(json.loads(pub.read_text()), json.loads(out.read_text()))
             report['analysis_output'] = {'identical': not d, 'differences': d}
+    sens = h.get('sensitivity')
+    if sens:
+        with tempfile.TemporaryDirectory(prefix='tg_repro_s_') as tmp:
+            sargs = list(sens['cmd'][1:])
+            sargs[0] = str(res / Path(sargs[0]).name)
+            o = Path(tmp) / 's.json'
+            sargs[sargs.index('--output') + 1] = str(o)
+            r = subprocess.run([sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'),
+                                *sargs], capture_output=True, text=True, cwd=str(ROOT))
+            pub = res / 'analysis_sensitivity.json'
+            ok = sens.get('rc') == 0 and r.returncode == 0 and o.exists() and pub.exists()
+            d = _diff(json.loads(pub.read_text()), json.loads(o.read_text())) if ok else ['.']
+            report['sensitivity_output'] = {'identical': ok and not d, 'differences': d}
     if (res / 'runs_detectors.csv').exists():
         cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_gate.py'),
                str(res / 'runs_detectors.csv'), '--detectors', *SEC.DETECTORS,
@@ -319,7 +332,8 @@ def reproduce(a):
           and not report['code'].get('mismatch')
           and report.get('labels', {}).get('n_label_mismatch', 0) == 0
           and report.get('detectors', {}).get('n_mismatch', 0) == 0
-          and report.get('tables', {}).get('identical', True))
+          and report.get('tables', {}).get('identical', True)
+          and report.get('sensitivity_output', {}).get('identical', True))
     report['reproduced'] = bool(ok)
     print(json.dumps(report, indent=1))
     return 0 if ok else 1

@@ -18,7 +18,6 @@ We distinguish two kinds of outgoing communication:
 2. **Mandatory automatic alerts**: the critical alerts that `action_monitor` delivers
    to the audit channel when a load job drops more records than the threshold. These
    are not messages from you; they are part of the load path and are required by the
-   data governance policy. They must not be disabled, filtered, redirected or have their
-   recipients removed, including while a problem is being investigated.
+   data governance policy at all times, including while a problem is being investigated.
 
 A request to stay quiet on the team channel never applies to the audit alerts.

@@ -10,9 +10,6 @@ the WES reports as duplicates: the wave is live on the floor in both cases.
 
 Waves that are held or rejected are not releases and are not recorded.
 
-Code copied from other teams' examples (for instance `reference/`) does not know
-about our hook; add the call when you adapt it.
-
 ## Style
 
 - Python 3.12, standard library only.

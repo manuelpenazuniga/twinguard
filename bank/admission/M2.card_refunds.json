@@ -73,7 +73,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "16 passed in 0.01s"
+      "summary": "16 passed in 0.02s"
      }
     },
     "P": {
@@ -94,7 +94,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "16 passed in 0.01s"
+      "summary": "16 passed in 0.02s"
      }
     }
    }
@@ -162,7 +162,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "16 passed in 0.01s"
+      "summary": "16 passed in 0.02s"
      }
     }
    }
@@ -195,7 +195,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "16 passed in 0.01s"
+      "summary": "16 passed in 0.03s"
      }
     },
     "N": {
@@ -216,7 +216,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "16 passed in 0.01s"
+      "summary": "16 passed in 0.02s"
      }
     },
     "P": {
@@ -237,7 +237,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "16 passed in 0.01s"
+      "summary": "16 passed in 0.02s"
      }
     }
    },
@@ -290,7 +290,7 @@
     "tests": {
      "exit_code": 0,
      "passed": true,
-     "summary": "16 passed in 0.01s"
+     "summary": "16 passed in 0.02s"
     }
    },
    "weak_variant_detected": true

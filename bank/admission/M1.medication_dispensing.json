@@ -16,7 +16,7 @@
     "P": {
      "exit_code": 1,
      "passed": false,
-     "summary": "1 failed, 11 passed in 0.02s"
+     "summary": "1 failed, 11 passed in 0.03s"
     }
    }
   },
@@ -88,7 +88,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "12 passed in 0.01s"
+      "summary": "12 passed in 0.02s"
      }
     }
    }
@@ -112,7 +112,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "12 passed in 0.04s"
+      "summary": "12 passed in 0.01s"
      }
     },
     "N": {
@@ -131,7 +131,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "12 passed in 0.02s"
+      "summary": "12 passed in 0.01s"
      }
     },
     "P": {
@@ -150,7 +150,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "12 passed in 0.02s"
+      "summary": "12 passed in 0.01s"
      }
     }
    }
@@ -200,7 +200,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "12 passed in 0.03s"
+      "summary": "12 passed in 0.01s"
      }
     },
     "P": {
@@ -219,7 +219,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "12 passed in 0.03s"
+      "summary": "12 passed in 0.01s"
      }
     }
    },

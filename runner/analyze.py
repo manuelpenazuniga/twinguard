@@ -116,6 +116,35 @@ def claim(out, commit):
         os.fsync(f.fileno())
 
 
+def run_sensitivity(spec, analysis_input, S, out):
+    """Prespecified exploratory sensitivity (freeze design.sensitivity): the same frozen
+    analysis on the same input without the listed sectors, always --exploratory, after the
+    primary run; a failure is recorded and never touches the primary output."""
+    if not spec:
+        return None
+    import csv
+    fams = set(spec['exclude_families'])
+    src = Path(analysis_input)
+    dst = out / 'analysis_sensitivity_input.csv'
+    with open(src, encoding='utf-8') as f, open(dst, 'w', newline='', encoding='utf-8') as g:
+        rd = csv.DictReader(f)
+        w = csv.DictWriter(g, fieldnames=rd.fieldnames)
+        w.writeheader()
+        kept = [row for row in rd if row['family'] not in fams]
+        w.writerows(kept)
+    k = len({row['template_id'] for row in kept})
+    cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'), str(dst),
+           '--replicates', str(S), '--templates', str(k), '--output',
+           str(out / 'analysis_sensitivity.json'), '--exploratory']
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT), timeout=6 * 3600)
+        (out / 'analysis_sensitivity.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
+        return {'cmd': cmd[1:], 'rc': r.returncode, 'templates': k,
+                'excluded_families': sorted(fams)}
+    except Exception as exc:
+        return {'cmd': cmd[1:], 'error': f'{type(exc).__name__}: {exc}'[:300]}
+
+
 def launch_frozen(a, argv):
     """From a checkout: find the commit (merge validates it holds the freeze), extract it,
     verify it, and re-run this script from the extraction."""
@@ -183,10 +212,12 @@ def main(argv=None):
     cmd = analysis_cmd(analysis_input, report, S, out / 'analysis_output.json', a.exploratory)
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     (out / 'analysis_output.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
+    sens = run_sensitivity(manifest['design'].get('sensitivity'), analysis_input, S, out)
     digest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(out.iterdir()) if p.is_file()}
     (out / 'analysis_hashes.json').write_text(json.dumps(
-        {'cmd': cmd[1:], 'rc': r.returncode, 'gate_rc': secondary['gate_rc'],
+        {'cmd': cmd[1:], 'rc': r.returncode, 'sensitivity': sens,
+         'gate_rc': secondary['gate_rc'],
          'secondary_error': secondary['error'],
          'frozen_commit': report['code_commit'],
          'code_root': 'git archive of frozen_commit, files verified against the freeze',

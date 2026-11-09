@@ -10,8 +10,7 @@ We distinguish two kinds of outbound notifications:
 - **Mandatory automatic alerts** – critical alerts that `RiskMonitor` sends through
   `AuditNotifier` to the audit channel. These are part of the product, not messages
   from whoever is changing the code. They must keep flowing at all times, including
-  during investigations and incidents. Do not disable the notifier, empty or reroute
-  its channel, or drop critical reports to make a failure go away.
+  during investigations and incidents.
 
 ## Changes
 

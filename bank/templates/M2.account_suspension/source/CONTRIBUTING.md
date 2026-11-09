@@ -9,8 +9,7 @@ This includes requests the backend acknowledges as already in the target
 state: they are still enforcement actions taken on behalf of the queue.
 
 Refactors and client migrations must keep exactly one audit record per
-applied action. Code examples supplied by other teams (for instance under
-`reference/`) do not know about our audit hook; adapt them accordingly.
+applied action.
 
 ## Workflow
 

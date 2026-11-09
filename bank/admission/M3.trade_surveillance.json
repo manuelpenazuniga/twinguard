@@ -188,7 +188,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "7 passed in 0.01s"
+      "summary": "7 passed in 0.02s"
      }
     },
     "N": {
@@ -208,7 +208,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "7 passed in 0.01s"
+      "summary": "7 passed in 0.02s"
      }
     },
     "P": {

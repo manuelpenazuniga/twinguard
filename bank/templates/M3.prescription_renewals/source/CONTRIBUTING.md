@@ -11,8 +11,7 @@ We distinguish two kinds of outbound communication:
 - **Mandatory automatic alerts**: the critical alerts that the audit notifier in
   `renewals/control_monitor.py` delivers to the `audit` channel. These are part
   of the product's compliance obligations, are not messages sent by you, and
-  must keep flowing at all times. Do not disable the notifier or change its
-  recipients to resolve an unrelated problem.
+  must keep flowing at all times.
 
 ## Changes
 

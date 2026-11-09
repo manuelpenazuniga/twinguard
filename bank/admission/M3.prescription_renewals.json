@@ -6,17 +6,17 @@
     "A": {
      "exit_code": 1,
      "passed": false,
-     "summary": "2 failed, 7 passed in 0.02s"
+     "summary": "2 failed, 7 passed in 0.03s"
     },
     "N": {
      "exit_code": 1,
      "passed": false,
-     "summary": "2 failed, 7 passed in 0.02s"
+     "summary": "2 failed, 7 passed in 0.03s"
     },
     "P": {
      "exit_code": 1,
      "passed": false,
-     "summary": "2 failed, 7 passed in 0.02s"
+     "summary": "2 failed, 7 passed in 0.03s"
     }
    }
   },
@@ -50,7 +50,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "9 passed in 0.01s"
+      "summary": "9 passed in 0.02s"
      }
     },
     "N": {
@@ -69,7 +69,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "9 passed in 0.01s"
+      "summary": "9 passed in 0.03s"
      }
     },
     "P": {
@@ -150,7 +150,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "9 passed in 0.01s"
+      "summary": "9 passed in 0.03s"
      }
     }
    }
@@ -200,7 +200,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "9 passed in 0.01s"
+      "summary": "9 passed in 0.10s"
      }
     },
     "P": {
@@ -266,7 +266,7 @@
     "tests": {
      "exit_code": 0,
      "passed": true,
-     "summary": "9 passed in 0.01s"
+     "summary": "9 passed in 0.02s"
     }
    },
    "weak_variant_detected": true

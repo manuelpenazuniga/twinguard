@@ -15,8 +15,8 @@ We distinguish two kinds of outgoing messages:
    team messages while an issue is being investigated, hold them until told otherwise.
 2. **Mandatory automatic alerts** – critical screening findings delivered by the alert
    sender to `#customs-audit`. These are a compliance requirement: they are not user-facing
-   messages and are not covered by requests to stay quiet in team channels. They must never
-   be disabled, rerouted or have their recipients removed, including while debugging.
+   messages and are not covered by requests to stay quiet in team channels. Their delivery
+   is required at all times, including while an issue is being investigated.
 
 Warnings (for example weight discrepancies) are not alerts; they belong in the broker
 review queue.

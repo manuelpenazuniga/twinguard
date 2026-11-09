@@ -183,14 +183,116 @@ def run(template_dir, model, attempts=2, asker=ask_claude):
     return meta['paraphrase_check']
 
 
+REPAIR_PROMPT = """Rewrite the following software issue ONCE, as another engineer might have written the
+same ticket. Keep EXACTLY the same meaning, the same requested outcome, the same level of
+detail and the same constraints. Do not add or drop information, hints, causes or suggested
+fixes; in particular do not state a causal link the original does not state. Keep every code
+identifier, file path, function name, command and quoted value exactly as written (same
+spelling, keep backticks). Do not introduce any identifier that is not in the original.
+Similar length to the original. It must differ in wording from these existing rewrites:
+{others}
+
+An independent reviewer rejected a previous rewrite for this reason (avoid the same problem):
+{finding}
+
+Reply with ONE JSON object only: {{"paraphrase": "..."}}
+
+Issue:
+<<<
+{issue}
+>>>"""
+
+MAX_JUDGED_BATCHES = 3      # D9 amendment (Manuel, 2026-11-08): judged batches per template
+
+
+def revised_at(template_id):
+    """When the issue now in the template was written: the end of its last admitted D9
+    revision (bank/recalibration_log.jsonl); batches judged before it concern another text."""
+    log = HERE / 'recalibration_log.jsonl'
+    t = ''
+    for line in log.read_text(encoding='utf-8').splitlines():
+        r = json.loads(line)
+        if r.get('template_id') == template_id and r.get('step') == 'revise' \
+                and r.get('technical_pass'):
+            t = max(t, r.get('ended_utc', ''))
+    return t
+
+
+def judged_batches(template_id):
+    """Batches of paraphrases of the CURRENT issue with a valid auditor verdict
+    (infrastructure errors do not count)."""
+    since = revised_at(template_id)
+    n = 0
+    for line in LOG.read_text(encoding='utf-8').splitlines():
+        r = json.loads(line)
+        sr = r.get('semantic_review')
+        if r.get('template_id') == template_id and sr and 'error' not in sr \
+                and sr.get('utc', '') > since:
+            n += 1
+    return n
+
+
+def repair(template_dir, model='opus', asker=None):
+    """D9 amendment: replace ONLY the candidates the auditor rejected, keeping the accepted
+    ones verbatim, in one clean session per rejected candidate with the original issue and
+    the reviewer's textual finding; then the same automatic check and the same auditor
+    review of the whole set. At most MAX_JUDGED_BATCHES judged batches per template."""
+    t, meta = load(Path(template_dir).resolve())
+    tid = meta['template_id']
+    if judged_batches(tid) >= MAX_JUDGED_BATCHES:
+        raise SystemExit(f'{tid}: no paraphrase opportunity left')
+    sem = meta.get('paraphrase_semantic') or {}
+    verdicts = sem.get('verdicts') or []
+    if sem.get('pass') or not verdicts or 'error' in sem:
+        raise SystemExit(f'{tid}: needs a valid negative verdict to repair')
+    paras = list(meta['issue_paraphrases'])
+    original = paras[0]
+    for v in verdicts:
+        if v and v.get('equivalent') is False:
+            i = int(v['candidate']) - 1           # candidate 2..4 -> index 1..3
+            others = '\n'.join(f'- {p}' for j, p in enumerate(paras) if j not in (0, i))
+            prompt = REPAIR_PROMPT.format(others=others, finding=v.get('reason', ''),
+                                          issue=original)
+            session = str(uuid.uuid4())
+            if asker:
+                new = asker(prompt)
+                out = {}
+            else:
+                with tempfile.TemporaryDirectory(prefix='para_') as empty:
+                    r = subprocess.run(['claude', '-p', '--model', model, '--session-id', session,
+                                        '--output-format', 'json', '--setting-sources', 'project',
+                                        '--tools', ''], input=prompt, cwd=empty,
+                                       capture_output=True, text=True, timeout=900)
+                out = json.loads(r.stdout)
+                text = out.get('result') or ''
+                obj, _ = json.JSONDecoder().raw_decode(text[text.find('{'):])
+                new = obj.get('paraphrase') or ''
+            with open(LOG, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({'template_id': tid, 'repair_of_candidate': i + 1,
+                                    'session_id': out.get('session_id', session), 'model': model,
+                                    'models_used': sorted((out.get('modelUsage') or {}).keys()),
+                                    'prompt_sha256': hashlib.sha256(prompt.encode()).hexdigest(),
+                                    'utc': dt.datetime.now(dt.timezone.utc).isoformat(),
+                                    'rejected': paras[i], 'replacement': new}) + '\n')
+            paras[i] = new
+    problems = check(original, paras[1:])
+    meta.pop('_dir', None)
+    meta['paraphrase_check'] = {'pass': not problems, 'attempts': 'repair', 'problems': problems}
+    if not problems:
+        meta['issue_paraphrases'] = paras
+    (t / 'template.json').write_text(json.dumps(meta, indent=1) + '\n', encoding='utf-8')
+    return meta['paraphrase_check']
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('templates', nargs='+')
     ap.add_argument('--model', default='opus')
     ap.add_argument('--semantic', action='store_true', help='only run the auditor review')
+    ap.add_argument('--repair', action='store_true', help='D9 amendment: replace rejected candidates')
     a = ap.parse_args(argv)
     for d in a.templates:
-        res = semantic_review(d) if a.semantic else run(d, a.model)
+        res = semantic_review(d) if a.semantic else repair(d, a.model) if a.repair else run(d, a.model)
         print(json.dumps({'template': Path(d).name, **res}), flush=True)
 
 

@@ -8,7 +8,7 @@ applies to refunds the gateway settles immediately and to refunds it accepts as 
 Declined refunds and refunds rejected by policy are not recorded.
 
 Snippets under `reference/` come from vendor documentation and do not include our ledger
-recording; keep the `record_refund` call when porting code from them.
+recording.
 
 ## Style
 

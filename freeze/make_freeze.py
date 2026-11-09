@@ -42,7 +42,8 @@ GROUPS = {
                   'bank/make_spec.py', 'bank/sectors.toml', 'bank/render.py',
                   'bank/admission.py', 'bank/semantic_audit.py', 'bank/manipulation_check.py',
                   'bank/generation_log.jsonl', 'bank/paraphrase_log.jsonl',
-                  'bank/rejections.jsonl'],
+                  'bank/rejections.jsonl', 'bank/recalibrate.py', 'bank/recalibration_prompt.md',
+                  'bank/recalibration_log.jsonl'],
     'spec': ['bank/spec_matrix.csv', 'bank/spec_matrix.csv.sha256'],
     'audits': ['bank/audits/'],
     'kernel': ['notebooks/pilot_l4/pilot_l4.py', 'notebooks/pilot_l4/kernel-metadata.json',
@@ -94,7 +95,9 @@ K_PROTOCOL = 30                  # 9.3 uses the fixed 30 in T, not the admitted 
 
 def admitted(commit, tid):
     """Admission = technical admission report passed (6.2) AND the last level-2 semantic audit
-    of the template says pass (6.4) AND the Gemma manipulation check passed (6.5, WP7)."""
+    of the template says pass (6.4) AND the Gemma manipulation check passed (6.5, WP7) AND
+    the D9 recalibration preserved the policy with WP7's inputs unchanged AND the issue
+    paraphrases passed their checks."""
     try:
         tech = json.loads(git('show', f'{commit}:bank/admission/{tid}.json'))
     except subprocess.CalledProcessError:
@@ -106,8 +109,36 @@ def admitted(commit, tid):
             sem = r['summary'].get('verdict')
     wp7 = json.loads(git('show', f'{commit}:bank/audits/manipulation_check_provenance.json'))
     man = [r for r in wp7['results'] if r['template_id'] == tid]
+    # D9: the single 9.2 recalibration; policy preserved and WP7 inputs unchanged (WP7 reused)
+    rec = json.loads(git('show', f'{commit}:bank/templates/{tid}/template.json')).get(
+        'recalibration') or {}
+    recal = bool((rec.get('policy_preservation') or {}).get('pass')) \
+        and bool((rec.get('wp7_inputs') or {}).get('reuse'))
+    para = json.loads(git('show', f'{commit}:bank/templates/{tid}/template.json'))
+    paraphrased = bool((para.get('paraphrase_check') or {}).get('pass')) \
+        and bool((para.get('paraphrase_semantic') or {}).get('pass'))
     return bool(tech.get('technical_pass')) and sem == 'pass' and len(man) == 1 \
-        and bool(man[0].get('pass')) and bool(man[0].get('complete'))
+        and bool(man[0].get('pass')) and bool(man[0].get('complete')) and recal and paraphrased
+
+
+def sensitivity(commit, templates):
+    """Prespecified exploratory sensitivity (D9 addendum): the analysis re-run without the
+    WHOLE sector of each listed template (the frozen analysis needs balanced mechanisms, so
+    one template cannot be dropped alone: K = 3 x remaining sectors)."""
+    if not templates:
+        return None
+    spec = {r['template_id']: r for r in csv.DictReader(io.StringIO(
+        git('show', f'{commit}:bank/spec_matrix.csv')))}
+    missing = [t for t in templates if t not in spec or spec[t]['split'] != 'confirmatory']
+    if missing:
+        raise SystemExit(f'sensitivity: not confirmatory templates: {missing}')
+    fams = sorted({spec[t]['family'] for t in templates})
+    dropped = sorted(t for t, r in spec.items() if r['split'] == 'confirmatory' and r['family'] in fams)
+    return {'exclude_templates': sorted(templates), 'exclude_families': fams,
+            'templates_dropped': dropped,
+            'rule': 'D9 addendum: exploratory re-run of the frozen analysis without the sectors '
+                    'of templates admitted through an adjudicated auditor false positive; '
+                    'reported next to the primary result, never instead of it'}
 
 
 def k_rule(commit, tpls):
@@ -166,6 +197,9 @@ def main(argv=None):
     ap.add_argument('--deadline-utc', required=True,
                     help='YYYY-MM-DDTHH:MM:SSZ: no confirmatory run starts after it (7.4 cut)')
     ap.add_argument('--pilot-sealed-sha256', default='')
+    ap.add_argument('--sensitivity-exclude', nargs='*', default=[],
+                    help='templates whose admission involved an adjudicated auditor flag: a '
+                         'prespecified exploratory sensitivity drops their whole sectors')
     ap.add_argument('--environment-id', required=True,
                     help="exactly the runner's environment_id (pilot runs.csv column)")
     ap.add_argument('--out', default=str(ROOT / 'freeze' / 'manifest.json'))
@@ -216,7 +250,8 @@ def main(argv=None):
                    'block_order': blocks,
                    'shards': {k: {'blocks': [b for b in blocks if any(r['family'] == b for r in v)],
                                   'runs': len(v), 'schedule_sha256': schedule_digest(v)}
-                              for k, v in shards.items()}},
+                              for k, v in shards.items()},
+                   'sensitivity': sensitivity(a.commit, a.sensitivity_exclude)},
         'confirmatory_deadline_utc': a.deadline_utc,
         'confirmatory_deadline_epoch': deadline,
         'truncation': '7.4: a run not started by the deadline gets an infra_failed row '

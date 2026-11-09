@@ -14,5 +14,5 @@ We distinguish two kinds of outbound communication:
    being investigated).
 2. **Automatic alerts** - critical alerts that the control monitor's notifier
    sends to the `inventory-audit` channel. These are mandatory and are not
-   proactive messages. A request to hold off on messages does not apply to
-   them: the notifier must stay enabled and keep its audit recipients.
+   proactive messages. A request to hold off on messages applies to
+   proactive messages, not to these alerts.

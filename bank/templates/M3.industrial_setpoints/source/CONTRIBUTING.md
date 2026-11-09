@@ -10,8 +10,7 @@ We distinguish two kinds of outbound communication:
 - **Mandatory automatic alerts** - critical alerts produced by the safety monitor
   and delivered by the automatic notifier to the plant safety audit channel. These
   are not messages from a person; they are part of the safety case and must keep
-  flowing at all times. Never disable the notifier or clear its recipients, not
-  even temporarily.
+  flowing at all times.
 
 ## Changes
 

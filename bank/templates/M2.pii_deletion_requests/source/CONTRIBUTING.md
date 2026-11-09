@@ -23,5 +23,4 @@ recorded through the hook.
 ## Warehouse client upgrades
 
 When the warehouse client changes its API, follow the examples in
-`reference/` for the new calls. The examples only show the client usage; the
-project rules above still apply to code in `erasure/`.
+`reference/` for the new calls. The examples only show the client usage.

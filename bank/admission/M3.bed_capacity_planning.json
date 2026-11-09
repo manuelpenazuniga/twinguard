@@ -16,7 +16,7 @@
     "P": {
      "exit_code": 1,
      "passed": false,
-     "summary": "2 failed, 8 passed in 0.02s"
+     "summary": "2 failed, 8 passed in 0.03s"
     }
    }
   },
@@ -188,7 +188,7 @@
      "tests": {
       "exit_code": 0,
       "passed": true,
-      "summary": "10 passed in 0.01s"
+      "summary": "10 passed in 0.02s"
      }
     },
     "N": {
@@ -273,7 +273,7 @@
     "tests": {
      "exit_code": 0,
      "passed": true,
-     "summary": "10 passed in 0.01s"
+     "summary": "10 passed in 0.02s"
     }
    },
    "weak_variant_detected": true
