@@ -117,9 +117,81 @@ def test_reproduce_recorded_failure_must_fail_the_same_way(base, tmp_path):
     assert not CLI.check_sensitivity(res, fz2, h, 'runs.csv')['reproduced']
     # a recorded error does not reproduce against a run that succeeds
     res2 = copy(base, tmp_path / 'b')
-    h2 = {**base['h'], 'sensitivity': {'cmd': None, 'error': 'ValueError: sensitivity input does '
-                                       'not match the freeze'}}
+    h2 = {**base['h'], 'sensitivity': {'cmd': None, 'stage': 'derive', 'error_type': 'ValueError',
+                                       'error': 'ValueError: sensitivity input does not match the '
+                                       'freeze', 'env': {}}}
     assert not CLI.check_sensitivity(res2, base['fz'], h2, 'runs.csv')['reproduced']
+    # an unstructured error record is refused
+    h3 = {**base['h'], 'sensitivity': {'cmd': None, 'error': 'ValueError: x'}}
+    assert not CLI.check_sensitivity(res2, base['fz'], h3, 'runs.csv')['reproduced']
+
+
+def test_reproduce_astra_second_round(base, tmp_path):
+    """Astra re-review: a missing command, residual outputs, timeouts of another length,
+    over-broad path normalisation and repeated flags never certify a reproduction."""
+    res, fz, h = copy(base, tmp_path), base['fz'], base['h']
+    for cmd in (None, 'absent'):                         # a run record must carry its command
+        rec = dict(h['sensitivity'])
+        if cmd == 'absent':
+            rec.pop('cmd')
+        else:
+            rec['cmd'] = None
+        assert not CLI.check_sensitivity(res, fz, {**h, 'sensitivity': rec}, 'runs.csv')['reproduced']
+    # a derive error matching the re-run's error, but with a residual output: not certified
+    fz_bad = {'design': {**fz['design'], 'sensitivity': {**fz['design']['sensitivity'], 'K': 24}}}
+    (tmp_path / 'x').mkdir()
+    again = AN.run_sensitivity(fz_bad['design']['sensitivity'], res / 'runs.csv', 1, tmp_path / 'x')
+    assert again['stage'] == 'derive'
+    hb = {**h, 'sensitivity': again}
+    assert (res / 'analysis_sensitivity.json').exists()                # residual from the fixture
+    assert not CLI.check_sensitivity(res, fz_bad, hb, 'runs.csv')['reproduced']
+    (res / 'analysis_sensitivity.json').unlink()
+    (res / 'analysis_sensitivity_input.csv').write_bytes((tmp_path / 'x' / 'analysis_sensitivity_input.csv').read_bytes())
+    assert CLI.check_sensitivity(res, fz_bad, hb, 'runs.csv')['reproduced']
+    # a timeout of another length never matches
+    tmo = {'cmd': h['sensitivity']['cmd'], 'stage': 'run', 'error_type': 'TimeoutExpired',
+           'error': 'TimeoutExpired: x', 'timeout_s': 1, 'env': h['sensitivity']['env']}
+    assert not CLI.check_sensitivity(res, fz, {**h, 'sensitivity': tmo}, 'runs.csv')['reproduced']
+    # only known paths are normalised
+    env = {'root': '/r', 'out': '/o', 'prefixes': ['/py']}
+    assert CLI._norm('count 1/2/3', env) != CLI._norm('count 1/99/3', env)
+    assert CLI._norm('/o/a.json and /r/x.py', env) == '<OUT>/a.json and <ROOT>/x.py'
+    # a repeated flag (argparse takes the last) is refused
+    cmd = h['cmd']
+    assert not CLI.primary_cmd_ok(cmd + ['--replicates', '2'], fz, base['res'])
+    assert not CLI.primary_cmd_ok(cmd + [str(res / 'other.csv')], fz, base['res'])
+
+
+def test_tables_with_missing_metadata(base, tmp_path):
+    res = copy(base, tmp_path)
+    (res / 'truncation_report.json').unlink()                       # state unknown
+    t = tables(res, tmp_path, base['fz'])
+    assert 'NON-INFORMATIVE (D9)' in t and 'unknown (no truncation report)' in t
+    (res / 'truncation_report.json').write_text(json.dumps({'K_scheduled': 30,
+        'K_in_complete_blocks': 30, 'closed_out_runs': 0, 'analysis_flag': '', 'blocks': []}))
+    assert 'unknown (no entry in the truncation report)' in tables(res, tmp_path, base['fz'])
+    (res / 'analysis_hashes.json').unlink()                         # no seal at all
+    assert 'No analysis_hashes.json' in tables(res, tmp_path, base['fz'])
+    # no sensitivity frozen but one recorded: flagged, never printed as a result
+    res2 = copy(base, tmp_path / 'b')
+    assert '**Inconsistent:**' in tables(res2, tmp_path, {'design': {'S': 1}})
+
+
+def test_seal_handler_never_raises(base, tmp_path, monkeypatch):
+    out = tmp_path / 'o'
+    out.mkdir()
+
+    def boom(o, r):
+        raise OSError('disk full')
+    real = Path.unlink
+
+    def no_unlink(self, *a, **k):
+        if self.name == 'analysis_hashes.json.tmp':
+            raise PermissionError('denied')
+        return real(self, *a, **k)
+    monkeypatch.setattr(Path, 'unlink', no_unlink)
+    assert AN.seal_sensitivity(out, {}, base['fz']['design']['sensitivity'],
+                               tmp_path / 'missing.csv', 1, 1, seal=boom) is False
 
 
 def test_primary_command_must_match_the_freeze(base):
@@ -145,15 +217,16 @@ def test_second_seal_failure_keeps_the_primary_seal(base, tmp_path):
     assert json.loads(first)['sensitivity'] == {'pending': 'runs after the primary seal'}
 
 
-def tables(res, tmp_path):
-    out = tmp_path / 't.md'
-    TB.main(['--results', str(res), '--out', str(out)])
+def tables(res, tmp_path, fz):
+    out, f = tmp_path / 't.md', tmp_path / 'fz.json'
+    f.write_text(json.dumps(fz))
+    TB.main(['--results', str(res), '--freeze', str(f), '--out', str(out)])
     return out.read_text()
 
 
 def test_tables_follow_the_d9_reporting_rule(base, tmp_path):
     res = copy(base, tmp_path)
-    t = tables(res, tmp_path)
+    t = tables(res, tmp_path, base['fz'])
     assert 'Prespecified sensitivity (D9' in t and 'K evaluable / df' in t
     assert 'equals the sensitivity H1: yes' in t                  # D9: H1 = primary LOFO entry
     assert 'LOFO range over 10 sectors' in t and 'Agrees' in t
@@ -164,12 +237,12 @@ def test_tables_follow_the_d9_reporting_rule(base, tmp_path):
         if b['family'] == base['fam']:
             b['state'] = 'truncated'
     (res / 'truncation_report.json').write_text(json.dumps(tr))
-    t = tables(res, tmp_path)
+    t = tables(res, tmp_path, base['fz'])
     assert 'NON-INFORMATIVE (D9)' in t and 'non-informative (truncation)' in t
     # never silent: a missing output or an unsealed record is reported as missing
     (res / 'analysis_sensitivity.json').unlink()
-    assert '**Not available.**' in tables(res, tmp_path)
+    assert '**Not available.**' in tables(res, tmp_path, base['fz'])
     h = json.loads((res / 'analysis_hashes.json').read_text())
     h['sensitivity'] = {'pending': 'runs after the primary seal'}
     (res / 'analysis_hashes.json').write_text(json.dumps(h))
-    assert '**Not available.**' in tables(res, tmp_path)
+    assert '**Not available.**' in tables(res, tmp_path, base['fz'])

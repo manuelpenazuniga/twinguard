@@ -639,6 +639,27 @@ two blocking defects in the reporting and reproduction, both outside the frozen 
 - **Tests:** `tests/test_sensitivity_reporting.py`; the end-to-end test now uses variable
   outcomes and checks the D9 identity (sensitivity H1 = primary LOFO entry).
 
+**Second round of the same review (Astra, 2026-11-09 ~05:00; still "not ready"; fixed).**
+- **Missing command:** a run record without its command was accepted. A run record must now
+  carry the command, and it must equal the frozen one; normalisation covers only the run's
+  recorded paths.
+- **Different failures accepted as equal:**
+  - Error records are structured: stage `derive`/`run`, type, message, and `timeout_s`.
+  - A failure is certified only when neither side has an output file.
+  - A timeout must be the frozen 3600 s in both runs.
+  - Path normalisation replaces only the run's known paths (code root, output directory,
+    interpreter prefixes, recorded in the record). It no longer touches strings like `1/2/3`.
+- **Primary command:** a repeated flag (argparse takes the last one) or a second positional
+  input is refused.
+- **Tables:** the sensitivity section is driven by the freeze (`--freeze` is required with
+  `--results`).
+  - A missing seal or record prints "Not available".
+  - A recorded sensitivity that was not frozen prints "Inconsistent".
+  - An unknown truncation state (no report, or no entry for the sector) makes the
+    sensitivity NON-INFORMATIVE.
+- **Second-seal handler:** it never raises, even if removing the `.tmp` file fails.
+- **Regressions:** one test per case, in `tests/test_sensitivity_reporting.py`.
+
 **Sol review of the last three tasks (2026-11-09).**
 - **Blocking (fixed):** `confirmatory_kernels.py` requires `--shard` for a resume session,
   a session ≥ 1 and a 64-hex resume hash.

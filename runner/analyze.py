@@ -135,6 +135,9 @@ def run_sensitivity(spec, analysis_input, S, out, timeout=SENSITIVITY_TIMEOUT_S)
     import csv
     dst = out / 'analysis_sensitivity_input.csv'
     cmd = None
+    # the paths this record may contain, so a reproduction can normalise exactly these
+    env = {'root': str(ROOT), 'out': str(out),
+           'prefixes': sorted({sys.prefix, sys.base_prefix, sys.exec_prefix})}
     try:
         fams = set(spec['exclude_families'])
         with open(analysis_input, newline='', encoding='utf-8') as f, \
@@ -154,10 +157,15 @@ def run_sensitivity(spec, analysis_input, S, out, timeout=SENSITIVITY_TIMEOUT_S)
         r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT),
                            timeout=timeout)
         (out / 'analysis_sensitivity.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
-        return {'cmd': cmd[1:], 'rc': r.returncode, 'templates': k,
+        return {'cmd': cmd[1:], 'rc': r.returncode, 'templates': k, 'env': env,
                 'excluded_families': sorted(fams), 'templates_dropped': dropped}
     except Exception as exc:
-        return {'cmd': cmd[1:] if cmd else None, 'error': f'{type(exc).__name__}: {exc}'[:300]}
+        rec = {'cmd': cmd[1:] if cmd else None, 'stage': 'run' if cmd else 'derive',
+               'error_type': type(exc).__name__, 'error': f'{type(exc).__name__}: {exc}'[:300],
+               'env': env}
+        if isinstance(exc, subprocess.TimeoutExpired):
+            rec['timeout_s'] = exc.timeout
+        return rec
 
 
 def seal_sensitivity(out, record, spec, analysis_input, S, primary_rc, seal=None):
@@ -171,9 +179,15 @@ def seal_sensitivity(out, record, spec, analysis_input, S, primary_rc, seal=None
         seal(out, record)
         return True
     except Exception as exc:
-        (out / 'analysis_hashes.json.tmp').unlink(missing_ok=True)
-        print(f'sensitivity seal failed ({type(exc).__name__}: {exc}); the primary seal stands '
-              'and the sensitivity is recorded as pending (missing)', file=sys.stderr)
+        try:
+            (out / 'analysis_hashes.json.tmp').unlink(missing_ok=True)
+        except Exception:
+            pass                                # a leftover .tmp is never read as a seal
+        try:
+            print(f'sensitivity seal failed ({type(exc).__name__}: {exc}); the primary seal '
+                  'stands and the sensitivity is recorded as pending (missing)', file=sys.stderr)
+        except Exception:
+            pass
         return False
 
 

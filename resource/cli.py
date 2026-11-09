@@ -29,7 +29,6 @@ and is meant only for patches you trust.
 import argparse
 import hashlib
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -261,71 +260,114 @@ def _relabel_one(job):
     return run_id, tuple('' if x is None else x for x in lab)
 
 
-PATH_RE = re.compile(r"(?:/[^/\s'\",\[\]]+)+/([^/\s'\",\[\]]+)")
-
-
-def _norm(text):
-    """Absolute paths reduced to their basename: a results directory moves between machines."""
-    return PATH_RE.sub(r'\1', text or '')
+def _norm(text, env):
+    """Only the KNOWN paths of one run (its code root, output directory, interpreter
+    prefixes) are replaced by placeholders; nothing else in the text is touched."""
+    text = text or ''
+    subs = [(env.get('root'), '<ROOT>'), (env.get('out'), '<OUT>')]
+    subs += [(x, '<PY>') for x in env.get('prefixes') or []]
+    for path, tag in sorted((x for x in subs if x[0]), key=lambda x: -len(x[0])):
+        text = text.replace(path, tag)
+    return text
 
 
 def _read(p):
     return p.read_text(encoding='utf-8') if p.exists() else None
 
 
+ALLOWED_PRIMARY = {'--replicates', '--output', '--exploratory'}
+
+
 def primary_cmd_ok(cmd, fz, res):
-    """The recorded primary invocation is the one the freeze implies: S from the freeze, no
-    flag other than --replicates/--output/--exploratory (seed and bootstrap are the frozen
-    module defaults), and --exploratory present whenever the truncation report requires it."""
-    flags = [x for x in cmd if x.startswith('--')]
-    trunc = json.loads(_read(res / 'truncation_report.json') or '{}')
-    return (set(flags) <= {'--replicates', '--output', '--exploratory'}
-            and cmd[cmd.index('--replicates') + 1] == str(fz['design']['S'])
-            and ('--exploratory' in cmd or not trunc.get('exploratory_required')))
+    """The recorded primary invocation is the one the freeze implies: exactly one positional
+    input, each flag at most once (argparse would take the last of a repeated flag), only
+    --replicates/--output/--exploratory (seed and bootstrap are the frozen module defaults),
+    S from the freeze, and --exploratory whenever the truncation report requires it or the
+    truncation state is unknown."""
+    if not cmd or not str(cmd[0]).endswith('twinguard_analysis.py'):
+        return False
+    args = list(cmd[1:])
+    flags = [x for x in args if x.startswith('-')]
+    if len(flags) != len(set(flags)) or not set(flags) <= ALLOWED_PRIMARY:
+        return False
+    if '--replicates' not in flags or '--output' not in flags:
+        return False
+    valued = {args.index(f) + 1 for f in ('--replicates', '--output')}
+    positional = [i for i, x in enumerate(args) if not x.startswith('-') and i not in valued]
+    if len(positional) != 1:
+        return False
+    trunc = _read(res / 'truncation_report.json')
+    required = True if trunc is None else json.loads(trunc).get('exploratory_required', True)
+    return (args[args.index('--replicates') + 1] == str(fz['design']['S'])
+            and ('--exploratory' in flags or not required))
+
+
+def _cmd_matches(recorded, expected, env):
+    """Equality with the frozen command after replacing the recorded run's known paths."""
+    norm = lambda c, e: [_norm(str(x), e) for x in c]
+    return recorded is not None and norm(recorded, env) == expected
 
 
 def check_sensitivity(res, fz, h, csv_name):
     """The frozen sensitivity (D9) re-derived and re-run with the frozen procedure itself
-    (runner/analyze.run_sensitivity: same derivation, same checks, same 1 h limit). The
-    recorded state must be the one the primary's outcome implies; the recorded command must
-    be the one the freeze implies; a recorded failure reproduces only if it fails the same way
-    (same error, or same exit code AND same normalised output, and no output file)."""
+    (runner/analyze.run_sensitivity: same derivation, checks and 1 h limit).
+    - The recorded state must be the one the primary's outcome implies.
+    - A run record (rc) must carry the command, equal to the one the freeze implies.
+    - An error record must be of the same stage, type and message (known paths normalised); a
+      'derive' error has no command; a 'run' error has the frozen command; a timeout must be
+      the frozen timeout, in both runs.
+    - A failure (error or non-zero exit) reproduces only if NO output file exists on either
+      side, with the same exit code and the same output (known paths normalised).
+    - A success reproduces only if both outputs are identical field by field."""
+    from runner import analyze as AN
     spec = fz['design'].get('sensitivity')
     sens = h.get('sensitivity')
     if not spec:
         return None if sens is None else {'reproduced': False,
                                           'note': 'a sensitivity is recorded but none is frozen'}
     S = fz['design']['S']
-    rep = {'frozen': {'K': spec['K'], 'exclude_families': spec['exclude_families'], 'S': S},
+    rep = {'frozen': {'K': spec['K'], 'exclude_families': spec['exclude_families'], 'S': S,
+                      'timeout_s': AN.SENSITIVITY_TIMEOUT_S},
            'seed_bootstrap': 'frozen module defaults (the command passes neither)'}
+    fail = lambda note: {**rep, 'reproduced': False, 'note': note}
     if not isinstance(sens, dict) or 'pending' in sens:
-        return {**rep, 'reproduced': False, 'note': f'frozen sensitivity missing or unsealed: {sens}'}
+        return fail(f'frozen sensitivity missing or unsealed: {sens}')
     if h.get('rc') != 0:
         return {**rep, 'reproduced': sens == {'skipped': 'primary analysis failed'},
                 'note': 'the primary failed: the sensitivity must be recorded as skipped'}
-    if 'skipped' in sens:
-        return {**rep, 'reproduced': False,
-                'note': 'recorded as skipped although the primary analysis succeeded'}
-    from runner import analyze as AN
-    expected = [_norm(x) for x in AN.sensitivity_cmd(spec, S)[1:]]
-    if sens.get('cmd') is not None:
-        rep['cmd_matches_freeze'] = [_norm(x) for x in sens['cmd']] == expected
+    kinds = [k for k in ('rc', 'error', 'skipped') if k in sens]
+    if kinds != ['rc'] and kinds != ['error']:
+        return fail(f'not a run or error record (keys {sorted(sens)})')
+    env = sens.get('env') or {}
+    expected = [_norm(str(x), {'root': str(AN.ROOT), 'out': '<OUT>'})
+                for x in AN.sensitivity_cmd(spec, S, AN.ROOT, '<OUT>')[1:]]
+    if 'rc' in sens or sens.get('stage') == 'run':
+        rep['cmd_matches_freeze'] = _cmd_matches(sens.get('cmd'), expected, env)
+        if not rep['cmd_matches_freeze']:
+            return fail('the recorded command is missing or is not the frozen one')
+    elif sens.get('stage') != 'derive' or sens.get('cmd') is not None:
+        return fail('an error record must state its stage; a derive error has no command')
     with tempfile.TemporaryDirectory(prefix='tg_repro_s_') as tmp:
         tmp = Path(tmp)
         again = AN.run_sensitivity(spec, res / csv_name, S, tmp)
+        env2 = again.get('env') or {}
         pub_in, new_in = res / 'analysis_sensitivity_input.csv', tmp / 'analysis_sensitivity_input.csv'
         rep['input_rederived_identical'] = (pub_in.read_bytes() == new_in.read_bytes()
                                             if pub_in.exists() and new_in.exists()
                                             else pub_in.exists() == new_in.exists())
-        rep['outcome'] = {'published': {k: sens.get(k) for k in ('rc', 'error')},
-                          'reproduced': {k: again.get(k) for k in ('rc', 'error')}}
+        rep['outcome'] = {'published': {k: sens.get(k) for k in ('rc', 'stage', 'error_type', 'error')},
+                          'reproduced': {k: again.get(k) for k in ('rc', 'stage', 'error_type', 'error')}}
         pub_o, new_o = res / 'analysis_sensitivity.json', tmp / 'analysis_sensitivity.json'
+        no_output = not pub_o.exists() and not new_o.exists()
         if 'error' in sens or 'error' in again:
-            ea, eb = sens.get('error') or '', again.get('error') or ''
-            same = (bool(ea) and bool(eb) and ea.split(':')[0] == eb.split(':')[0]
-                    and (ea.startswith('TimeoutExpired') or _norm(ea) == _norm(eb))
-                    and pub_o.exists() == new_o.exists())
-        elif sens.get('rc') != again.get('rc'):
+            same = ('error' in sens and 'error' in again and no_output
+                    and sens.get('stage') == again.get('stage')
+                    and sens.get('error_type') == again.get('error_type'))
+            if same and sens.get('error_type') == 'TimeoutExpired':
+                same = sens.get('timeout_s') == again.get('timeout_s') == AN.SENSITIVITY_TIMEOUT_S
+            elif same:
+                same = _norm(sens['error'], env) == _norm(again['error'], env2)
+        elif sens['rc'] != again.get('rc'):
             same = False
         elif sens['rc'] == 0:
             same = pub_o.exists() and new_o.exists()
@@ -334,10 +376,9 @@ def check_sensitivity(res, fz, h, csv_name):
                 rep['differences'] = d
                 same = not d
         else:
-            same = (not pub_o.exists() and not new_o.exists()
-                    and _read(res / 'analysis_sensitivity.txt') is not None
-                    and _norm(_read(res / 'analysis_sensitivity.txt'))
-                    == _norm(_read(tmp / 'analysis_sensitivity.txt')))
+            t1, t2 = _read(res / 'analysis_sensitivity.txt'), _read(tmp / 'analysis_sensitivity.txt')
+            same = no_output and t1 is not None and t2 is not None and \
+                _norm(t1, env) == _norm(t2, env2)
     rep['same_outcome'] = bool(same)
     rep['reproduced'] = bool(same and rep['input_rederived_identical']
                              and rep.get('cmd_matches_freeze', True))
@@ -404,6 +445,7 @@ def reproduce(a):
     if (res / 'tables.md').exists():
         with tempfile.TemporaryDirectory(prefix='tg_tables_') as tmp:
             t = subprocess.run([sys.executable, str(HERE / 'tables.py'), '--results', str(res),
+                                *(['--freeze', str(a.freeze)] if a.freeze else []),
                                 '--out', str(Path(tmp) / 't.md')], capture_output=True, text=True)
             report['tables'] = {'identical': t.returncode == 0 and
                                 (Path(tmp) / 't.md').read_text() == (res / 'tables.md').read_text()}

@@ -6,8 +6,8 @@ runner/secondary.py. Writes Markdown tables and a provenance list: for each cell
 the JSON path and the raw value. Nothing is computed here except rounding and
 percent formatting; a number without a source is never printed.
 
-  python resource/tables.py --results results/confirmatory [--witnesses results/witnesses] \
-      --out results/tables.md
+  python resource/tables.py --results results/confirmatory --freeze freeze/manifest.json \
+      [--witnesses results/witnesses] --out results/tables.md
 """
 import argparse
 import json
@@ -91,30 +91,42 @@ def main_tables(res, src):
     return out
 
 
-def sensitivity_table(res, src):
-    """D9 reporting rule for the frozen sensitivity: never silent, non-informative when an
-    excluded sector's block is not complete, shown with its coarse class against the primary,
-    the primary's leave-one-family-out entry for the excluded sector and the LOFO range."""
+def sensitivity_table(res, src, fz):
+    """D9 reporting rule for the frozen sensitivity, driven by the FREEZE (not by whatever the
+    results directory happens to hold): if one is frozen, the section is always printed. It is
+    "Not available" when the seal, the record or the output is missing or failed; it is
+    NON-INFORMATIVE when an excluded sector's block is not complete OR its state is unknown
+    (no truncation report, or no entry for that sector). Otherwise each contrast is shown with
+    its coarse class against the primary, the primary's leave-one-family-out entry for the
+    excluded sector (with an equality check) and the LOFO range."""
+    spec = (fz.get('design') or {}).get('sensitivity')
     ph = res / 'analysis_hashes.json'
-    if not ph.exists():
+    h = json.loads(ph.read_text()) if ph.exists() else None
+    head = ['', '### Prespecified sensitivity (D9; EXPLORATORY; next to the primary, never instead of it)', '']
+    if not spec:
+        if h is not None and h.get('sensitivity') is not None:
+            return head + ['**Inconsistent:** a sensitivity is recorded but none is frozen; it is not '
+                           'reported.']
         return []
-    h = json.loads(ph.read_text())
-    if h.get('sensitivity') is None:
-        return []                                     # none frozen (the record says so)
+    if h is None:
+        return head + ['**Not available.** No analysis_hashes.json (no sealed analysis); the frozen '
+                       'sensitivity is reported as missing.']
     rec = src.get(ph, h, ('sensitivity',))
     p = res / 'analysis_sensitivity.json'
-    head = ['', '### Prespecified sensitivity (D9; EXPLORATORY; next to the primary, never instead of it)', '']
-    if not p.exists() or rec.get('rc') != 0:
-        return head + [f"**Not available.** Recorded state: `{json.dumps(rec)}`. The sensitivity "
-                       f"is reported as missing; no decision is drawn from it."]
-    fams = rec['excluded_families']
+    if not isinstance(rec, dict) or rec.get('rc') != 0 or not p.exists() \
+            or sorted(rec.get('excluded_families') or []) != sorted(spec['exclude_families']):
+        return head + [f"**Not available.** Recorded state: `{json.dumps(rec)}`. The frozen "
+                       f"sensitivity is reported as missing; no decision is drawn from it."]
+    fams = sorted(spec['exclude_families'])
     pt = res / 'truncation_report.json'
-    incomplete = []
+    state = {f: 'unknown (no truncation report)' for f in fams}
     if pt.exists():
         t = json.loads(pt.read_text())
-        for i, b in enumerate(t['blocks']):
-            if b['family'] in fams and src.get(pt, t, ('blocks', i, 'state')) != 'complete':
-                incomplete.append(b['family'])
+        state = {f: 'unknown (no entry in the truncation report)' for f in fams}
+        for i, b in enumerate(t.get('blocks', [])):
+            if b.get('family') in fams:
+                state[b['family']] = src.get(pt, t, ('blocks', i, 'state'))
+    incomplete = [f'{f}: {st}' for f, st in state.items() if st != 'complete']
     a = json.loads(p.read_text())
     g = lambda *k: src.get(p, a, k)
     pa = res / 'analysis_output.json'
@@ -124,17 +136,15 @@ def sensitivity_table(res, src):
     out = head + [f"Without sector(s) {', '.join(fams)} (templates in the input {g('n_templates')}; "
                   f"status {g('analysis_status')}).", '']
     if incomplete:
-        out += [f"**NON-INFORMATIVE (D9):** the block of {', '.join(incomplete)} is not complete "
-                f"(truncation); the numbers below are shown for traceability only.", '']
+        out += [f"**NON-INFORMATIVE (D9):** the excluded block is not known to be complete "
+                f"({'; '.join(incomplete)}); the numbers below are shown for traceability only.", '']
     out += ['| Contrast | Estimate (pp) | 95% CI (HC3) | K evaluable / df | Decision | '
             'Coarse class: sensitivity vs primary | Agrees |', '|---|---|---|---|---|---|---|']
     for key, label in (('H1_PRIMARY_W_A_minus_N', 'W, A − N'),
                        ('H2_SPECIFICITY_W_A_minus_P', 'W, A − P')):
         h95 = g(key, 'HC3_95')
         d_s, d_p = g(key, 'decision'), gp(key, 'decision')
-        dec = reported(d_s, floor)
-        if incomplete:
-            dec = f'non-informative (truncation) [{d_s}]'
+        dec = f'non-informative (truncation) [{d_s}]' if incomplete else reported(d_s, floor)
         agree = '—' if incomplete else ('yes' if coarse(d_s) == coarse(d_p) else 'no')
         out.append(f"| {label} | {pp(h95['estimate'])} | {ci(h95['ci'])} | {keval(h95)} | {dec} | "
                    f"{coarse(d_s)} vs {coarse(d_p)} | {agree} |")
@@ -223,13 +233,18 @@ def witness_table(wdir, src):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--results')
+    ap.add_argument('--freeze', help='the frozen manifest (required with --results: the D9 '
+                    'sensitivity section is driven by the freeze)')
     ap.add_argument('--witnesses')
     ap.add_argument('--out', required=True)
     a = ap.parse_args(argv)
     src, lines = Src(), ['# TwinGuard tables (generated; do not edit by hand)', '']
     if a.results:
+        if not a.freeze:
+            ap.error('--results needs --freeze (the D9 sensitivity section reads the freeze)')
         res = Path(a.results)
-        lines += (main_tables(res, src) + sensitivity_table(res, src) + truncation_table(res, src)
+        fz = json.loads(Path(a.freeze).read_text())
+        lines += (main_tables(res, src) + sensitivity_table(res, src, fz) + truncation_table(res, src)
                   + gate_table(res, src))
     if a.witnesses:
         lines += witness_table(a.witnesses, src)

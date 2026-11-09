@@ -67,8 +67,10 @@ def test_tables_every_number_has_a_source(tmp_path):
                        check=True, capture_output=True, text=True, cwd=str(ROOT / 'twinguard'))
     (res / 'gate_output.json').write_text(g.stdout)
     out = tmp_path / 't.md'
+    (tmp_path / 'fz.json').write_text(json.dumps({'design': {}}))
     r = subprocess.run([sys.executable, str(ROOT / 'resource' / 'tables.py'), '--results',
-                        str(res), '--out', str(out)], capture_output=True, text=True)
+                        str(res), '--freeze', str(tmp_path / 'fz.json'), '--out', str(out)],
+                       capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[-2000:]
     text = out.read_text()
     assert 'H1: W, A − N' in text and '| gsc |' in text and '## Provenance' in text

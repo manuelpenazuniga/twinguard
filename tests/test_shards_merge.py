@@ -349,6 +349,7 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     lofo = res['EXPLORATORY_heterogeneity_and_stability']['leave_one_family_out'][fam]
     assert abs(lofo['estimate'] - sens['H1_PRIMARY_W_A_minus_N']['HC3_95']['estimate']) < 1e-9
     t = subprocess.run([sys.executable, str(repo / 'resource' / 'tables.py'), '--results', str(out),
+                        '--freeze', str(repo / 'freeze' / 'manifest.json'),
                         '--out', str(tmp_path / 't.md')], capture_output=True, text=True)
     assert t.returncode == 0, t.stderr[-1500:]
     assert 'equals the sensitivity H1: yes' in (tmp_path / 't.md').read_text()
