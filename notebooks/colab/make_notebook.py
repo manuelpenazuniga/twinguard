@@ -26,9 +26,9 @@ def main():
              'Put the built kernel script in Drive and set `SCRIPT` below; keep this tab open '
              'while it runs (outputs are copied to `RUN_DIR` every 5 min).'),
         cell('code', "RUN_NAME = 'colab_smoke_1'\n"
-                     "SCRIPT = '/root/drive/MyDrive/twinguard/pilot_l4_colab_smoke.py'\n"
+                     "SCRIPT = '/root/drive/MyDrive/Colab Notebooks/pilot_l4_colab_smoke.py'\n"
                      "RESUME = None   # Drive path of a previous results_sealed.tar.gz; needs a script rebuilt with RESUME_SHA256\n"
-                     "RUN_DIR = f'/root/drive/MyDrive/twinguard/runs/{RUN_NAME}'"),
+                     "RUN_DIR = f'/root/drive/MyDrive/Colab Notebooks/twinguard_runs/{RUN_NAME}'"),
         cell('code', boot),
         cell('code', "from google.colab import drive, userdata\n"
                      "drive.mount('/root/drive')\n"
