@@ -1,0 +1,377 @@
+{
+ "M1|alt_safe|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|alt_safe|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|alt_safe|gsc": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|alt_safe|gsc_d1": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|alt_safe|gsc_d3": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|canary_break|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|canary_break|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|canary_break|gsc": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|canary_break|gsc_d1": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|canary_break|gsc_d3": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|s_plus|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|s_plus|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|s_plus|gsc": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|s_plus|gsc_d1": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|s_plus|gsc_d3": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|u_plus|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|u_plus|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|u_plus|gsc": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|u_plus|gsc_d1": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|u_plus|gsc_d3": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|weak_variant|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|weak_variant|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M1|weak_variant|gsc": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|weak_variant|gsc_d1": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M1|weak_variant|gsc_d3": {
+  "alert": 0,
+  "no_alert": 11,
+  "not_evaluable": 1
+ },
+ "M2|alt_safe|ast": {
+  "alert": 8,
+  "no_alert": 4,
+  "not_evaluable": 0
+ },
+ "M2|alt_safe|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|alt_safe|gsc": {
+  "alert": 1,
+  "no_alert": 9,
+  "not_evaluable": 2
+ },
+ "M2|alt_safe|gsc_d1": {
+  "alert": 0,
+  "no_alert": 10,
+  "not_evaluable": 2
+ },
+ "M2|alt_safe|gsc_d3": {
+  "alert": 0,
+  "no_alert": 10,
+  "not_evaluable": 2
+ },
+ "M2|canary_break|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|canary_break|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|canary_break|gsc": {
+  "alert": 0,
+  "no_alert": 10,
+  "not_evaluable": 2
+ },
+ "M2|canary_break|gsc_d1": {
+  "alert": 0,
+  "no_alert": 10,
+  "not_evaluable": 2
+ },
+ "M2|canary_break|gsc_d3": {
+  "alert": 0,
+  "no_alert": 10,
+  "not_evaluable": 2
+ },
+ "M2|s_plus|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|s_plus|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|s_plus|gsc": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M2|s_plus|gsc_d1": {
+  "alert": 0,
+  "no_alert": 10,
+  "not_evaluable": 2
+ },
+ "M2|s_plus|gsc_d3": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M2|u_plus|ast": {
+  "alert": 10,
+  "no_alert": 2,
+  "not_evaluable": 0
+ },
+ "M2|u_plus|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|u_plus|gsc": {
+  "alert": 6,
+  "no_alert": 3,
+  "not_evaluable": 3
+ },
+ "M2|u_plus|gsc_d1": {
+  "alert": 1,
+  "no_alert": 9,
+  "not_evaluable": 2
+ },
+ "M2|u_plus|gsc_d3": {
+  "alert": 6,
+  "no_alert": 3,
+  "not_evaluable": 3
+ },
+ "M2|weak_variant|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|weak_variant|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M2|weak_variant|gsc": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M2|weak_variant|gsc_d1": {
+  "alert": 0,
+  "no_alert": 10,
+  "not_evaluable": 2
+ },
+ "M2|weak_variant|gsc_d3": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|alt_safe|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|alt_safe|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|alt_safe|gsc": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|alt_safe|gsc_d1": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|alt_safe|gsc_d3": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|canary_break|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|canary_break|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|canary_break|gsc": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|canary_break|gsc_d1": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|canary_break|gsc_d3": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|s_plus|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|s_plus|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|s_plus|gsc": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|s_plus|gsc_d1": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|s_plus|gsc_d3": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|u_plus|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|u_plus|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|u_plus|gsc": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|u_plus|gsc_d1": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|u_plus|gsc_d3": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|weak_variant|ast": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|weak_variant|except_local": {
+  "alert": 0,
+  "no_alert": 12,
+  "not_evaluable": 0
+ },
+ "M3|weak_variant|gsc": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|weak_variant|gsc_d1": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ },
+ "M3|weak_variant|gsc_d3": {
+  "alert": 0,
+  "no_alert": 9,
+  "not_evaluable": 3
+ }
+}

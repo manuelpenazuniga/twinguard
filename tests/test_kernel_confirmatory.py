@@ -266,3 +266,41 @@ def test_freeze_sensitivity_derived_from_the_bank():
                                       'M3.inventory_adjustments']
     with pytest.raises(SystemExit):                          # declared list must match
         mf.sensitivity('HEAD', sel, [])
+
+
+def test_confirmatory_kernels_built_from_the_frozen_commit(tmp_path):
+    """Launch helper: defines derived from the frozen manifest; session k>1 needs the resume
+    hash and the previous kernel; never pushes."""
+    repo = tmp_path / 'repo'
+    subprocess.run(['git', 'clone', '-q', '--no-hardlinks', str(ROOT), str(repo)], check=True)
+    shutil.copyfile(ROOT / 'notebooks' / 'confirmatory_kernels.py',
+                    repo / 'notebooks' / 'confirmatory_kernels.py')
+    (repo / 'freeze').mkdir(exist_ok=True)
+    fz = {'design': {'S': 2, 'shards': {'1/2': {'runs': 360}, '2/2': {'runs': 360}}}}
+    (repo / 'freeze' / 'manifest.json').write_text(json.dumps(fz))
+    g = lambda *a: subprocess.run(['git', *a], cwd=repo, check=True, capture_output=True,
+                                  text=True).stdout.strip()
+    g('add', '-A')
+    g('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'freeze')
+    commit = g('rev-parse', 'HEAD')
+    sha = hashlib.sha256((repo / 'freeze' / 'manifest.json').read_bytes()).hexdigest()
+    tool = [sys.executable, str(repo / 'notebooks' / 'confirmatory_kernels.py'), '--commit', commit]
+    r = subprocess.run([*tool, '--out-dir', str(tmp_path / 'k')], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-1500:]
+    out = json.loads(r.stdout)
+    assert [k['kernel'] for k in out] == ['manuelpz/twinguard-conf-s1of2-k1',
+                                          'manuelpz/twinguard-conf-s2of2-k1']
+    src = (Path(out[0]['dir']) / 'pilot_l4.py').read_text()
+    for frag in ("MODE = 'confirmatory'", "S_REPLICATES = '2'", f"FROZEN_COMMIT = '{commit}'",
+                 f"FREEZE_SHA256 = '{sha}'", "SHARD = '1/2'", "SESSION = '1'", "RESUME_SHA256 = ''"):
+        assert frag in src
+    bad = subprocess.run([*tool, '--out-dir', str(tmp_path / 'k2'), '--shard', '1/2',
+                          '--session', '2'], capture_output=True, text=True)
+    assert bad.returncode != 0                               # resume hash required
+    ok = subprocess.run([*tool, '--out-dir', str(tmp_path / 'k3'), '--shard', '1/2', '--session',
+                         '2', '--resume-sha256', 'a' * 64, '--previous-kernel',
+                         'manuelpz/twinguard-conf-s1of2-k1'], capture_output=True, text=True)
+    assert ok.returncode == 0, ok.stderr[-1500:]
+    k = json.loads(ok.stdout)[0]
+    assert k['kernel_sources'] == ['manuelpz/twinguard-conf-s1of2-k1']
+    assert f"RESUME_SHA256 = '{'a' * 64}'" in (Path(k['dir']) / 'pilot_l4.py').read_text()
