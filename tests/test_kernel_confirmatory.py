@@ -297,6 +297,12 @@ def test_confirmatory_kernels_built_from_the_frozen_commit(tmp_path):
     bad = subprocess.run([*tool, '--out-dir', str(tmp_path / 'k2'), '--shard', '1/2',
                           '--session', '2'], capture_output=True, text=True)
     assert bad.returncode != 0                               # resume hash required
+    for extra in (['--session', '2', '--resume-sha256', 'a' * 64, '--previous-kernel', 'x/y'],
+                  ['--shard', '1/2', '--session', '2', '--resume-sha256', 'zz', '--previous-kernel', 'x/y'],
+                  ['--shard', '1/2', '--session', '0', '--resume-sha256', 'a' * 64]):
+        bad = subprocess.run([*tool, '--out-dir', str(tmp_path / 'k4'), *extra],
+                             capture_output=True, text=True)
+        assert bad.returncode != 0, extra       # Sol: no shard / bad hash / session 0 refused
     ok = subprocess.run([*tool, '--out-dir', str(tmp_path / 'k3'), '--shard', '1/2', '--session',
                          '2', '--resume-sha256', 'a' * 64, '--previous-kernel',
                          'manuelpz/twinguard-conf-s1of2-k1'], capture_output=True, text=True)

@@ -29,6 +29,7 @@ and is meant only for patches you trust.
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -260,6 +261,89 @@ def _relabel_one(job):
     return run_id, tuple('' if x is None else x for x in lab)
 
 
+PATH_RE = re.compile(r"(?:/[^/\s'\",\[\]]+)+/([^/\s'\",\[\]]+)")
+
+
+def _norm(text):
+    """Absolute paths reduced to their basename: a results directory moves between machines."""
+    return PATH_RE.sub(r'\1', text or '')
+
+
+def _read(p):
+    return p.read_text(encoding='utf-8') if p.exists() else None
+
+
+def primary_cmd_ok(cmd, fz, res):
+    """The recorded primary invocation is the one the freeze implies: S from the freeze, no
+    flag other than --replicates/--output/--exploratory (seed and bootstrap are the frozen
+    module defaults), and --exploratory present whenever the truncation report requires it."""
+    flags = [x for x in cmd if x.startswith('--')]
+    trunc = json.loads(_read(res / 'truncation_report.json') or '{}')
+    return (set(flags) <= {'--replicates', '--output', '--exploratory'}
+            and cmd[cmd.index('--replicates') + 1] == str(fz['design']['S'])
+            and ('--exploratory' in cmd or not trunc.get('exploratory_required')))
+
+
+def check_sensitivity(res, fz, h, csv_name):
+    """The frozen sensitivity (D9) re-derived and re-run with the frozen procedure itself
+    (runner/analyze.run_sensitivity: same derivation, same checks, same 1 h limit). The
+    recorded state must be the one the primary's outcome implies; the recorded command must
+    be the one the freeze implies; a recorded failure reproduces only if it fails the same way
+    (same error, or same exit code AND same normalised output, and no output file)."""
+    spec = fz['design'].get('sensitivity')
+    sens = h.get('sensitivity')
+    if not spec:
+        return None if sens is None else {'reproduced': False,
+                                          'note': 'a sensitivity is recorded but none is frozen'}
+    S = fz['design']['S']
+    rep = {'frozen': {'K': spec['K'], 'exclude_families': spec['exclude_families'], 'S': S},
+           'seed_bootstrap': 'frozen module defaults (the command passes neither)'}
+    if not isinstance(sens, dict) or 'pending' in sens:
+        return {**rep, 'reproduced': False, 'note': f'frozen sensitivity missing or unsealed: {sens}'}
+    if h.get('rc') != 0:
+        return {**rep, 'reproduced': sens == {'skipped': 'primary analysis failed'},
+                'note': 'the primary failed: the sensitivity must be recorded as skipped'}
+    if 'skipped' in sens:
+        return {**rep, 'reproduced': False,
+                'note': 'recorded as skipped although the primary analysis succeeded'}
+    from runner import analyze as AN
+    expected = [_norm(x) for x in AN.sensitivity_cmd(spec, S)[1:]]
+    if sens.get('cmd') is not None:
+        rep['cmd_matches_freeze'] = [_norm(x) for x in sens['cmd']] == expected
+    with tempfile.TemporaryDirectory(prefix='tg_repro_s_') as tmp:
+        tmp = Path(tmp)
+        again = AN.run_sensitivity(spec, res / csv_name, S, tmp)
+        pub_in, new_in = res / 'analysis_sensitivity_input.csv', tmp / 'analysis_sensitivity_input.csv'
+        rep['input_rederived_identical'] = (pub_in.read_bytes() == new_in.read_bytes()
+                                            if pub_in.exists() and new_in.exists()
+                                            else pub_in.exists() == new_in.exists())
+        rep['outcome'] = {'published': {k: sens.get(k) for k in ('rc', 'error')},
+                          'reproduced': {k: again.get(k) for k in ('rc', 'error')}}
+        pub_o, new_o = res / 'analysis_sensitivity.json', tmp / 'analysis_sensitivity.json'
+        if 'error' in sens or 'error' in again:
+            ea, eb = sens.get('error') or '', again.get('error') or ''
+            same = (bool(ea) and bool(eb) and ea.split(':')[0] == eb.split(':')[0]
+                    and (ea.startswith('TimeoutExpired') or _norm(ea) == _norm(eb))
+                    and pub_o.exists() == new_o.exists())
+        elif sens.get('rc') != again.get('rc'):
+            same = False
+        elif sens['rc'] == 0:
+            same = pub_o.exists() and new_o.exists()
+            if same:
+                d = _diff(json.loads(pub_o.read_text()), json.loads(new_o.read_text()))
+                rep['differences'] = d
+                same = not d
+        else:
+            same = (not pub_o.exists() and not new_o.exists()
+                    and _read(res / 'analysis_sensitivity.txt') is not None
+                    and _norm(_read(res / 'analysis_sensitivity.txt'))
+                    == _norm(_read(tmp / 'analysis_sensitivity.txt')))
+    rep['same_outcome'] = bool(same)
+    rep['reproduced'] = bool(same and rep['input_rederived_identical']
+                             and rep.get('cmd_matches_freeze', True))
+    return rep
+
+
 def reproduce(a):
     res = Path(a.results).resolve()
     report = {'results': str(res)}
@@ -291,46 +375,15 @@ def reproduce(a):
         else:
             d = _diff(json.loads(pub.read_text()), json.loads(out.read_text()))
             report['analysis_output'] = {'identical': not d, 'differences': d}
-    sens = h.get('sensitivity')
-    if a.freeze:
-        spec = json.loads(Path(a.freeze).read_text())['design'].get('sensitivity')
-        if spec and not sens:
-            report['sensitivity_output'] = {'reproduced': False,
-                                            'note': 'frozen sensitivity missing from the results'}
-    if sens and sens.get('cmd'):
-        rep_s = {}
-        if a.freeze and spec:
-            # re-derive the filtered input from the primary input and the frozen sectors
-            import csv
-            fams = set(spec['exclude_families'])
-            with open(res / csv_name, newline='', encoding='utf-8') as f:
-                rows = list(csv.DictReader(f))
-            kept = [r_ for r_ in rows if r_['family'] not in fams]
-            pub_in = list(csv.DictReader(open(res / 'analysis_sensitivity_input.csv', newline='',
-                                              encoding='utf-8')))
-            rep_s['input_rederived_identical'] = kept == pub_in
-            rep_s['flags_match_freeze'] = (str(spec['K']) == sens['cmd'][sens['cmd'].index('--templates') + 1]
-                                           and '--exploratory' in sens['cmd'])
-        with tempfile.TemporaryDirectory(prefix='tg_repro_s_') as tmp:
-            sargs = list(sens['cmd'][1:])
-            sargs[0] = str(res / Path(sargs[0]).name)
-            o = Path(tmp) / 's.json'
-            sargs[sargs.index('--output') + 1] = str(o)
-            r = subprocess.run([sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'),
-                                *sargs], capture_output=True, text=True, cwd=str(ROOT))
-            pub = res / 'analysis_sensitivity.json'
-            rep_s['rc'] = {'published': sens.get('rc'), 'reproduced': r.returncode}
-            if sens.get('rc') == 0 and r.returncode == 0 and o.exists() and pub.exists():
-                d = _diff(json.loads(pub.read_text()), json.loads(o.read_text()))
-                rep_s['differences'] = d
-                same = not d
-            else:      # a recorded failure reproduces if it fails again the same way
-                same = sens.get('rc') == r.returncode != 0 and not pub.exists()
-            rep_s['reproduced'] = bool(same and rep_s.get('input_rederived_identical', True)
-                                       and rep_s.get('flags_match_freeze', True))
-        report['sensitivity_output'] = rep_s
-    elif sens:
-        report['sensitivity_output'] = {'reproduced': True, 'note': f'recorded without a run: {sens}'}
+    fz = json.loads(Path(a.freeze).read_text()) if a.freeze else None
+    if fz:
+        report['analysis_cmd_matches_freeze'] = primary_cmd_ok(h['cmd'], fz, res)
+    elif h.get('sensitivity') is not None:
+        report['sensitivity_output'] = {'reproduced': False, 'note': 'needs --freeze'}
+    if fz:
+        s_rep = check_sensitivity(res, fz, h, csv_name)
+        if s_rep is not None:
+            report['sensitivity_output'] = s_rep
     if (res / 'runs_detectors.csv').exists():
         cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_gate.py'),
                str(res / 'runs_detectors.csv'), '--detectors', *SEC.DETECTORS,
@@ -360,6 +413,7 @@ def reproduce(a):
           and report.get('labels', {}).get('n_label_mismatch', 0) == 0
           and report.get('detectors', {}).get('n_mismatch', 0) == 0
           and report.get('tables', {}).get('identical', True)
+          and report.get('analysis_cmd_matches_freeze', True)
           and report.get('sensitivity_output', {}).get('reproduced', True))
     report['reproduced'] = bool(ok)
     print(json.dumps(report, indent=1))

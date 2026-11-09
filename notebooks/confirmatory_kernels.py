@@ -6,7 +6,7 @@ Session 1 of every shard (fresh start):
 Session k > 1 of one shard (resume: attaches the previous session's output and pins the hash
 of its results_sealed.tar.gz):
   python notebooks/confirmatory_kernels.py --commit F --out-dir DIR --shard 1/2 --session 2 \
-      --resume-sha256 SHA --previous-kernel manuelpz/twinguard-conf-s1-k1
+      --resume-sha256 SHA --previous-kernel manuelpz/twinguard-conf-s1of2-k1
 
 Everything the kernel checks at start is derived here from the frozen manifest held by the
 commit (S, shards, manifest hash), so the defines cannot disagree with the freeze. Prints one
@@ -15,6 +15,7 @@ commit (S, shards, manifest hash), so the defines cannot disagree with the freez
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -37,6 +38,10 @@ def build(commit, out_dir, shard, session, resume_sha='', previous=None):
     fz = json.loads(manifest)
     if shard not in fz['design']['shards']:
         raise SystemExit(f'shard {shard} is not one of {sorted(fz["design"]["shards"])}')
+    if session < 1:
+        raise SystemExit('session numbers start at 1')
+    if resume_sha and not re.fullmatch(r'[0-9a-f]{64}', resume_sha):
+        raise SystemExit('--resume-sha256 must be the 64-hex SHA-256 of the previous results_sealed.tar.gz')
     if (session == 1) != (not resume_sha):
         raise SystemExit('session 1 starts empty; every later session needs --resume-sha256')
     if session > 1 and not previous:
@@ -82,6 +87,8 @@ def main(argv=None):
     ap.add_argument('--resume-sha256', default='')
     ap.add_argument('--previous-kernel')
     a = ap.parse_args(argv)
+    if a.session > 1 and not a.shard:
+        raise SystemExit('a resume session (k > 1) belongs to one shard: pass --shard i/n')
     fz = json.loads(git('show', f'{a.commit}:freeze/manifest.json'))
     shards = [a.shard] if a.shard else sorted(fz['design']['shards'])
     out = [build(a.commit, a.out_dir, s, a.session, a.resume_sha256, a.previous_kernel)

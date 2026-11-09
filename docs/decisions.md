@@ -610,6 +610,49 @@ false positive, with textual or executable evidence).**
   - reports the sensitivity separately from the primary result.
 - **Tables:** `resource/tables.py` adds a labelled sensitivity section.
 
+**Sensitivity: fixes after Astra's review (2026-11-09 ~04:00 Chile; verdict "not ready").**
+Astra verified the computation (weights 1/27, HC3 against an independent formula, df = 24,
+clustered df = 8, the ecommerce exclusion as a valid sector operationalisation) and found
+two blocking defects in the reporting and reproduction, both outside the frozen analysis core:
+- **`reproduce` could certify a sensitivity that was not reproduced** (a "skipped" record
+  next to a successful primary; different failures with the same exit code; only K and the
+  flag checked). Now:
+  - the expected command is rebuilt from the freeze (`analyze.sensitivity_cmd`: S, K,
+    `--exploratory`, no seed or bootstrap flags, so the frozen module defaults 20261105 /
+    20000 apply) and must equal the recorded one;
+  - the recorded state must be the one the primary's exit code implies;
+  - the re-run uses the frozen `run_sensitivity` itself (same derivation, checks and 1 h
+    limit);
+  - a recorded failure reproduces only with the same error, or the same exit code and the
+    same output with paths normalised, and no output file.
+
+  The primary command is also checked against the freeze (S, allowed flags, `--exploratory`
+  when the truncation report requires it).
+- **The tables did not apply the D9 reporting rule.** Now the sensitivity is never silent: a
+  missing output or an unsealed record prints "Not available" with the recorded state. It is
+  NON-INFORMATIVE when an excluded sector's block is not complete. Each contrast shows its
+  coarse class against the primary's and whether they agree. The primary's LOFO entry for the
+  excluded sector is printed with an equality check against the sensitivity H1, next to the
+  LOFO range. Every contrast shows K evaluable / df, never K scheduled alone.
+- **Second seal guarded:** the first seal records the sensitivity as `pending`; if the second
+  seal fails, the primary seal stands and every reader reports the sensitivity as missing.
+- **Tests:** `tests/test_sensitivity_reporting.py`; the end-to-end test now uses variable
+  outcomes and checks the D9 identity (sensitivity H1 = primary LOFO entry).
+
+**Sol review of the last three tasks (2026-11-09).**
+- **Blocking (fixed):** `confirmatory_kernels.py` requires `--shard` for a resume session,
+  a session ≥ 1 and a 64-hex resume hash.
+- **Blocking (fixed):** the bank facts counted 111 log rows as sessions. They now report
+  78 distinct sessions (50 completed, 28 ended by the generator's usage limit), 6 rows that
+  repeat a session as an annotation, and 27 notes without a session id.
+- **Convenient (done):** the witness table names every safe alternative that the GSC flags.
+  The only one is M2.account_suspension: a depth-2 alert, no alert at depths 1 and 3. It is a
+  detector false positive, not a label.
+- **Verified by Sol:**
+  - all 180 witness pairs recomputed;
+  - kernel defines bound to the frozen commit and manifest bytes;
+  - the 72 WP7 input files identical to the base.
+
 **Reported.** The writeup reports this adjudication, the auditor's inconsistency across M3
 templates, and the evolution of Astra's opinion.
 

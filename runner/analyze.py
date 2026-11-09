@@ -117,7 +117,16 @@ def claim(out, commit):
         os.fsync(f.fileno())
 
 
-def run_sensitivity(spec, analysis_input, S, out):
+def sensitivity_cmd(spec, S, root=ROOT, out=Path('.')):
+    """The one prespecified sensitivity invocation; seed and bootstrap are the frozen
+    module's defaults (the command passes neither)."""
+    return [sys.executable, str(Path(root) / 'twinguard' / 'twinguard_analysis.py'),
+            str(Path(out) / 'analysis_sensitivity_input.csv'), '--replicates', str(S),
+            '--templates', str(spec['K']), '--output', str(Path(out) / 'analysis_sensitivity.json'),
+            '--exploratory']
+
+
+def run_sensitivity(spec, analysis_input, S, out, timeout=SENSITIVITY_TIMEOUT_S):
     """Prespecified exploratory sensitivity (freeze design.sensitivity): the same frozen
     analysis on the same input without the frozen sectors, always --exploratory, run only
     after a successful primary run whose hashes are already written. Every step is inside
@@ -141,16 +150,31 @@ def run_sensitivity(spec, analysis_input, S, out):
         if k != spec['K'] or dropped != sorted(spec['templates_dropped']):
             raise ValueError(f'sensitivity input does not match the freeze: K={k} (frozen '
                              f"{spec['K']}), dropped={dropped}")
-        cmd = [sys.executable, str(ROOT / 'twinguard' / 'twinguard_analysis.py'), str(dst),
-               '--replicates', str(S), '--templates', str(spec['K']), '--output',
-               str(out / 'analysis_sensitivity.json'), '--exploratory']
+        cmd = sensitivity_cmd(spec, S, ROOT, out)
         r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT),
-                           timeout=SENSITIVITY_TIMEOUT_S)
+                           timeout=timeout)
         (out / 'analysis_sensitivity.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
         return {'cmd': cmd[1:], 'rc': r.returncode, 'templates': k,
                 'excluded_families': sorted(fams), 'templates_dropped': dropped}
     except Exception as exc:
         return {'cmd': cmd[1:] if cmd else None, 'error': f'{type(exc).__name__}: {exc}'[:300]}
+
+
+def seal_sensitivity(out, record, spec, analysis_input, S, primary_rc, seal=None):
+    """After the primary seal: run the frozen sensitivity (only if the primary succeeded) and
+    seal again with it. The second seal never fails the command; if it fails, the first seal
+    (primary, sensitivity 'pending') stands and every reader reports the sensitivity missing."""
+    seal = seal or write_hashes
+    record['sensitivity'] = run_sensitivity(spec, analysis_input, S, out) \
+        if primary_rc == 0 else {'skipped': 'primary analysis failed'}
+    try:
+        seal(out, record)
+        return True
+    except Exception as exc:
+        (out / 'analysis_hashes.json.tmp').unlink(missing_ok=True)
+        print(f'sensitivity seal failed ({type(exc).__name__}: {exc}); the primary seal stands '
+              'and the sensitivity is recorded as pending (missing)', file=sys.stderr)
+        return False
 
 
 def write_hashes(out, record):
@@ -228,16 +252,17 @@ def main(argv=None):
     cmd = analysis_cmd(analysis_input, report, S, out / 'analysis_output.json', a.exploratory)
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     (out / 'analysis_output.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
-    record = {'cmd': cmd[1:], 'rc': r.returncode, 'sensitivity': None,
+    spec = manifest['design'].get('sensitivity')
+    record = {'cmd': cmd[1:], 'rc': r.returncode,
+              # frozen sensitivity: 'pending' until its own seal; a record still pending means
+              # the second seal failed, and every reader reports the sensitivity as missing
+              'sensitivity': {'pending': 'runs after the primary seal'} if spec else None,
               'gate_rc': secondary['gate_rc'], 'secondary_error': secondary['error'],
               'frozen_commit': report['code_commit'],
               'code_root': 'git archive of frozen_commit, files verified against the freeze'}
     write_hashes(out, record)                   # the primary is sealed before anything else
-    spec = manifest['design'].get('sensitivity')
     if spec:
-        record['sensitivity'] = run_sensitivity(spec, analysis_input, S, out) \
-            if r.returncode == 0 else {'skipped': 'primary analysis failed'}
-        write_hashes(out, record)
+        seal_sensitivity(out, record, spec, analysis_input, S, r.returncode)
     print(json.dumps({'rc': r.returncode, 'flag': '--exploratory' in cmd}))
     if r.returncode:
         raise SystemExit(r.returncode)

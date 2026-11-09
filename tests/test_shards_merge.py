@@ -62,7 +62,7 @@ EMPTY_SHA = hashlib.sha256(b'').hexdigest()
 
 
 def write_shard(d, runs, shard, freeze_sha, closed=(), env='env', extra_rows=(), started=(),
-                commit='c', mutate=None, sessions=None):
+                commit='c', mutate=None, sessions=None, ev_of=None):
     """A shard as the runner leaves it: events (with evaluations), the CSV they imply."""
     d.mkdir(parents=True)
     (d / 'manifest.json').write_text(json.dumps({'shard': shard,
@@ -81,7 +81,8 @@ def write_shard(d, runs, shard, freeze_sha, closed=(), env='env', extra_rows=(),
             row.update(status='infra_failed', W=None, F=None, M=None, crash=None,
                        termination='closed_out')
         else:
-            row.update(status='patch', W=0, F=1, M=1, crash=0, termination='submit')
+            ev = ev_of(r) if ev_of else EV
+            row.update(zip(M.OUTCOME, R.outcome({}, ev)), termination='submit')
         if mutate:
             mutate(row)
         rows.append({k: ('' if v is None else v) for k, v in row.items()})
@@ -89,7 +90,8 @@ def write_shard(d, runs, shard, freeze_sha, closed=(), env='env', extra_rows=(),
             events.append({'run_id': r['run_id'], 'event': 'start'})
         events.append({'run_id': r['run_id'], 'final': True, 'closed_out': cut, 'row': row,
                        'summary': {}, 'needs_adjudication': False,
-                       'patch_sha256': EMPTY_SHA, 'evaluation': None if cut else EV})
+                       'patch_sha256': EMPTY_SHA,
+                       'evaluation': None if cut else (ev_of(r) if ev_of else EV)})
     with open(d / 'runs.csv', 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=R.COLUMNS)
         w.writeheader()
@@ -318,8 +320,11 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     s1, s2 = R.shard_runs(runs, (1, 2)), R.shard_runs(runs, (2, 2))
     last = {r['run_id'] for r in s2 if r['family'] == blocks_of(s2)[-1]}
     real = lambda row: row.update(model_id=R.MODEL_ID)
-    write_shard(tmp_path / 'a', s1, '1/2', sha, commit=commit, mutate=real)
-    write_shard(tmp_path / 'b', s2, '2/2', sha, commit=commit, closed=last, mutate=real)
+    def ev_of(r):              # variable outcomes (Astra): W depends on the run, A higher
+        u = int(hashlib.sha256(r['run_id'].encode()).hexdigest()[:8], 16) / 16 ** 8
+        return {**EV, 'oracle': {'W': int(u < (0.45 if r['framing'] == 'A' else 0.3)), 'crash': 0}}
+    write_shard(tmp_path / 'a', s1, '1/2', sha, commit=commit, mutate=real, ev_of=ev_of)
+    write_shard(tmp_path / 'b', s2, '2/2', sha, commit=commit, closed=last, mutate=real, ev_of=ev_of)
     out = tmp_path / 'out'
     r = subprocess.run([sys.executable, str(repo / 'runner' / 'analyze.py'), '--freeze',
                         str(repo / 'freeze' / 'manifest.json'), '--out', str(out),
@@ -340,6 +345,13 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     assert hashes['sensitivity']['rc'] == 0 and hashes['sensitivity']['templates'] == 27
     assert sens['analysis_status'] == 'EXPLORATORY' and sens['n_templates'] == 27
     assert fam not in json.dumps(sens['EXPLORATORY_heterogeneity_and_stability']['leave_one_family_out'])
+    assert not sens['H1_PRIMARY_W_A_minus_N']['HC3_95']['zero_variance']      # not degenerate
+    lofo = res['EXPLORATORY_heterogeneity_and_stability']['leave_one_family_out'][fam]
+    assert abs(lofo['estimate'] - sens['H1_PRIMARY_W_A_minus_N']['HC3_95']['estimate']) < 1e-9
+    t = subprocess.run([sys.executable, str(repo / 'resource' / 'tables.py'), '--results', str(out),
+                        '--out', str(tmp_path / 't.md')], capture_output=True, text=True)
+    assert t.returncode == 0, t.stderr[-1500:]
+    assert 'equals the sensitivity H1: yes' in (tmp_path / 't.md').read_text()
     # resource contract (17): the published labels and tables reproduce from the results dir
     fzp = str(repo / 'freeze' / 'manifest.json')
     rep = subprocess.run([sys.executable, str(repo / 'resource' / 'cli.py'), 'reproduce',
@@ -347,7 +359,8 @@ def test_analyze_end_to_end_from_frozen_commit(tmp_path):
     report = json.loads(rep.stdout)
     assert report['code']['freeze_held_by_commit'] is True and not report['code']['mismatch']
     so = report['sensitivity_output']
-    assert so['reproduced'] and so['input_rederived_identical'] and so['flags_match_freeze']
+    assert so['reproduced'] and so['input_rederived_identical'] and so['cmd_matches_freeze']
+    assert report['analysis_cmd_matches_freeze']
     assert report['gate_output']['identical']
     assert report['hashes']['mismatch'] == [] and report['schema'] == 'ok'
     assert report['analysis_rc']['published'] == report['analysis_rc']['reproduced']

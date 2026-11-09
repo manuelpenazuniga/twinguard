@@ -33,8 +33,25 @@ def facts():
     add('technical admission pass (WP5)', f"{sum(1 for v in adm.values() if v.get('technical_pass'))}/{len(adm)}",
         'bank/admission/*.json')
     gen = jsonl(BANK / 'generation_log.jsonl')
-    add('generation sessions (clean Claude sessions, WP4)', len(gen), 'bank/generation_log.jsonl')
-    add('generator models', sorted({m for g in gen for m in (g.get('models_used') or [])}),
+    # rows != sessions (Sol review): a session can be logged again as an annotation, and some
+    # rows are notes without a session id (killed attempts, infrastructure-failure notes)
+    sess = {}
+    for g in gen:
+        if g.get('session_id'):
+            sess.setdefault(g['session_id'], []).append(g)
+    with_id = sum(len(v) for v in sess.values())
+    add('generation log rows', f"{len(gen)} = {with_id} session records "
+        f"({with_id - len(sess)} repeat a session as an annotation) + "
+        f"{len(gen) - with_id} notes without a session id", 'bank/generation_log.jsonl')
+    first = {k: v[0] for k, v in sess.items()}
+    limit = sorted(k for k, g in first.items()
+                   if g.get('exit_code') not in (0, None) and 'limit' in str(g.get('final', '')).lower())
+    done = sorted(k for k, g in first.items() if g.get('exit_code') == 0)
+    add('distinct generator sessions (clean Claude sessions, WP4)',
+        f"{len(sess)}: {len(done)} completed (exit 0), {len(limit)} ended by the generator "
+        f"account usage limit (infrastructure), {len(sess) - len(done) - len(limit)} other",
+        'bank/generation_log.jsonl')
+    add('generator models', sorted({m for g in first.values() for m in (g.get('models_used') or [])}),
         'bank/generation_log.jsonl')
     rec = jsonl(BANK / 'recalibration_log.jsonl')
     rev = [r for r in rec if r.get('step') == 'revise']

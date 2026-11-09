@@ -11,7 +11,13 @@ percent formatting; a number without a source is never printed.
 """
 import argparse
 import json
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT / 'twinguard') not in sys.path:
+    sys.path.insert(0, str(ROOT / 'twinguard'))
+from twinguard_analysis import coarse  # noqa: E402  (the frozen coarse decision classes)
 
 
 class Src:
@@ -40,18 +46,24 @@ def reported(decision, floor):
     return f'non-informative (floor) [{decision}]' if floor else decision
 
 
+def keval(c):
+    """K evaluable for the contrast and its HC3 df (df = K evaluable - 3), never K scheduled."""
+    return f"{c['n_templates']} / {c['df']:g}"
+
+
 def main_tables(res, src):
     p = res / 'analysis_output.json'
     a = json.loads(p.read_text())
     g = lambda *k: src.get(p, a, k)
-    out = [f"Analysis status: **{g('analysis_status')}**; templates {g('n_templates')}; "
-           f"rollouts scheduled {g('n_rollouts_scheduled')}.", '',
+    out = [f"Analysis status: **{g('analysis_status')}**; templates in the input "
+           f"{g('n_templates')} (K evaluable per contrast below); rollouts scheduled "
+           f"{g('n_rollouts_scheduled')}.", '',
            '| Framing | W (%) | F (%) | U (%) | M (%) |', '|---|---|---|---|---|']
     for f in ('N', 'P', 'A'):
         out.append(f'| {f} | ' + ' | '.join(pp(g('rates_template_weighted', f, m))
                                           for m in ('W', 'F', 'U', 'M')) + ' |')
-    out += ['', '| Contrast | Estimate (pp) | 95% CI (HC3) | 90% CI | p | Decision |',
-            '|---|---|---|---|---|---|']
+    out += ['', '| Contrast | Estimate (pp) | 95% CI (HC3) | 90% CI | p | K evaluable / df | Decision |',
+            '|---|---|---|---|---|---|---|']
     floor = bool(g('FLAGS', 'floor_or_ceiling'))
     for key, label in (('H1_PRIMARY_W_A_minus_N', 'H1: W, A − N'),
                        ('H2_SPECIFICITY_W_A_minus_P', 'H2: W, A − P'),
@@ -59,12 +71,20 @@ def main_tables(res, src):
         h95 = g(key, 'HC3_95')
         pv = '—' if h95['p_two_sided'] is None else f"{h95['p_two_sided']:.3f}"
         out.append(f"| {label} | {pp(h95['estimate'])} | {ci(h95['ci'])} | "
-                   f"{ci(g(key, 'HC3_90', 'ci'))} | {pv} | {reported(a[key].get('decision', '—'), floor)} |")
+                   f"{ci(g(key, 'HC3_90', 'ci'))} | {pv} | {keval(h95)} | "
+                   f"{reported(a[key].get('decision', '—'), floor)} |")
     if floor:
         out += ['', '**Floor (§10.6, §12):** the floor_or_ceiling flag is set; every decision above is '
                 'reported as non-informative (floor). At a floor only increases of W are detectable; '
                 '"equivalent" must not be written.']
     out += ['', f"Flags: {json.dumps(g('FLAGS'))}", '']
+    hs = 'EXPLORATORY_heterogeneity_and_stability'
+    rng = g(hs, 'leave_one_family_out_range')
+    out += [f"Leave-one-family-out (H1, exploratory): range "
+            f"{'—' if rng is None else f'[{pp(rng[0])}, {pp(rng[1])}]'} pp over "
+            f"{g(hs, 'n_families')} sectors; same coarse class as the primary in "
+            f"{g(hs, 'leave_one_family_out_same_class')}; not estimable "
+            f"{g(hs, 'leave_one_family_out_not_estimable')}.", '']
     out += ['| Mechanism | ΔW A − N (pp, exploratory) |', '|---|---|']
     for m, v in sorted(g('EXPLORATORY_by_mechanism_dAN').items()):
         out.append(f'| {m} | {pp(v)} |')
@@ -72,21 +92,66 @@ def main_tables(res, src):
 
 
 def sensitivity_table(res, src):
-    p = res / 'analysis_sensitivity.json'
-    if not p.exists():
+    """D9 reporting rule for the frozen sensitivity: never silent, non-informative when an
+    excluded sector's block is not complete, shown with its coarse class against the primary,
+    the primary's leave-one-family-out entry for the excluded sector and the LOFO range."""
+    ph = res / 'analysis_hashes.json'
+    if not ph.exists():
         return []
+    h = json.loads(ph.read_text())
+    if h.get('sensitivity') is None:
+        return []                                     # none frozen (the record says so)
+    rec = src.get(ph, h, ('sensitivity',))
+    p = res / 'analysis_sensitivity.json'
+    head = ['', '### Prespecified sensitivity (D9; EXPLORATORY; next to the primary, never instead of it)', '']
+    if not p.exists() or rec.get('rc') != 0:
+        return head + [f"**Not available.** Recorded state: `{json.dumps(rec)}`. The sensitivity "
+                       f"is reported as missing; no decision is drawn from it."]
+    fams = rec['excluded_families']
+    pt = res / 'truncation_report.json'
+    incomplete = []
+    if pt.exists():
+        t = json.loads(pt.read_text())
+        for i, b in enumerate(t['blocks']):
+            if b['family'] in fams and src.get(pt, t, ('blocks', i, 'state')) != 'complete':
+                incomplete.append(b['family'])
     a = json.loads(p.read_text())
     g = lambda *k: src.get(p, a, k)
-    out = ['', f"Prespecified sensitivity (EXPLORATORY; status {g('analysis_status')}; "
-           f"templates {g('n_templates')}): the frozen analysis without the sector(s) of the "
-           f"template admitted through an adjudicated auditor false positive. Reported next to "
-           f"the primary result, never instead of it.", '',
-           '| Contrast | Estimate (pp) | 95% CI (HC3) | Decision |', '|---|---|---|---|']
+    pa = res / 'analysis_output.json'
+    prim = json.loads(pa.read_text())
+    gp = lambda *k: src.get(pa, prim, k)
+    floor = bool(g('FLAGS', 'floor_or_ceiling'))
+    out = head + [f"Without sector(s) {', '.join(fams)} (templates in the input {g('n_templates')}; "
+                  f"status {g('analysis_status')}).", '']
+    if incomplete:
+        out += [f"**NON-INFORMATIVE (D9):** the block of {', '.join(incomplete)} is not complete "
+                f"(truncation); the numbers below are shown for traceability only.", '']
+    out += ['| Contrast | Estimate (pp) | 95% CI (HC3) | K evaluable / df | Decision | '
+            'Coarse class: sensitivity vs primary | Agrees |', '|---|---|---|---|---|---|---|']
     for key, label in (('H1_PRIMARY_W_A_minus_N', 'W, A − N'),
                        ('H2_SPECIFICITY_W_A_minus_P', 'W, A − P')):
         h95 = g(key, 'HC3_95')
-        out.append(f"| {label} | {pp(h95['estimate'])} | {ci(h95['ci'])} | "
-                   f"{reported(a[key].get('decision', '—'), bool(g('FLAGS', 'floor_or_ceiling')))} |")
+        d_s, d_p = g(key, 'decision'), gp(key, 'decision')
+        dec = reported(d_s, floor)
+        if incomplete:
+            dec = f'non-informative (truncation) [{d_s}]'
+        agree = '—' if incomplete else ('yes' if coarse(d_s) == coarse(d_p) else 'no')
+        out.append(f"| {label} | {pp(h95['estimate'])} | {ci(h95['ci'])} | {keval(h95)} | {dec} | "
+                   f"{coarse(d_s)} vs {coarse(d_p)} | {agree} |")
+    hs = 'EXPLORATORY_heterogeneity_and_stability'
+    lofo = prim[hs]['leave_one_family_out']
+    rng = gp(hs, 'leave_one_family_out_range')
+    for f in fams:
+        e = gp(hs, 'leave_one_family_out', f) if f in lofo else None
+        est = None if not e or 'estimate' not in e else e['estimate']
+        h1 = a['H1_PRIMARY_W_A_minus_N']['HC3_95']['estimate']
+        same = '—' if est is None or len(fams) != 1 else \
+            ('yes' if abs(est - h1) < 1e-9 else 'NO (check the derivation)')
+        out += ['', f"Primary leave-one-family-out entry for {f}: "
+                f"{pp(est)} pp ({(e or {}).get('decision', (e or {}).get('status', '—'))}); "
+                f"equals the sensitivity H1: {same}; "
+                f"LOFO range over {gp(hs, 'n_families')} sectors "
+                f"{'—' if rng is None else f'[{pp(rng[0])}, {pp(rng[1])}]'} pp."]
     return out
 
 
@@ -142,6 +207,16 @@ def witness_table(wdir, src):
                 c = src.get(p, t, (f'{mech}|{kind}|{det}',))
                 cells.append(f"{c['alert']}/{c['no_alert']}/{c['not_evaluable']}")
             out.append(f'| {mech} | {kind} | ' + ' | '.join(cells) + ' |')
+    pj = Path(wdir) / 'witness_detectors.jsonl'
+    if pj.exists():          # every safe alternative the GSC flags is named, with its depths
+        rows = [json.loads(l) for l in pj.read_text(encoding='utf-8').splitlines() if l.strip()]
+        for i, r in enumerate(rows):
+            if r['patch'] == 'alt_safe' and r['states'].get('gsc') == 'alert':
+                st = src.get(pj, {f'line {i + 1}': r}, (f'line {i + 1}', 'states'))
+                out += ['', f"GSC (depth 2) alert on a safe alternative: {r['template_id']} "
+                        f"(depth 1 {st.get('gsc_d1')}, depth 3 {st.get('gsc_d3')}; flagged "
+                        f"{', '.join(r['reasons'].get('gsc', []))}). A detector false positive, "
+                        f"not a label: the oracle scores this patch safe."]
     return out
 
 

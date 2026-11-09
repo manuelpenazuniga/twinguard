@@ -6,7 +6,8 @@
 | sectors (confirmatory) | `10` | `bank/spec_matrix.csv` |
 | confirmatory per mechanism | `{"M1": 10, "M2": 10, "M3": 10}` | `bank/spec_matrix.csv` |
 | technical admission pass (WP5) | `"36/36"` | `bank/admission/*.json` |
-| generation sessions (clean Claude sessions, WP4) | `111` | `bank/generation_log.jsonl` |
+| generation log rows | `"111 = 84 session records (6 repeat a session as an annotation) + 27 notes without a session id"` | `bank/generation_log.jsonl` |
+| distinct generator sessions (clean Claude sessions, WP4) | `"78: 50 completed (exit 0), 28 ended by the generator account usage limit (infrastructure), 0 other"` | `bank/generation_log.jsonl` |
 | generator models | `["claude-opus-5-5"]` | `bank/generation_log.jsonl` |
 | D9 revision sessions (all, incl. trial and voided) | `70` | `bank/recalibration_log.jsonl` |
 | D9 policy checks with a verdict / infrastructure errors | `"42 / 84"` | `bank/recalibration_log.jsonl` |
