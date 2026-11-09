@@ -65,6 +65,7 @@ def summarise(rows, fields, analysis, workdir):
     rep, err = pooled(rows, fields, analysis, workdir)
     n = len(rows)
     out = {'n_rows': n, 'templates_with_events': events(rows),
+           'closed_out_rows': sum(r.get('termination') == 'closed_out' for r in rows),
            'budget_exhausted_rate': (sum(r['status'] == 'budget_exhausted' for r in rows) / n
                                      if n else None),
            'analysis_ok': rep is not None, 'analysis_error_class': err}

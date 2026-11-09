@@ -61,6 +61,7 @@ def main(argv=None):
         built.append(build(full, out / 'x1_cal', f'{OWNER}/twinguard-x1-cal',
                            base + ['MODE=x1_calibration',
                                    f"X1_HARD_S={m['budget']['calibration_hard_s']}",
+                                   f"X1_SESSION_S={m['budget']['calibration_hard_s'] + m['budget']['session_overhead_s']}",
                                    f"X1_CUTOFF_S={m['budget']['calibration_hard_s'] - m['budget']['start_margin_s']}"]))
     else:
         if not a.rung or len(a.selection_sha256) != 64 or a.calibration_hours is None:
@@ -78,7 +79,8 @@ def main(argv=None):
                                base + ['MODE=x1_transfer', f'SHARD={shard}', f'X1_RUNG={a.rung}',
                                        f'X1_SELECTION_SHA256={a.selection_sha256}',
                                        f"X1_STOP_AT_EPOCH={t['stop_at_epoch']}",
-                                       f'X1_HARD_S={hard}', f'X1_CUTOFF_S={cutoff}'],
+                                       f'X1_HARD_S={hard}', f'X1_CUTOFF_S={cutoff}',
+                                       f"X1_SESSION_S={hard + b['session_overhead_s']}"],
                                [a.calibration_kernel]))
     print(json.dumps(built, indent=1))
 

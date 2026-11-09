@@ -19,6 +19,9 @@ STOP_AT_EPOCH = 1794373200
 EXTRA_PATHS = ['explore', 'docs/decisions.md']  # bundled in the x1 kernels besides build_kernel.PATHS
 BUDGET = {'cap_hours': 6.0, 'calibration_hard_s': 8100, 'transfer_hard_s_max': 6300,
           'start_margin_s': 1200, 'close_out_s': 600, 'session_overhead_s': 900,
+          'seal_reserve_s': 300,
+          'watchdog': 'the whole session (set-up included) ends at X1_SESSION_S = X1_HARD_S + '
+                      'session_overhead_s after kernel start; close-out ends seal_reserve_s before',
           'rule': 'each x1 session stops its runner at X1_HARD_S after start (unfinished runs '
                   'closed out as infra_failed, close-out capped at close_out_s) and starts no run '
                   'after X1_HARD_S - start_margin_s; transfer X1_HARD_S = min(6300, (6 h - '

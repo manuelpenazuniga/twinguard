@@ -920,3 +920,16 @@ Advisor texts (rounds 1–3) and the reconciliation table are in
 - **The decoding gate is unconditional.** `--confirmatory-out` is required, and every hash in its `analysis_hashes.json` must match and include the primary analysis run. The confirmatory descriptives are a separate opt-in.
 - **Effective reads.** A read is a pipeline/list segment whose program is a reader (`cat`, `head`, `tail`, `less`, `more`, `sed`, `awk`, `grep`, `rg`, `nl`, `view`, `bat`) and which names the file as an operand. `echo x | cat` and `ls x` are not reads.
 - **Checked against the seal.** The launcher checks all of `twinguard/`, `runner/`, `bank/`, `harness/` and `explore/`.
+
+**D12 implementation, Astra's third review ("not ready"; fixed).**
+- **Whole-session watchdog.** In the x1 modes a watchdog starts before any set-up and ends the process at `X1_SESSION_S` = `X1_HARD_S` + 15 min after kernel start, whatever is running (set-up, runner, checkpoint, close-out, seal). Before ending, it kills the agent and evaluator users and records the event. The periodic sealed archive is replaced atomically, so the last complete checkpoint survives.
+  - The close-out ends 5 min before the watchdog.
+  - The kernel refuses an `X1_SESSION_S` other than hard + 15 min.
+- **A hard-limit cut is never hidden.** Close-out rows (`termination = closed_out`) make their sector partial: it is dropped from K, and the truncation flag is raised whenever a sector is partial or absent. The calibration selection reports closed-out rows per rung.
+  - Regression test: close-out followed by analysis gives K = 27, the sector dropped, truncated, and no "Exploratory evidence".
+- **Reads.** A read now counts only when it is unambiguous:
+  - optionally `cd DIR &&`, then one pipeline whose first stage is a reader;
+  - the file must appear among its file operands, not as a grep/rg pattern or a sed/awk script.
+  
+  Any other shape that names the file is counted apart as `ambiguous_read_events` and never as a read.
+- **Dry-run record corrected.** The figure in the message of commit `145c519` ("cutoff 5940 s") belongs to the budget before the hard limit. With a 2.2 h calibration, HEAD gives `X1_HARD_S` = 5940 s, `X1_CUTOFF_S` = 4740 s and `X1_SESSION_S` = 6840 s.

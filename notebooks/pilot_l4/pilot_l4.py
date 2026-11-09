@@ -54,6 +54,8 @@ X1_STOP_AT_EPOCH = ''            # x1_transfer: no run starts after it (D12: Wed
 X1_CUTOFF_S = ''                 # x1 modes: no run starts later than this after kernel start (6 h cap)
 X1_HARD_S = ''                   # x1 modes: the runner is stopped at this time after kernel start;
                                  # unfinished runs are closed out (infra_failed), like a time cut
+X1_SESSION_S = ''                # x1 modes: absolute end of the whole session (= hard + overhead);
+                                 # a watchdog ends the process there (the last sealed checkpoint stays)
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -1127,6 +1129,12 @@ def x1_verify(code):
     except ValueError:
         raise RuntimeError(f'X1_CUTOFF_S/X1_HARD_S must be numbers: {X1_CUTOFF_S!r} {X1_HARD_S!r}')
     limit = b['calibration_hard_s'] if MODE == 'x1_calibration' else b['transfer_hard_s_max']
+    try:
+        session = float(X1_SESSION_S)
+    except ValueError:
+        raise RuntimeError(f'X1_SESSION_S must be a number, got {X1_SESSION_S!r}')
+    if session != hard + b['session_overhead_s']:
+        raise RuntimeError(f'X1_SESSION_S {session} != X1_HARD_S + {b["session_overhead_s"]}')
     if not 0 < hard <= limit or cutoff != hard - b['start_margin_s'] or cutoff <= 0:
         raise RuntimeError(f'X1_HARD_S {hard} / X1_CUTOFF_S {cutoff} disagree with the sealed '
                            f'budget for {MODE} (hard <= {limit}, cutoff = hard - {b["start_margin_s"]})')
@@ -1152,6 +1160,28 @@ def x1_verify(code):
     return out
 
 
+def x1_watchdog():
+    """Absolute session deadline for the x1 modes, from the very start: whatever is running
+    (set-up, runner, close-out, checkpoint, seal), the process ends at KERNEL_T0 +
+    X1_SESSION_S. The periodic sealed archive is replaced atomically, so the last complete
+    checkpoint survives; the results JSON records the event first."""
+    end = KERNEL_T0 + float(X1_SESSION_S)
+
+    def run():
+        while time.time() < end:
+            time.sleep(min(5.0, max(0.1, end - time.time())))
+        try:
+            R['x1_watchdog'] = {'fired_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+            for u in AGENTS + EVALS:
+                sh(f'pkill -9 -u {u}')
+            save()
+        finally:
+            os._exit(3)
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
+    return th
+
+
 def x1_args(code):
     x = code / 'explore' / 'bank_x1'
     if MODE == 'x1_calibration':
@@ -1169,8 +1199,9 @@ def x1_block(code):
     name, extra = x1_args(code)
     res = run_block(code, name, name, extra, hard_at=KERNEL_T0 + float(X1_HARD_S))
     if res.get('hard_limit_hit'):
+        end = KERNEL_T0 + float(X1_SESSION_S) - X1['budget']['seal_reserve_s']
         res['close_out'] = run_block(code, name, name, extra + ['--close-out'],
-                                     hard_at=time.time() + X1['budget']['close_out_s'])
+                                     hard_at=min(time.time() + X1['budget']['close_out_s'], end))
     return res
 
 
@@ -1206,6 +1237,8 @@ if __name__ == '__main__' and MODE == 'eval_check':
         save()
         print('DONE', flush=True)
 elif __name__ == '__main__':
+    if MODE.startswith('x1_'):
+        x1_watchdog()             # before anything else: the whole session is bounded
     if MODE == 'confirmatory':
         R['confirmatory'] = confirmatory_guard()
     gpu_guard()

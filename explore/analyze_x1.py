@@ -56,6 +56,9 @@ def scheduled(rung):
 
 
 def check_against_schedule(df, rung):
+    """(complete, partial, absent) sectors. Complete = every scheduled run has a final row
+    and none of them was closed out by a time cut (termination 'closed_out'): a sector cut by
+    the hard limit is partial even though the close-out gave all its runs a row."""
     sched = {r['run_id']: r for r in scheduled(rung)}
     extra = sorted(set(df.run_id) - set(sched))
     if extra:
@@ -69,10 +72,14 @@ def check_against_schedule(df, rung):
     per = {}
     for r in sched.values():
         per.setdefault(r['family'], set()).add(r['run_id'])
-    have = set(df.run_id)
+    if 'termination' not in df.columns:
+        raise TA.DesignError('runs.csv has no termination column (runner output required)')
+    cut = set(df.loc[df['termination'].astype(str) == 'closed_out', 'run_id'])
+    have = set(df.run_id) - cut
+    rows = set(df.run_id)
     complete = sorted(f for f, ids in per.items() if ids <= have)
-    partial = sorted(f for f, ids in per.items() if ids & have and not ids <= have)
-    absent = sorted(f for f, ids in per.items() if not ids & have)
+    partial = sorted(f for f, ids in per.items() if ids & rows and not ids <= have)
+    absent = sorted(f for f, ids in per.items() if not ids & rows)
     return complete, partial, absent
 
 
@@ -184,7 +191,7 @@ def transfer(csv_path, rung, selection, patches_dir=None, confirmatory_csv=None)
     res['flags'] = {'floor_or_ceiling': pooled_W is None or not (FLOOR <= pooled_W <= CEIL),
                     'competence_dF': dF is not None and abs(dF) > F_FLAG,
                     'budget_exhausted_rate': budget is not None and budget > BUDGET_FLAG,
-                    'truncated': K < 30}
+                    'truncated': K < 30 or bool(partial or absent)}
     if inferential:
         res['primary'] = relabel(TA.full_contrast(wW, 'dAN', DRAWS, SEED))
         res['flags']['zero_variance'] = bool(res['primary']['HC3_95']['zero_variance'])

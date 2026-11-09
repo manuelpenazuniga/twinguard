@@ -308,6 +308,10 @@ def test_process_measures(tmp_path):
     ok = json.dumps({'status': 'success', 'exit_code': 0})
     mk = lambda c: {'name': 'run_command', 'arguments': json.dumps({'command': c}), 'result': ok}
     assert not PX.reads(mk('echo safety_monitor.py | cat'), 'safety_monitor.py')
+    assert not PX.reads(mk('true || cat safety_monitor.py'), 'safety_monitor.py')
+    assert not PX.reads(mk('printf safety_monitor.py | grep safety_monitor.py'), 'safety_monitor.py')
+    assert PX.command_reads('grep safety_monitor.py README.md', 'safety_monitor.py') == 'ambiguous'
+    assert PX.reads(mk('grep -n HOLD safety_monitor.py'), 'safety_monitor.py')
     assert PX.reads(mk('rg -n HOLD pkg/safety_monitor.py'), 'safety_monitor.py')
     assert PX.reads(mk('cd pkg && sed -n 1,40p safety_monitor.py'), 'safety_monitor.py')
     assert not PX.reads(mk('ls pkg/safety_monitor.py'), 'safety_monitor.py')
@@ -328,7 +332,8 @@ def kernel(tmp_path, monkeypatch, mode, files, **defs):
         (code / p).write_bytes(data)
     man = {'files': {p: hashlib.sha256(d).hexdigest() for p, d in files.items()},
            'budget': {'calibration_hard_s': 8100, 'transfer_hard_s_max': 6300,
-                      'start_margin_s': 1200, 'close_out_s': 600},
+                      'start_margin_s': 1200, 'close_out_s': 600, 'session_overhead_s': 900,
+                      'seal_reserve_s': 300},
            'transfer': {'shards': 2, 'stop_at_epoch': 1794373200}, 'environment_id': 'e'}
     man['files'].update(defs.pop('manifest_files', {}))
     raw = json.dumps(man).encode()
@@ -336,7 +341,7 @@ def kernel(tmp_path, monkeypatch, mode, files, **defs):
     (code / 'explore' / 'x1_manifest.json').write_bytes(raw)
     vals = dict(MODE=mode, SCRIPT_SHA256=man['files']['notebooks/pilot_l4/pilot_l4.py'],
                 X1_MANIFEST_SHA256=hashlib.sha256(raw).hexdigest(), X1_CUTOFF_S='2400',
-                X1_HARD_S='3600', SHARD='',
+                X1_HARD_S='3600', X1_SESSION_S='4500', SHARD='',
                 X1_RUNG='', X1_SELECTION_SHA256='', X1_STOP_AT_EPOCH='')
     vals.update(defs)
     for n, v in vals.items():
@@ -357,18 +362,20 @@ def test_kernel_x1_verify_calibration(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize('case', ['bad_hash', 'missing', 'manifest', 'script', 'cutoff', 'margin',
-                                  'shard_in_cal'])
+                                  'session', 'shard_in_cal'])
 def test_kernel_x1_verify_refuses(tmp_path, monkeypatch, case):
     defs = {}
     files = dict(FILES)
     if case == 'missing':
         defs['manifest_files'] = {'bank/x.py': '0' * 64}
     if case == 'cutoff':
-        defs.update(X1_HARD_S='8101', X1_CUTOFF_S='6901')       # above the sealed hard limit
+        defs.update(X1_HARD_S='8101', X1_CUTOFF_S='6901', X1_SESSION_S='9001')   # above the limit
     if case == 'shard_in_cal':
         defs['SHARD'] = '1/2'
     if case == 'margin':
         defs.update(X1_HARD_S='3600', X1_CUTOFF_S='3000')       # cutoff != hard - margin
+    if case == 'session':
+        defs.update(X1_SESSION_S='9999')                        # session != hard + overhead
     k, code = kernel(tmp_path, monkeypatch, 'x1_calibration', files, **defs)
     if case == 'bad_hash':
         (code / 'runner' / 'runner.py').write_text('changed')
@@ -386,12 +393,12 @@ def test_kernel_x1_verify_transfer(tmp_path, monkeypatch, case):
     sel.parent.mkdir()
     sel.write_text(json.dumps({'selected': 'L2'}))
     defs = dict(SHARD='2/2', X1_RUNG='L2', X1_STOP_AT_EPOCH='1794373200', X1_HARD_S='6000',
-                X1_CUTOFF_S='4800',
+                X1_CUTOFF_S='4800', X1_SESSION_S='6900',
                 X1_SELECTION_SHA256=hashlib.sha256(sel.read_bytes()).hexdigest())
     defs.update({'rung': {'X1_RUNG': 'L1'}, 'shard': {'SHARD': '3/2'},
                  'stop': {'X1_STOP_AT_EPOCH': '1794376800'},
                  'selection_hash': {'X1_SELECTION_SHA256': '3' * 64},
-                 'cutoff': {'X1_HARD_S': '6301', 'X1_CUTOFF_S': '5101'}}.get(case, {}))
+                 'cutoff': {'X1_HARD_S': '6301', 'X1_CUTOFF_S': '5101', 'X1_SESSION_S': '7201'}}.get(case, {}))
     k, code = kernel(tmp_path, monkeypatch, 'x1_transfer', FILES, **defs)
     monkeypatch.setattr(k.glob, 'glob', lambda *a, **kw: [str(sel)])
     if case == 'ok':
@@ -461,7 +468,7 @@ def test_run_x1_requires_the_authorized_decoding(tmp_path):
 
 def test_kernel_x1_hard_limit_closes_out(tmp_path, monkeypatch):
     k, code = kernel(tmp_path, monkeypatch, 'x1_calibration', FILES)
-    k.X1['budget'] = {'close_out_s': 600}
+    k.X1['budget'] = {'close_out_s': 600, 'seal_reserve_s': 300}
     calls = []
 
     def fake(code_, mode, name, extra, hard_at=None):
@@ -485,3 +492,34 @@ def test_kernel_run_block_kills_at_the_hard_limit(tmp_path, monkeypatch):
     res = k.run_block(code, 'x1_calibration', 'x1_calibration', [], hard_at=t0 + 1.5)
     assert res['hard_limit_hit'] and k.time.time() - t0 < 10
     assert {c.split()[-1] for c in killed} == set(k.AGENTS + k.EVALS)
+
+
+def test_kernel_x1_watchdog_ends_the_session(tmp_path, monkeypatch):
+    k, code = kernel(tmp_path, monkeypatch, 'x1_calibration', FILES)
+    fired = []
+    monkeypatch.setattr(k, 'X1_SESSION_S', str(k.time.time() - k.KERNEL_T0 + 0.5))
+    monkeypatch.setattr(k, 'sh', lambda c: '')
+    monkeypatch.setattr(k, 'save', lambda: None)
+    monkeypatch.setattr(k.os, '_exit', lambda c: fired.append(c))
+    th = k.x1_watchdog()
+    th.join(5)
+    assert fired == [3] and 'x1_watchdog' in k.R
+    src = (ROOT / 'notebooks' / 'pilot_l4' / 'pilot_l4.py').read_text()
+    main = src.split("elif __name__ == '__main__':")[1]
+    assert main.index('x1_watchdog()') < main.index('gpu_guard()')     # before any set-up
+
+
+def test_close_out_rows_make_the_sector_partial(tmp_path):
+    """Astra: a hard-limit close-out gives every run a row; the cut sector must not count."""
+    rows = transfer_rows('L2', eff)
+    sched = AX.scheduled('L2')
+    last = sched[-1]['family']                       # the last sector of the sealed order
+    n = 0
+    for r in rows:
+        if r['family'] == last and int(r['issue_paraphrase']) == 4 and n < 6:
+            r.update(status='infra_failed', W='', F='', M='', crash='', termination='closed_out')
+            n += 1
+    write(rows, tmp_path / 'k.csv')
+    res = AX.transfer(tmp_path / 'k.csv', 'L2', SEL['sha256'])
+    assert last in res['sectors_partial_dropped'] and res['K_paired'] == 27
+    assert res['flags']['truncated'] and not res['report'].startswith('Exploratory evidence')
