@@ -1154,8 +1154,11 @@ def smoke_block(code):
 # script in /kaggle/src and removes the credentials before launching it. The script then
 # installs the wheelhouse (dependencies from PyPI), locks the network for every agent and
 # evaluator uid, and refuses any mode but COLAB_MODES.
-COLAB_PINNED = ['pandas==3.0.6', 'numpy==2.5.4', 'scipy==1.18.1', 'statsmodels==0.15.0',
-                'pytest==9.2.0']
+# The Kaggle environment (probe of the pinned image 37c64f7d after the kernels' wheelhouse
+# install): kaggle_freeze.txt is its `pip freeze --all`; lock_base.txt is the part of it the
+# wheelhouse and the evaluator need (pip-tools style, hashed), every version as on Kaggle.
+COLAB_ENV = Path('notebooks') / 'colab' / 'kaggle_env'
+COLAB_TORCH_INDEX = 'https://download.pytorch.org/whl/cu128'
 COLAB_EXPECTED = '0.19.1 2.10.0+cu128 5.13.1'      # vllm torch transformers, as on Kaggle
 # credential-like argument names (`--NotebookApp.token X`, `--token=X`, `KAGGLE_KEY=X`, `?token=X`);
 # `--max-num-batched-tokens` or `--thinking-token-budget` are not credentials
@@ -1187,9 +1190,46 @@ COLAB_DENIED = {'content_ls': 'ls /content', 'content_drive_ls': 'ls /content/dr
                 'net_metadata': f"{sys.executable} -c \"import socket;socket.create_connection(('169.254.169.254',80),3)\""}
 
 
+def kaggle_wheel_hashes(freeze):
+    """{wheel file name: sha256} of the wheelhouse install recorded in the Kaggle freeze."""
+    out = {}
+    for line in freeze.splitlines():
+        m = re.match(r'\S+ @ file:///tmp/wheelhouse/(\S+?)#sha256=([0-9a-f]{64})$', line.strip())
+        if m:
+            out[m.group(1)] = m.group(2)
+    return out
+
+
+def freeze_lines(text):
+    """{(name, version or installed file name)} from `pip freeze`, without pip itself (seeded by
+    the venv); `name @ file:///.../f.whl#sha256=..` compares by the file name only (hashes are
+    checked on the files themselves)."""
+    out = set()
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if ' @ ' in line:
+            name, url = line.split(' @ ', 1)
+            val = url.split('#', 1)[0].rsplit('/', 1)[-1]
+        elif '==' in line:
+            name, val = line.split('==', 1)
+        else:
+            name, val = line, ''
+        name = re.sub(r'[-_.]+', '-', name.strip()).lower()
+        if name != 'pip':
+            out.add((name, val.strip()))
+    return out
+
+
 def colab_install():
+    """As on Kaggle: (1) the image's packages at Kaggle's versions (lock_base.txt, hash-checked,
+    --no-deps), then (2) the wheelhouse files with --no-deps --force-reinstall, exactly the
+    files the Kaggle install recorded. The resulting freeze must be a subset of Kaggle's."""
     if sys.version_info[:2] != (3, 12):
         raise RuntimeError(f'the wheelhouse is cp312; this interpreter is {sys.version}')
+    env = code_dir() / COLAB_ENV
+    kaggle = (env / 'kaggle_freeze.txt').read_text()
     whl = sorted(glob.glob('/kaggle/input/**/gemma-4-developer-agent-wheelhouse/**/*.whl',
                            recursive=True))
     if not whl:
@@ -1202,20 +1242,32 @@ def colab_install():
         if not (tmp / name).exists():
             os.symlink(w, tmp / name)
     wheels = sorted(str(w) for w in tmp.glob('*.whl'))
-    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--find-links', str(tmp),
-                        *wheels, *COLAB_PINNED], capture_output=True, text=True)
+    got = {Path(w).name: hashlib.sha256(Path(w).read_bytes()).hexdigest() for w in wheels}
+    if got != kaggle_wheel_hashes(kaggle):
+        raise RuntimeError('wheelhouse files differ from the ones installed on Kaggle')
+    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', '--require-hashes',
+                        '--extra-index-url', COLAB_TORCH_INDEX, '-r', str(env / 'lock_base.txt')],
+                       capture_output=True, text=True)
     if r.returncode:
-        raise RuntimeError('pip failed:\n' + (r.stdout + r.stderr)[-4000:])
+        raise RuntimeError('pip (Kaggle image packages) failed:\n' + (r.stdout + r.stderr)[-4000:])
+    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', '--force-reinstall',
+                        *wheels], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError('pip (wheelhouse) failed:\n' + (r.stdout + r.stderr)[-4000:])
     ver = sh(f'{sys.executable} -c "import vllm,torch,transformers;print(vllm.__version__,torch.__version__,transformers.__version__)"')
-    freeze = sh(f'{sys.executable} -m pip freeze')
+    freeze = sh(f'{sys.executable} -m pip freeze --all')
     Path('/kaggle/working/pip_freeze.txt').write_text(freeze + '\n')     # open output, synced
-    out = {'python': sys.version,'n_wheels': len(wheels), 'vllm_torch_transformers': ver,
-           'versions_as_kaggle': ver == COLAB_EXPECTED,
+    not_kaggle = sorted(freeze_lines(freeze) - freeze_lines(kaggle))
+    out = {'python': sys.version, 'n_wheels': len(wheels), 'vllm_torch_transformers': ver,
+           'versions_as_kaggle': ver == COLAB_EXPECTED, 'not_as_on_kaggle': not_kaggle,
+           'n_packages': len(freeze_lines(freeze)),
            'pip_freeze_sha256': hashlib.sha256(freeze.encode()).hexdigest(),
-           'wheel_names_sha256': hashlib.sha256('\n'.join(Path(w).name for w in wheels).encode()).hexdigest(),
+           'kaggle_freeze_sha256': hashlib.sha256(kaggle.encode()).hexdigest(),
            'driver': sh('nvidia-smi --query-gpu=driver_version --format=csv,noheader')}
     if not out['versions_as_kaggle']:
         raise RuntimeError(f'package versions differ from the Kaggle serving stack: {ver!r}')
+    if not_kaggle:
+        raise RuntimeError(f'packages not as on Kaggle: {not_kaggle[:20]}')
     return out
 
 

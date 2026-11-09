@@ -114,26 +114,87 @@ def test_notebook_embeds_the_bootstrap(tmp_path):
                for s in srcs)
 
 
-def test_colab_install_compares_versions_only(monkeypatch, tmp_path):
-    """Sol: the expected string must be the printed versions (vllm torch transformers)."""
-    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+def _install_env(monkeypatch, tmp_path, k, kaggle_extra=''):
+    import hashlib
     whl = tmp_path / 'kaggle' / 'input' / 'x' / 'gemma-4-developer-agent-wheelhouse' / 'v' / 'a-1-py3-none-any.whl'
-    whl.parent.mkdir(parents=True)
-    whl.write_bytes(b'')
+    whl.parent.mkdir(parents=True, exist_ok=True)
+    whl.write_bytes(b'wheel')
+    h = hashlib.sha256(b'wheel').hexdigest()
+    code = tmp_path / 'code'
+    env = code / k.COLAB_ENV
+    env.mkdir(parents=True, exist_ok=True)
+    (env / 'lock_base.txt').write_text('numpy==2.0.2 \\\n    --hash=sha256:00\n')
+    (env / 'kaggle_freeze.txt').write_text(
+        f'a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256={h}\nnumpy==2.0.2\n' + kaggle_extra)
+    monkeypatch.setattr(k, 'code_dir', lambda: code)
+    wh = tmp_path / 'wh'
+    wh.mkdir(exist_ok=True)
+    monkeypatch.setattr(k, 'Path', lambda *a: wh if a == ('/tmp/wheelhouse',) else Path(*a))
     monkeypatch.setattr(k.glob, 'glob', lambda pat, **kw: [str(whl)] if pat.endswith('*.whl') else [])
-    monkeypatch.setattr(k.subprocess, 'run', lambda *a, **kw: type('R', (), {'returncode': 0, 'stdout': '', 'stderr': ''})())
+    monkeypatch.setattr(k.os, 'symlink', lambda src, dst: Path(dst).write_bytes(Path(src).read_bytes()))
+    calls = []
+    monkeypatch.setattr(k.subprocess, 'run', lambda cmd, **kw: calls.append(cmd) or
+                        type('R', (), {'returncode': 0, 'stdout': '', 'stderr': ''})())
     writes = {}
-    monkeypatch.setattr(k.Path, 'write_text', lambda self, t, *a, **kw: writes.setdefault(str(self), t))
-    monkeypatch.setattr(k.Path, 'mkdir', lambda self, *a, **kw: None)
-    monkeypatch.setattr(k.os, 'symlink', lambda *a: None)
-    for printed, ok in (('0.19.1 2.10.0+cu128 5.13.1', True), ('0.20.0 2.10.0+cu128 5.13.1', False)):
-        monkeypatch.setattr(k, 'sh', lambda c, p=printed: p if 'import vllm' in c else 'x')
-        if ok:
-            out = k.colab_install.__wrapped__() if hasattr(k.colab_install, '__wrapped__') else k.colab_install()
-            assert out['versions_as_kaggle'] and '/kaggle/working/pip_freeze.txt' in writes
+    real_write = Path.write_text
+    monkeypatch.setattr(Path, 'write_text', lambda self, t, *a, **kw: writes.setdefault(str(self), t)
+                        if str(self).startswith('/kaggle') else real_write(self, t, *a, **kw))
+    return calls, writes, h
+
+
+def test_colab_install_replicates_kaggle(monkeypatch, tmp_path):
+    """Colab installs Kaggle's package versions (hashed lock, --no-deps), then the wheelhouse files
+    exactly as Kaggle, and must end with a freeze that is a subset of Kaggle's."""
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    calls, writes, h = _install_env(monkeypatch, tmp_path, k)
+    freeze_ok = f'a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256={h}\nnumpy==2.0.2\npip==26.0'
+    for printed, freeze, err in (('0.19.1 2.10.0+cu128 5.13.1', freeze_ok, None),
+                                 ('0.20.0 2.10.0+cu128 5.13.1', freeze_ok, 'versions differ'),
+                                 ('0.19.1 2.10.0+cu128 5.13.1', freeze_ok + '\nnumpy==2.5.4', 'not as on Kaggle'),
+                                 ('0.19.1 2.10.0+cu128 5.13.1', freeze_ok + '\nextra==1', 'not as on Kaggle')):
+        monkeypatch.setattr(k, 'sh', lambda c, p=printed, f=freeze: p if 'import vllm' in c else
+                            (f if 'freeze' in c else 'x'))
+        calls.clear()
+        if err is None:
+            out = k.colab_install()
+            assert out['versions_as_kaggle'] and out['not_as_on_kaggle'] == []
+            assert '/kaggle/working/pip_freeze.txt' in writes
+            lock, wheels = calls
+            assert {'--no-deps', '--require-hashes', '-r'} <= set(lock)
+            assert {'--no-deps', '--force-reinstall'} <= set(wheels) and '--require-hashes' not in wheels
         else:
-            with pytest.raises(RuntimeError, match='versions differ'):
+            with pytest.raises(RuntimeError, match=err):
                 k.colab_install()
+
+
+def test_colab_install_rejects_a_wheel_kaggle_did_not_install(monkeypatch, tmp_path):
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    calls, _, _ = _install_env(monkeypatch, tmp_path, k)
+    env = tmp_path / 'code' / k.COLAB_ENV
+    (env / 'kaggle_freeze.txt').write_text('a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256=' + '0' * 64 + '\n')
+    with pytest.raises(RuntimeError, match='wheelhouse files differ'):
+        k.colab_install()
+    assert calls == []                                  # nothing installed
+
+
+def test_kaggle_env_lock_matches_the_kaggle_freeze():
+    """Every locked package is at the version the Kaggle image has; every lock entry is hashed."""
+    import re
+    env = ROOT / 'notebooks' / 'colab' / 'kaggle_env'
+    norm = lambda n: re.sub(r'[-_.]+', '-', n).lower()
+    kaggle = {}
+    for line in (env / 'kaggle_freeze.txt').read_text().splitlines():
+        if '==' in line and ' @ ' not in line:
+            n, v = line.split('==')
+            kaggle[norm(n)] = v.strip()
+    blocks = re.split(r'\n(?=\S)', (env / 'lock_base.txt').read_text().strip())
+    assert len(blocks) > 150
+    for b in blocks:
+        head = b.split()[0]
+        n, v = head.split('==')
+        assert kaggle.get(norm(n)) == v, head
+        assert '--hash=sha256:' in b, head
+    assert not any(norm(b.split('==')[0]).startswith('nvidia-cutlass') for b in blocks)
 
 
 def test_colab_secret_scan_flags_credentials_not_token_counts(tmp_path, monkeypatch):
