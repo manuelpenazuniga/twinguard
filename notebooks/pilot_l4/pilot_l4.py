@@ -869,7 +869,10 @@ def hang_watch(proc, done):
             if proc.poll() is not None:
                 return
             state['probes'] += 1
-            if server_healthy():
+            healthy = server_healthy()
+            if done.is_set() or proc.poll() is not None:
+                return                # the runner ended while the probe waited (Astra)
+            if healthy:
                 state['failures'], state['first_failure_utc'] = 0, None
                 continue
             state['failures'] += 1
@@ -899,7 +902,9 @@ def run_block(code, mode, name, extra, hard_at=None):
     th.start()
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                             cwd=str(code), start_new_session=True)
-    hang = hang_watch(proc, done) if mode in HANG_WATCH_MODES else None
+    # never during a close-out: it runs on the CPU after the server is stopped (Astra/Sol/Argon)
+    hang = hang_watch(proc, done) if mode in HANG_WATCH_MODES and '--close-out' not in extra \
+        else None
     try:
         try:
             out, err = proc.communicate(
@@ -1443,12 +1448,14 @@ def x3_close_out(code):
 
 
 def x3_status(closed):
-    """complete, closed_at_deadline, close_out_failed, or requires_resume (attach this
-    session's sealed archive to session k + 1 with RESUME_SHA256). Read BEFORE the seal."""
+    """complete, closed_at_deadline, close_out_failed, requires_close_out (past the stop time
+    without a successful close-out in this session: one more session closes out), or
+    requires_resume (attach this session's sealed archive to session k + 1 with RESUME_SHA256).
+    Read BEFORE the seal."""
     if not closed.get('ok'):
         return 'close_out_failed'
-    if x3_deadline_reached():
-        return 'closed_at_deadline'
+    if x3_deadline_reached() or closed.get('ran'):
+        return 'closed_at_deadline' if closed.get('ran') else 'requires_close_out'
     for i, b in enumerate(x3_blocks()):
         if block_started(b['name']) or i == 0:
             if not block_complete(b['name']):
@@ -1978,7 +1985,7 @@ elif __name__ == '__main__':
             # past the deadline: close even if the server or the main block failed (CPU only)
             closed = phase('9d_close_out')(lambda: confirmatory_close_out(code))()
         if verified and x3_deadline_reached():
-            closed = phase('9d_x3_close_out')(lambda: x3_close_out(code))()
+            closed = {**phase('9d_x3_close_out')(lambda: x3_close_out(code))(), 'ran': True}
         if MODE in FOLLOWUP_MODES:   # before the seal removes the results it reads (Astra/Sol)
             R['x3_status'] = x3_status(closed) if X3 else 'not_started'
         seal = phase('10_seal')(seal_results)()

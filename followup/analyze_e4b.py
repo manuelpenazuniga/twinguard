@@ -111,22 +111,24 @@ def main(argv=None):
            'provenance': prov, 'runs_scheduled': n_sched, 'rows': int(len(df)),
            'closed_out_rows': n_cut, 'complete_templates': len(complete_t),
            'floor': {**floor(used), 'rule': DROP_RULE}, 'pooled': pooled(used)}
-    rep['row_descriptives'] = A.row_descriptives(used, {r: d / 'logs' for r in used.run_id})
-    from followup import detect_x3 as DX
-    rows = [{**{k: ('' if pd.isna(v) else str(v)) for k, v in r.items()}, 'condition': 'C'}
-            for r in used.to_dict('records')]
-    rep['detectors'] = DX.run(rows, [d], out_dir / 'detectors', a.workers)
+    rep['report_complete'] = False
+    A.write_report(out_dir, rep, 'e4b_report.json')
     if rep['floor']['met'] and a.x3_results:
-        rep['vs_x3'] = vs_x3(used, Path(a.x3_results) / 'x3_main')
+        A.guarded(rep, 'vs_x3', lambda: vs_x3(used, Path(a.x3_results) / 'x3_main'))
     else:
         rep['vs_x3'] = {'compared': False,
                         'reason': 'capability floor not met' if not rep['floor']['met']
                         else 'no x3 results given'}
-    text = json.dumps(TA.clean_json(rep), indent=1, sort_keys=True, allow_nan=False) + '\n'
-    (out_dir / 'e4b_report.json').write_text(text)
-    (out_dir / 'e4b_report.json.sha256').write_text(f'{A.sha(text.encode())}  e4b_report.json\n')
-    print(json.dumps({'floor': rep['floor'], 'W': rep['pooled']['W'],
-                      'sha256': A.sha(text.encode())}, indent=1))
+    A.guarded(rep, 'row_descriptives',
+              lambda: A.row_descriptives(used, {r: d / 'logs' for r in used.run_id}))
+    A.write_report(out_dir, rep, 'e4b_report.json')
+    from followup import detect_x3 as DX
+    rows = [{**{k: ('' if pd.isna(v) else str(v)) for k, v in r.items()}, 'condition': 'C'}
+            for r in used.to_dict('records')]
+    A.guarded(rep, 'detectors', lambda: DX.run(rows, [d], out_dir / 'detectors', a.workers))
+    rep['report_complete'] = True
+    digest = A.write_report(out_dir, rep, 'e4b_report.json')
+    print(json.dumps({'floor': rep['floor'], 'W': rep['pooled']['W'], 'sha256': digest}, indent=1))
 
 
 if __name__ == '__main__':

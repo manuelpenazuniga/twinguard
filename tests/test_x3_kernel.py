@@ -190,8 +190,10 @@ def test_x3_status(monkeypatch, tmp_path):
     done(k, x3_main=360, x3_cw_m3=28)
     assert k.x3_status({'ok': True}) == 'complete'
     k.X3['stop_at_epoch'] = now - 1
-    assert k.x3_status({'ok': True}) == 'closed_at_deadline'
-    assert k.x3_status({'ok': False}) == 'close_out_failed'
+    # past the stop time: closed only with evidence that the close-out ran (Astra/Sol)
+    assert k.x3_status({'ok': True}) == 'requires_close_out'
+    assert k.x3_status({'ok': True, 'ran': True}) == 'closed_at_deadline'
+    assert k.x3_status({'ok': False, 'ran': True}) == 'close_out_failed'
 
 
 def test_stop_at_and_close_out_only_after_the_stop_time(monkeypatch, tmp_path):
@@ -350,3 +352,34 @@ def test_x3_build_bundles_followup_and_kaggle_env(tmp_path):
     assert 'followup/bank_x3/spec_main.csv' in x3 and 'followup/analyze_x3.py' in x3
     assert 'notebooks/colab/kaggle_env/lock_base.txt' in x3
     assert not any(n.startswith('followup') for n in names('PLATFORM=colab', 'MODE=runner_smoke'))
+
+
+def test_hang_watch_never_watches_a_close_out(monkeypatch, tmp_path):
+    """The close-out runs on the CPU after the server is stopped: no watchdog (Astra/Sol/Argon)."""
+    import sys
+    k = load(monkeypatch, tmp_path, MODE='x3', HANG_PROBE_S=0.1, HANG_FAILS=1)
+    monkeypatch.setattr(k, 'runner_cmd', lambda *a: [sys.executable, '-c', 'import time; time.sleep(1)'])
+    monkeypatch.setattr(k, 'sh', lambda c: '')
+    monkeypatch.setattr(k, 'save', lambda: None)
+    monkeypatch.setattr(k, 'checkpoint', lambda: None)
+    monkeypatch.setattr(k, 'server_healthy', lambda: False)
+    res = k.run_block(tmp_path, 'x3', 'x3_main', ['--close-out'])
+    assert res['rc'] == 0 and 'server_hang' not in res
+
+
+def test_hang_watch_ignores_a_probe_that_returns_after_the_runner_ended(monkeypatch, tmp_path):
+    """Astra: a failing probe that comes back after the runner finished never kills or flags."""
+    import sys
+    k = load(monkeypatch, tmp_path, MODE='x3', HANG_PROBE_S=0.05, HANG_FAILS=1)
+    monkeypatch.setattr(k, 'runner_cmd', lambda *a: [sys.executable, '-c', 'pass'])
+    killed = []
+    monkeypatch.setattr(k, 'sh', lambda c: killed.append(c) or '')
+    monkeypatch.setattr(k, 'save', lambda: None)
+    monkeypatch.setattr(k, 'checkpoint', lambda: None)
+
+    def slow_fail():
+        time.sleep(1.0)                   # the runner exits while this probe waits
+        return False
+    monkeypatch.setattr(k, 'server_healthy', slow_fail)
+    res = k.run_block(tmp_path, 'x3', 'x3_main', [])
+    assert res['rc'] == 0 and 'server_hang' not in res and not killed

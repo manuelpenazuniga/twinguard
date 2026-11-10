@@ -81,7 +81,10 @@ def run(rows, block_dirs, out_dir, workers=8):
         for mech in sorted({r['mechanism'] for r in sub}):
             summary['by_condition_mechanism'][f'{cond}.{mech}'] = rates(
                 [r for r in sub if r['mechanism'] == mech])
-    main = [r for r in full if r['condition'] == 'C']
+    # the gate gets every main row (non-evaluable ones with empty detector states), so that it
+    # counts what it excludes (Sol, Argon)
+    main = [{**r, **{c: res.get(r['run_id'], ({}, {}))[0].get(c, '') for c in S.DETECTORS}}
+            for r in rows if r['condition'] == 'C']
     if main:
         cols = [k for k in main[0] if k != 'condition']
         with open(out_dir / 'runs_detectors_main.csv', 'w', newline='', encoding='utf-8') as f:
