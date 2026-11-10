@@ -1,0 +1,158 @@
+{
+ "runs": 120,
+ "by_condition": {
+  "C": {
+   "gsc": {
+    "alert_rate_W1": 0.18666666666666668,
+    "n_W1": 75,
+    "alert_rate_W0": 0.16666666666666666,
+    "n_W0": 18,
+    "not_evaluable": 27
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.05263157894736842,
+    "n_W1": 76,
+    "alert_rate_W0": 0.0,
+    "n_W0": 19,
+    "not_evaluable": 25
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.18666666666666668,
+    "n_W1": 75,
+    "alert_rate_W0": 0.16666666666666666,
+    "n_W0": 18,
+    "not_evaluable": 27
+   },
+   "ast": {
+    "alert_rate_W1": 0.25,
+    "n_W1": 100,
+    "alert_rate_W0": 0.2631578947368421,
+    "n_W0": 19,
+    "not_evaluable": 1
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 100,
+    "alert_rate_W0": 0.0,
+    "n_W0": 19,
+    "not_evaluable": 1
+   }
+  }
+ },
+ "by_condition_mechanism": {
+  "C.M1": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 34,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 5
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 34,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 5
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 34,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 5
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 38,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 1
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 38,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 1
+   }
+  },
+  "C.M2": {
+   "gsc": {
+    "alert_rate_W1": 0.7368421052631579,
+    "n_W1": 19,
+    "alert_rate_W0": 0.2727272727272727,
+    "n_W0": 11,
+    "not_evaluable": 10
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.2,
+    "n_W1": 20,
+    "alert_rate_W0": 0.0,
+    "n_W0": 12,
+    "not_evaluable": 8
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.7368421052631579,
+    "n_W1": 19,
+    "alert_rate_W0": 0.2727272727272727,
+    "n_W0": 11,
+    "not_evaluable": 10
+   },
+   "ast": {
+    "alert_rate_W1": 0.8928571428571429,
+    "n_W1": 28,
+    "alert_rate_W0": 0.4166666666666667,
+    "n_W0": 12,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 28,
+    "alert_rate_W0": 0.0,
+    "n_W0": 12,
+    "not_evaluable": 0
+   }
+  },
+  "C.M3": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 22,
+    "alert_rate_W0": 0.0,
+    "n_W0": 6,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 22,
+    "alert_rate_W0": 0.0,
+    "n_W0": 6,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 22,
+    "alert_rate_W0": 0.0,
+    "n_W0": 6,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 34,
+    "alert_rate_W0": 0.0,
+    "n_W0": 6,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 34,
+    "alert_rate_W0": 0.0,
+    "n_W0": 6,
+    "not_evaluable": 0
+   }
+  }
+ },
+ "gate_rc": 1,
+ "gate_stdout_tail": "",
+ "gate_stderr_tail": "ain()\n  File \"/private/tmp/claude-501/-Volumes-MacMiniExt-dev-research-Art-1/b289e114-391d-4310-bd90-629bde29dab0/scratchpad/colab_wt/twinguard/twinguard_gate.py\", line 227, in main\n    df, n_missing = load(a.csv, a.detectors)\n                    ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/claude-501/-Volumes-MacMiniExt-dev-research-Art-1/b289e114-391d-4310-bd90-629bde29dab0/scratchpad/colab_wt/twinguard/twinguard_gate.py\", line 60, in load\n    df = ta.load(csv, 'confirmatory', model='')\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/claude-501/-Volumes-MacMiniExt-dev-research-Art-1/b289e114-391d-4310-bd90-629bde29dab0/scratchpad/colab_wt/twinguard/twinguard_analysis.py\", line 130, in load\n    df = pd.read_csv(csv, dtype={c: str for c in\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 872, in read_csv\n    return _read(filepath_or_buffer, kwds)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 300, in _read\n    parser = TextFileReader(filepath_or_buffer, **kwds)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 1643, in __init__\n    self._engine = self._make_engine(f, self.engine)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 1907, in _make_engine\n    self.handles = get_handle(\n                   ^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/common.py\", line 930, in get_handle\n    handle = open(\n             ^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: 'results/e4b/detectors/runs_detectors_main.csv'\n"
+}

@@ -1260,3 +1260,27 @@ CONCLUSION_QUALIFIED; H2 not tested (fixed sequence).
 120/120 runs completed, none for adjudication, `x3_status=complete` (runner 3395 s). Sealed
 archive sha256 `15bab5cf802beb6ed2e5f9c66720dcc42ec2bee244b5891835fd1ca964ce92d3`. Only phases and status were read; the single
 analysis (`followup/analyze_e4b.py`) waits for x3's results, its comparator.
+
+**D15 session 1 done (2026-11-10 23:12Z).** Colab A100 kernel (script `deb4955c…`): every phase
+ok, `x3_status=complete`, no `requires_resume`. All 548 scheduled runs completed, none skipped by
+the deadline, none for adjudication: x3_main 360/360 (runner 21,847 s), x3_cw_m3 28/28,
+x3_m3 80/80, x3_cw_rest 80/80; every block started before its start_by. Sealed archive sha256
+`4c5100b73d3344935765ef3c3eb1ff9b27c36d7fd7e364e8681d1ac24fd7e494` (copy in
+`results/sealed/x3_session1.tar.gz`). Only phases and status were read before the analysis.
+
+**D15 single analysis run (2026-11-10 23:16:40Z–23:17:09Z).** `followup/analyze_x3.py --results
+<archive>/results --out results/x3`, rc 0, claim `results/x3_claims/e176bc6a….claim`; checkout
+`colab-x2` at `af076a3` (sealed prefixes unchanged since `c99e1e2`; the seal check passed).
+`results/x3/x3_report.json` sha256
+`ca17a3ee0c4388cc7b76514735aa7b3c3d57a2ae84a8e2f9542024b2dba5fdff`, `report_complete` true.
+Main: K = 30 (all 10 sectors complete, no truncation, no flag, not qualified), 360/360 rows;
+pooled W = 0.744 (268/360), F = 1.0, M = 1.0. Fixed wording branch: "bounded below 10 pp":
+dAN +2.5 pp, IC90 [−3.8, +8.8], IC95 [−5.1, +10.1]; dAP by the frozen sequence not tested.
+E4B's analysis was then run against this archive.
+
+**D16 single analysis run (2026-11-10 23:17:30Z–23:17:40Z).** `followup/analyze_e4b.py
+--results <e4b archive>/results --x3-results <x3 archive>/results --out results/e4b`, rc 0,
+claim `results/x3_claims/82f34cb1….claim`. `results/e4b/e4b_report.json` sha256
+`9006795043adefa5dc5b5ca789af5fcb0c630c43edd89f769de103786cb884c5`, `report_complete` true.
+Capability floor met (evaluable 1.0, pooled M 0.925); pooled W = 0.833 (100/120), F = 0.842.
+Descriptive only, next to x3's C N rows (another model and environment).

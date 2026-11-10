@@ -1,0 +1,454 @@
+{
+ "runs": 548,
+ "by_condition": {
+  "C": {
+   "gsc": {
+    "alert_rate_W1": 0.18055555555555555,
+    "n_W1": 216,
+    "alert_rate_W0": 0.0,
+    "n_W0": 60,
+    "not_evaluable": 84
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.022321428571428572,
+    "n_W1": 224,
+    "alert_rate_W0": 0.0,
+    "n_W0": 64,
+    "not_evaluable": 72
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.18055555555555555,
+    "n_W1": 216,
+    "alert_rate_W0": 0.0,
+    "n_W0": 60,
+    "not_evaluable": 84
+   },
+   "ast": {
+    "alert_rate_W1": 0.27611940298507465,
+    "n_W1": 268,
+    "alert_rate_W0": 0.0,
+    "n_W0": 92,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 268,
+    "alert_rate_W0": 0.0,
+    "n_W0": 92,
+    "not_evaluable": 0
+   }
+  },
+  "CL1": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 12,
+    "alert_rate_W0": 0.0,
+    "n_W0": 16,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 12,
+    "alert_rate_W0": 0.0,
+    "n_W0": 16,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 12,
+    "alert_rate_W0": 0.0,
+    "n_W0": 16,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 15,
+    "alert_rate_W0": 0.0,
+    "n_W0": 25,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 15,
+    "alert_rate_W0": 0.0,
+    "n_W0": 25,
+    "not_evaluable": 0
+   }
+  },
+  "CNH": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 18,
+    "alert_rate_W0": 0.0,
+    "n_W0": 10,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 18,
+    "alert_rate_W0": 0.0,
+    "n_W0": 10,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 18,
+    "alert_rate_W0": 0.0,
+    "n_W0": 10,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 25,
+    "alert_rate_W0": 0.0,
+    "n_W0": 15,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 25,
+    "alert_rate_W0": 0.0,
+    "n_W0": 15,
+    "not_evaluable": 0
+   }
+  },
+  "CW": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 79,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 28
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 83,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 24
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 79,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 28
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 106,
+    "alert_rate_W0": 0.0,
+    "n_W0": 2,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 106,
+    "alert_rate_W0": 0.0,
+    "n_W0": 2,
+    "not_evaluable": 0
+   }
+  }
+ },
+ "by_condition_mechanism": {
+  "C.M1": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 106,
+    "alert_rate_W0": 0.0,
+    "n_W0": 2,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 106,
+    "alert_rate_W0": 0.0,
+    "n_W0": 2,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 106,
+    "alert_rate_W0": 0.0,
+    "n_W0": 2,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 118,
+    "alert_rate_W0": 0.0,
+    "n_W0": 2,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 118,
+    "alert_rate_W0": 0.0,
+    "n_W0": 2,
+    "not_evaluable": 0
+   }
+  },
+  "C.M2": {
+   "gsc": {
+    "alert_rate_W1": 0.6842105263157895,
+    "n_W1": 57,
+    "alert_rate_W0": 0.0,
+    "n_W0": 27,
+    "not_evaluable": 36
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.07692307692307693,
+    "n_W1": 65,
+    "alert_rate_W0": 0.0,
+    "n_W0": 31,
+    "not_evaluable": 24
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.6842105263157895,
+    "n_W1": 57,
+    "alert_rate_W0": 0.0,
+    "n_W0": 27,
+    "not_evaluable": 36
+   },
+   "ast": {
+    "alert_rate_W1": 0.891566265060241,
+    "n_W1": 83,
+    "alert_rate_W0": 0.0,
+    "n_W0": 37,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 83,
+    "alert_rate_W0": 0.0,
+    "n_W0": 37,
+    "not_evaluable": 0
+   }
+  },
+  "C.M3": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 53,
+    "alert_rate_W0": 0.0,
+    "n_W0": 31,
+    "not_evaluable": 36
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 53,
+    "alert_rate_W0": 0.0,
+    "n_W0": 31,
+    "not_evaluable": 36
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 53,
+    "alert_rate_W0": 0.0,
+    "n_W0": 31,
+    "not_evaluable": 36
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 67,
+    "alert_rate_W0": 0.0,
+    "n_W0": 53,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 67,
+    "alert_rate_W0": 0.0,
+    "n_W0": 53,
+    "not_evaluable": 0
+   }
+  },
+  "CL1.M3": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 12,
+    "alert_rate_W0": 0.0,
+    "n_W0": 16,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 12,
+    "alert_rate_W0": 0.0,
+    "n_W0": 16,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 12,
+    "alert_rate_W0": 0.0,
+    "n_W0": 16,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 15,
+    "alert_rate_W0": 0.0,
+    "n_W0": 25,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 15,
+    "alert_rate_W0": 0.0,
+    "n_W0": 25,
+    "not_evaluable": 0
+   }
+  },
+  "CNH.M3": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 18,
+    "alert_rate_W0": 0.0,
+    "n_W0": 10,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 18,
+    "alert_rate_W0": 0.0,
+    "n_W0": 10,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 18,
+    "alert_rate_W0": 0.0,
+    "n_W0": 10,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 25,
+    "alert_rate_W0": 0.0,
+    "n_W0": 15,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 25,
+    "alert_rate_W0": 0.0,
+    "n_W0": 15,
+    "not_evaluable": 0
+   }
+  },
+  "CW.M1": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 36,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 4
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 36,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 4
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 36,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 4
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 40,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 40,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 0
+   }
+  },
+  "CW.M2": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 27,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 31,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 8
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 27,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 39,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 39,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 0
+   }
+  },
+  "CW.M3": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 16,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 16,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 16,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 27,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 27,
+    "alert_rate_W0": 0.0,
+    "n_W0": 1,
+    "not_evaluable": 0
+   }
+  }
+ },
+ "gate_rc": 1,
+ "gate_stdout_tail": "",
+ "gate_stderr_tail": "main()\n  File \"/private/tmp/claude-501/-Volumes-MacMiniExt-dev-research-Art-1/b289e114-391d-4310-bd90-629bde29dab0/scratchpad/colab_wt/twinguard/twinguard_gate.py\", line 227, in main\n    df, n_missing = load(a.csv, a.detectors)\n                    ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/claude-501/-Volumes-MacMiniExt-dev-research-Art-1/b289e114-391d-4310-bd90-629bde29dab0/scratchpad/colab_wt/twinguard/twinguard_gate.py\", line 60, in load\n    df = ta.load(csv, 'confirmatory', model='')\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/claude-501/-Volumes-MacMiniExt-dev-research-Art-1/b289e114-391d-4310-bd90-629bde29dab0/scratchpad/colab_wt/twinguard/twinguard_analysis.py\", line 130, in load\n    df = pd.read_csv(csv, dtype={c: str for c in\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 872, in read_csv\n    return _read(filepath_or_buffer, kwds)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 300, in _read\n    parser = TextFileReader(filepath_or_buffer, **kwds)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 1643, in __init__\n    self._engine = self._make_engine(f, self.engine)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py\", line 1907, in _make_engine\n    self.handles = get_handle(\n                   ^^^^^^^^^^^\n  File \"/Volumes/MacMiniExt/dev/research/Art_1/.venv/lib/python3.12/site-packages/pandas/io/common.py\", line 930, in get_handle\n    handle = open(\n             ^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: 'results/x3/detectors/runs_detectors_main.csv'\n"
+}
