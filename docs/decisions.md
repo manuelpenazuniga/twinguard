@@ -1228,3 +1228,11 @@ validated before the claim. Every result is published.
 sellar" in round 7. Session 1 kernel: built from `c99e1e2` (PLATFORM=colab, MODE=x3,
 SESSION=1), script sha256 `deb4955cd802abfcfbcab5472b1174587fc32ee56a9abc326e4d42622a495556`;
 its bundle passes the kernel's own `x3_verify` offline (2078 files).
+
+**D16 sealed (2026-11-10 ~12:40Z, before the confirmatory is decoded and before any E4B run).**
+Manifest `followup/e4b_manifest.json` of commit `9e5d12f`, sha256
+`82f34cb1c6b277fcee0b51dfe247dd40fd9e9552268a0cd269c2ccc9e3f14292`, OpenTimestamps proof
+`followup/e4b_manifest.json.ots`, committed in `9ccdc44` (Sol: "D16 listo salvo el smoke";
+smoke passed). Session 1 kernel `manuelpz/twinguard-e4b`: built from `9ccdc44` (MODE=e4b,
+SESSION=1), script sha256 `d135d8389dd4afdb66685bca3d30d3e5290b3ecc9c8c01cb711236d46edbf7d9`;
+its bundle passes the kernel's own `x3_verify` offline (2077 files).
