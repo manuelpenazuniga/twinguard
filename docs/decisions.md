@@ -1188,6 +1188,10 @@ here. Before D16 is sealed, one Kaggle runner smoke (toy fixture only, never the
 `MODE=runner_smoke MODEL_KIND=e4b`) loads E4B from the same input with the overlay and the hash
 check, at TP = 4 in the frozen image, and runs the 6 toy episodes (generation, reasoning, tool
 calls). If it fails, D16 is not run: no other TP, version or model is tried.
+*Result (2026-11-10, Kaggle kernel `manuelpz/twinguard-e4b-smoke` v1, built from `e8d550d`):*
+every phase passed; the served files match HF 6cd26aa; the TP = 4 server loaded in 316 s; the
+6 toy episodes completed in 46 s (5 patches, 1 sent to blind adjudication), so generation,
+reasoning and tool calls work. D16 is sealed after it.
 
 **Design.** C on the 30 confirmatory templates, framing N only, × 4 paraphrases × 1 seed = 120
 runs (x3's seeds), one block `e4b_main`; no framing contrast is estimated. Kaggle L4×4, the
