@@ -1236,3 +1236,13 @@ Manifest `followup/e4b_manifest.json` of commit `9e5d12f`, sha256
 smoke passed). Session 1 kernel `manuelpz/twinguard-e4b`: built from `9ccdc44` (MODE=e4b,
 SESSION=1), script sha256 `d135d8389dd4afdb66685bca3d30d3e5290b3ecc9c8c01cb711236d46edbf7d9`;
 its bundle passes the kernel's own `x3_verify` offline (2077 files).
+
+**Confirmatory decoded (2026-11-10 13:22Z, after the D15 and D16 seals).** The single run of
+`runner/analyze.py --freeze freeze/manifest.json` on the two complete shards (archives
+`9c2bd820…`, `db5c343f…`, hashes checked before extraction): frozen code `b24a4dd` extracted and
+697 files verified; 720/720 rows, K = 30 in complete blocks, no truncation; detectors and gate rc
+0. `analysis_output.json` sha256
+`4989d03dfcbcb130eb3fbc76775ddb5a9fc7c00182d0c699a7add119d08d263b` (all outputs hashed in
+`results/confirmatory/analysis_hashes.json`). Frozen result: W at the floor in every arm (N
+1/240, P 0/240, A 1/240; F ≈ 0.99, M = 1.0); H1 `uninformative_zero_variance`, floor flag raised,
+CONCLUSION_QUALIFIED; H2 not tested (fixed sequence).

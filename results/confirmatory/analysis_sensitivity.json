@@ -1,0 +1,403 @@
+{
+  "analysis_status": "EXPLORATORY",
+  "note": "Statistical analysis only; claims require authentic data.",
+  "n_templates": 27,
+  "templates_per_mechanism": {
+    "M3": 9,
+    "M2": 9,
+    "M1": 9
+  },
+  "n_families": 9,
+  "n_rollouts_scheduled": 648,
+  "status_counts_by_framing": {
+    "A": {
+      "budget_exhausted": 0,
+      "patch": 216
+    },
+    "N": {
+      "budget_exhausted": 1,
+      "patch": 215
+    },
+    "P": {
+      "budget_exhausted": 1,
+      "patch": 215
+    }
+  },
+  "rates_template_weighted": {
+    "N": {
+      "W": 0.004629629629629629,
+      "F": 0.9907407407407407,
+      "U": 0.004629629629629629,
+      "M": 1.0
+    },
+    "P": {
+      "W": 0.0,
+      "F": 0.9814814814814815,
+      "U": 0.0,
+      "M": 1.0
+    },
+    "A": {
+      "W": 0.004629629629629629,
+      "F": 0.9907407407407407,
+      "U": 0.004629629629629629,
+      "M": 1.0
+    }
+  },
+  "H1_PRIMARY_W_A_minus_N": {
+    "HC3_95": {
+      "estimate": 0.0,
+      "se": 0.0,
+      "zero_variance": true,
+      "p_two_sided": null,
+      "ci": [
+        0.0,
+        0.0
+      ],
+      "alpha": 0.05,
+      "df": 24.0,
+      "n_templates": 27,
+      "cov": "HC3"
+    },
+    "HC3_90": {
+      "estimate": 0.0,
+      "se": 0.0,
+      "zero_variance": true,
+      "p_two_sided": null,
+      "ci": [
+        0.0,
+        0.0
+      ],
+      "alpha": 0.1,
+      "df": 24.0,
+      "n_templates": 27,
+      "cov": "HC3"
+    },
+    "bootstrap_95_robustness": [
+      0.0,
+      0.0
+    ],
+    "decision": "uninformative_zero_variance",
+    "sesoi_equivalence_infimum_90": null,
+    "sesoi_exceedance_supremum_95": null,
+    "SENSITIVITY_decision_at_margin": {
+      "0.05": "uninformative_zero_variance",
+      "0.15": "uninformative_zero_variance"
+    }
+  },
+  "H2_SPECIFICITY_W_A_minus_P": {
+    "HC3_95": {
+      "estimate": 0.004629629629629629,
+      "se": 0.004910463758239912,
+      "zero_variance": false,
+      "p_two_sided": 0.3551732290270222,
+      "ci": [
+        -0.005505069457928266,
+        0.014764328717187525
+      ],
+      "alpha": 0.05,
+      "df": 24.0,
+      "n_templates": 27,
+      "cov": "HC3"
+    },
+    "HC3_90": {
+      "estimate": 0.004629629629629629,
+      "se": 0.004910463758239912,
+      "zero_variance": false,
+      "p_two_sided": 0.3551732290270222,
+      "ci": [
+        -0.0037715948183877374,
+        0.013030854077646996
+      ],
+      "alpha": 0.1,
+      "df": 24.0,
+      "n_templates": 27,
+      "cov": "HC3"
+    },
+    "bootstrap_95_robustness": [
+      0.0,
+      0.013888888888888888
+    ],
+    "decision": "equivalent_within_SESOI",
+    "sesoi_equivalence_infimum_90": 0.013030854077646996,
+    "sesoi_exceedance_supremum_95": 0.0,
+    "SENSITIVITY_decision_at_margin": {
+      "0.05": "equivalent_within_SESOI",
+      "0.15": "equivalent_within_SESOI"
+    },
+    "tested_by_fixed_sequence": false,
+    "specificity_supported": false
+  },
+  "DIAGNOSTIC_W_P_minus_N": {
+    "HC3_95": {
+      "estimate": -0.004629629629629629,
+      "se": 0.004910463758239912,
+      "zero_variance": false,
+      "p_two_sided": 0.3551732290270222,
+      "ci": [
+        -0.014764328717187525,
+        0.005505069457928266
+      ],
+      "alpha": 0.05,
+      "df": 24.0,
+      "n_templates": 27,
+      "cov": "HC3"
+    },
+    "HC3_90": {
+      "estimate": -0.004629629629629629,
+      "se": 0.004910463758239912,
+      "zero_variance": false,
+      "p_two_sided": 0.3551732290270222,
+      "ci": [
+        -0.013030854077646996,
+        0.0037715948183877374
+      ],
+      "alpha": 0.1,
+      "df": 24.0,
+      "n_templates": 27,
+      "cov": "HC3"
+    },
+    "bootstrap_95_robustness": [
+      -0.013888888888888888,
+      0.0
+    ],
+    "decision": "equivalent_within_SESOI",
+    "sesoi_equivalence_infimum_90": 0.013030854077646996,
+    "sesoi_exceedance_supremum_95": 0.0,
+    "SENSITIVITY_decision_at_margin": {
+      "0.05": "equivalent_within_SESOI",
+      "0.15": "equivalent_within_SESOI"
+    }
+  },
+  "SECONDARY_U_A_minus_N": {
+    "estimate": 0.0,
+    "se": 0.0,
+    "zero_variance": true,
+    "p_two_sided": null,
+    "ci": [
+      0.0,
+      0.0
+    ],
+    "alpha": 0.05,
+    "df": 24.0,
+    "n_templates": 27,
+    "cov": "HC3"
+  },
+  "DIAGNOSTIC_F_A_minus_N": {
+    "estimate": 0.0,
+    "se": 0.006944444444444443,
+    "zero_variance": false,
+    "p_two_sided": 1.0,
+    "ci": [
+      -0.01433262890019461,
+      0.01433262890019461
+    ],
+    "alpha": 0.05,
+    "df": 24.0,
+    "n_templates": 27,
+    "cov": "HC3"
+  },
+  "DIAGNOSTIC_M_A_minus_N": {
+    "estimate": 0.0,
+    "se": 0.0,
+    "zero_variance": true,
+    "p_two_sided": null,
+    "ci": [
+      0.0,
+      0.0
+    ],
+    "alpha": 0.05,
+    "df": 24.0,
+    "n_templates": 27,
+    "cov": "HC3"
+  },
+  "DIAGNOSTIC_budget_exhausted_A_minus_N": {
+    "estimate": -0.004629629629629629,
+    "se": 0.004910463758239912,
+    "zero_variance": false,
+    "p_two_sided": 0.3551732290270222,
+    "ci": [
+      -0.014764328717187525,
+      0.005505069457928266
+    ],
+    "alpha": 0.05,
+    "df": 24.0,
+    "n_templates": 27,
+    "cov": "HC3"
+  },
+  "FLAGS": {
+    "abstention_confounding": false,
+    "competence_confounding": false,
+    "budget_confounding": false,
+    "floor_or_ceiling": true,
+    "missing_sensitive": false,
+    "crash_coding_sensitive": false,
+    "depends_on_template_independence": false,
+    "paraphrase_cells_missing": false
+  },
+  "CONCLUSION_QUALIFIED": true,
+  "EXPLORATORY_by_mechanism_dAN": {
+    "M1": 0.0,
+    "M2": 0.0,
+    "M3": 0.0
+  },
+  "DESCRIPTIVE_abstention_decomposition_A_minus_N": {
+    "W_rate": {
+      "A": 0.004629629629629629,
+      "N": 0.004629629629629629
+    },
+    "M_rate": {
+      "A": 1.0,
+      "N": 1.0
+    },
+    "W_given_M_ratio": {
+      "A": 0.004629629629629629,
+      "N": 0.004629629629629629
+    },
+    "total_difference": 0.0,
+    "behavior_when_modifying_term": 0.0,
+    "modification_rate_term": 0.0
+  },
+  "DIAGNOSTIC_paraphrase_gaps": {
+    "n_template_framing_cells_with_missing_paraphrase": 0,
+    "cells": []
+  },
+  "SENSITIVITY_family_clustered": {
+    "decision_changes": false,
+    "dAN": {
+      "estimate": 0.0,
+      "se": 0.0,
+      "zero_variance": true,
+      "p_two_sided": null,
+      "ci": [
+        0.0,
+        0.0
+      ],
+      "alpha": 0.05,
+      "df": 8.0,
+      "n_templates": 27,
+      "cov": "cluster(family)",
+      "decision": "uninformative_zero_variance"
+    },
+    "dAP": {
+      "estimate": 0.004629629629629629,
+      "se": 0.004818671295060491,
+      "zero_variance": false,
+      "p_two_sided": 0.3648033250277103,
+      "ci": [
+        -0.006482246302969475,
+        0.01574150556222873
+      ],
+      "alpha": 0.05,
+      "df": 8.0,
+      "n_templates": 27,
+      "cov": "cluster(family)",
+      "decision": "equivalent_within_SESOI"
+    }
+  },
+  "SENSITIVITY_missing_extremes": {
+    "n_rows": 0,
+    "decision_changes": false
+  },
+  "SENSITIVITY_crash_as_weakening": {
+    "n_rows": 0,
+    "n_by_framing": {
+      "N": 0,
+      "P": 0,
+      "A": 0
+    },
+    "decision_changes": false
+  },
+  "EXPLORATORY_heterogeneity_and_stability": {
+    "note": "Exploratory and descriptive: observed heterogeneity and influence, not a validated prediction for new tasks. D_i contains sampling noise.",
+    "D_i_quantiles": {
+      "0.0": 0.0,
+      "0.1": 0.0,
+      "0.25": 0.0,
+      "0.5": 0.0,
+      "0.75": 0.0,
+      "0.9": 0.0,
+      "1.0": 0.0
+    },
+    "mean_D_by_mechanism": {
+      "M1": 0.0,
+      "M2": 0.0,
+      "M3": 0.0
+    },
+    "share_templates_positive_negative_zero": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "leave_one_family_out": {
+      "ci_cd": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "cloud_compute": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "communications": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "content_moderation": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "data_platforms": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "finance": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "healthcare": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "iot": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      },
+      "logistics": {
+        "estimate": 0.0,
+        "decision": "uninformative_zero_variance"
+      }
+    },
+    "leave_one_family_out_range": [
+      0.0,
+      0.0
+    ],
+    "leave_one_family_out_same_class": 9,
+    "leave_one_family_out_not_estimable": 0,
+    "n_families": 9
+  },
+  "EXPLORATORY_gsc_decomposition": {
+    "alert": {
+      "estimate": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ]
+    },
+    "no_alert": {
+      "estimate": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ]
+    },
+    "not_evaluable": {
+      "estimate": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ]
+    },
+    "sum_of_parts": 0.0,
+    "additivity_gap_vs_H1": 0.0,
+    "note": "Parts are what this detector version flagged; not a decomposition into causes."
+  }
+}

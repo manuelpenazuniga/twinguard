@@ -1,0 +1,201 @@
+{
+ "freeze_sha256": "e2a981294668be3b94cd2ca47aa77d8d9472f8fc3b96a6a8373539194e6481e8",
+ "code_commit": "b24a4ddf1024cee52b6d9509331e13247517f774",
+ "K_scheduled": 30,
+ "K_in_complete_blocks": 30,
+ "blocks": [
+  {
+   "family": "data_platforms",
+   "templates": [
+    "M1.dataset_export",
+    "M2.schema_migration_jobs",
+    "M3.pipeline_quality_alerts"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  },
+  {
+   "family": "content_moderation",
+   "templates": [
+    "M1.post_publishing",
+    "M2.account_suspension",
+    "M3.abuse_report_escalation"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "budget_exhausted": 1,
+    "patch": 71
+   }
+  },
+  {
+   "family": "ecommerce",
+   "templates": [
+    "M1.high_value_fulfillment",
+    "M2.bulk_price_updates",
+    "M3.inventory_adjustments"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  },
+  {
+   "family": "communications",
+   "templates": [
+    "M1.bulk_sms_campaigns",
+    "M2.outbound_email_relay",
+    "M3.notice_broadcasts"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  },
+  {
+   "family": "cloud_compute",
+   "templates": [
+    "M1.vm_provisioning",
+    "M2.storage_acl_changes",
+    "M3.cost_anomaly_alerts"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "budget_exhausted": 1,
+    "patch": 71
+   }
+  },
+  {
+   "family": "ci_cd",
+   "templates": [
+    "M1.production_deploys",
+    "M2.artifact_publishing",
+    "M3.secret_scan_findings"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  },
+  {
+   "family": "iot",
+   "templates": [
+    "M1.smart_lock_schedules",
+    "M2.firmware_rollout",
+    "M3.industrial_setpoints"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  },
+  {
+   "family": "healthcare",
+   "templates": [
+    "M1.medication_dispensing",
+    "M2.lab_result_release",
+    "M3.bed_capacity_planning"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  },
+  {
+   "family": "finance",
+   "templates": [
+    "M1.wire_transfers",
+    "M2.card_refunds",
+    "M3.trade_surveillance"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  },
+  {
+   "family": "logistics",
+   "templates": [
+    "M1.fleet_dispatch",
+    "M2.warehouse_pick_routing",
+    "M3.customs_declarations"
+   ],
+   "scheduled": 72,
+   "closed_out": 0,
+   "state": "complete",
+   "status_counts": {
+    "patch": 72
+   }
+  }
+ ],
+ "by_shard": {
+  "1/2": [
+   {
+    "family": "data_platforms",
+    "state": "complete"
+   },
+   {
+    "family": "ecommerce",
+    "state": "complete"
+   },
+   {
+    "family": "cloud_compute",
+    "state": "complete"
+   },
+   {
+    "family": "iot",
+    "state": "complete"
+   },
+   {
+    "family": "finance",
+    "state": "complete"
+   }
+  ],
+  "2/2": [
+   {
+    "family": "content_moderation",
+    "state": "complete"
+   },
+   {
+    "family": "communications",
+    "state": "complete"
+   },
+   {
+    "family": "ci_cd",
+    "state": "complete"
+   },
+   {
+    "family": "healthcare",
+    "state": "complete"
+   },
+   {
+    "family": "logistics",
+    "state": "complete"
+   }
+  ]
+ },
+ "cut_is_global_suffix": true,
+ "closed_out_runs": 0,
+ "exploratory_required": false,
+ "analysis_flag": "",
+ "note": "K evaluable per contrast is reported by twinguard_analysis.py"
+}

@@ -1,0 +1,61 @@
+{
+ "cmd": [
+  "/private/var/folders/zs/g42b1z4974xd1z4d6htpf9z40000gn/T/twinguard_frozen_b24a4ddf1024_f9f31fck/twinguard/twinguard_analysis.py",
+  "/Volumes/MacMiniExt/dev/research/Art_1/results/confirmatory/runs_detectors.csv",
+  "--replicates",
+  "2",
+  "--output",
+  "/Volumes/MacMiniExt/dev/research/Art_1/results/confirmatory/analysis_output.json"
+ ],
+ "rc": 0,
+ "sensitivity": {
+  "cmd": [
+   "/private/var/folders/zs/g42b1z4974xd1z4d6htpf9z40000gn/T/twinguard_frozen_b24a4ddf1024_f9f31fck/twinguard/twinguard_analysis.py",
+   "/Volumes/MacMiniExt/dev/research/Art_1/results/confirmatory/analysis_sensitivity_input.csv",
+   "--replicates",
+   "2",
+   "--templates",
+   "27",
+   "--output",
+   "/Volumes/MacMiniExt/dev/research/Art_1/results/confirmatory/analysis_sensitivity.json",
+   "--exploratory"
+  ],
+  "rc": 0,
+  "templates": 27,
+  "env": {
+   "root": "/private/var/folders/zs/g42b1z4974xd1z4d6htpf9z40000gn/T/twinguard_frozen_b24a4ddf1024_f9f31fck",
+   "out": "/Volumes/MacMiniExt/dev/research/Art_1/results/confirmatory",
+   "prefixes": [
+    "/Volumes/MacMiniExt/dev/research/Art_1/.venv",
+    "/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12"
+   ]
+  },
+  "excluded_families": [
+   "ecommerce"
+  ],
+  "templates_dropped": [
+   "M1.high_value_fulfillment",
+   "M2.bulk_price_updates",
+   "M3.inventory_adjustments"
+  ]
+ },
+ "gate_rc": 0,
+ "secondary_error": null,
+ "frozen_commit": "b24a4ddf1024cee52b6d9509331e13247517f774",
+ "code_root": "git archive of frozen_commit, files verified against the freeze",
+ "sha256": {
+  "analysis_output.json": "4989d03dfcbcb130eb3fbc76775ddb5a9fc7c00182d0c699a7add119d08d263b",
+  "analysis_output.txt": "96c564f57359a114f04cb5782d0591406b4401307202ecf660a841eef244a93e",
+  "analysis_sensitivity.json": "c6fc95aa8148e4283848b252a6683104f7eee919167e7298de9f5b08e690bb86",
+  "analysis_sensitivity.txt": "f5d4de333347f23766d83cdcd66134edd86368439a9547c785839a4820db36de",
+  "analysis_sensitivity_input.csv": "0083b84f37256c538fdac8692e73987e4316d9eec0b2881f33599e53b84faecf",
+  "analysis_started.json": "9d866aaa4c2844a4867441ca7de43a4ef08f0c94ded80bcd3d10a3a1daa674dd",
+  "detectors.jsonl": "35839d6ea803eba95632afdf377794f6b2e75d2136902fa716633d107860a826",
+  "gate_output.json": "0df7cdaa236feb3703cababefbb443746de9d31573454d350c1b67d9133eac67",
+  "gate_stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "runs.csv": "2b554348e8bc19e547f540f3c2f83f8212403e1ad0a2cce54076c0497fa5a3ee",
+  "runs_detectors.csv": "2b27e5f7468baecfad02b20f57eac698b622dbc4f9baed4e8f170469202019cd",
+  "secondary_status.json": "b29b2105553fdd721679d9eb85de0944be97b3c05cbfd4a7ae0bad807a9a7478",
+  "truncation_report.json": "c49b181eea9931d195414fa41035b04645c9a44f61a706fadda0adb6da1d7315"
+ }
+}
