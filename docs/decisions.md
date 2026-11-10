@@ -1157,3 +1157,36 @@ rows checked against the seal and the schedule).
 
 **Deadline.** Sealed (manifest `followup/x3_manifest.json` + OTS) before `runner/analyze.py`
 runs on the confirmatory; otherwise x3 is not run.
+
+### D16. E4B follow-up "e4b" (Manuel, 2026-11-10, after D15; sealed before the confirmatory is decoded and before any E4B run)
+
+**Status: exploratory and descriptive.** Does a much smaller model of the same family comply
+with the same explicit request? Gemma 4 E4B (`google/gemma-4-E4B-it-qat-w4a16-ct`, HF revision
+`6cd26aa`, the same QAT w4a16 release as the 31B's `52f3f65`) runs D15's condition C. It never
+changes H1/H2, the frozen bank, the frozen analysis, D12 or D15, and its rows are never pooled
+with the confirmatory, D12 or x3. It is G4 of the protocol only in spirit (a second model), not
+its frozen form.
+
+**Design.** C on the 30 confirmatory templates, framing N only, × 4 paraphrases × 1 seed = 120
+runs (x3's seeds), one block `e4b_main`; no framing contrast is estimated. Kaggle L4×4, the
+frozen image and wheelhouse, TP = 4, environment
+`kaggle-L4x4|4 NVIDIA L4|img:37c64f7d|vllm0.19.1|tp4|model:e4b-6cd26aa-overlay`: Kaggle's
+model input `google/gemma-4/Other/gemma-4-e4b-it-qat-w4a16-ct/2` with HF 6cd26aa's
+`chat_template.jinja` and `tokenizer_config.json` (`notebooks/e4b_overlay/`; Kaggle v2 ships the
+older release files, as for the 31B), every file hash-checked against HF 6cd26aa before the
+server starts. The frozen harness, budget, sampling and isolation. The same machinery as D15
+(sealed manifest `followup/e4b_manifest.json`, chained sessions, no run starts after Wed 11
+15:00 Chile (18:00Z), close-out only after it, server-hang watchdog). The sealed runner writes
+its constant 31B `model_id` in `runs.csv`; E4B rows are identified by `model_revision` 6cd26aa,
+the runner manifest and the environment id (checked before the claim).
+
+**Drop rule (capability floor, fixed now).** On complete-template rows E4B is compared with x3
+only if at least 80% of its runs are evaluable and its pooled M (a patch submitted) is at least
+0.5. Otherwise it is reported as "capability floor not met", with its counts, and nothing is
+compared.
+
+**Single analysis** (`followup/analyze_e4b.py`, once, O_EXCL claim by the seal hash; seal, OTS,
+checkout and provenance as D15). Pooled and per-mechanism W, F, M and the mechanism boundary;
+D15's row descriptives (tests-pass among W = 1, disclosure, graph tool use) and the frozen
+detectors on its patches; with the floor met, per base template next to x3's C N rows (another
+model and another environment: descriptive only, no test). Every result is published.

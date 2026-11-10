@@ -70,7 +70,11 @@ X1_SESSION_S = ''                # x1 modes: absolute end of the whole session (
 # D15 explicit-request follow-up 'x3' (Colab only; build --define): sessions chain like the
 # confirmatory (SESSION k resumes k-1 with RESUME_SHA256); no run starts after the sealed stop
 # time; unfinished runs are closed out only once it has passed
-X3_MANIFEST_SHA256 = ''          # SHA-256 of followup/x3_manifest.json (OTS-stamped with D15)
+X3_MANIFEST_SHA256 = ''          # SHA-256 of the mode's sealed manifest (x3: D15, e4b: D16)
+# D16 'e4b': the same sealed follow-up machinery (blocks, chained sessions, stop time, hang watch)
+# on Kaggle L4x4 with Gemma 4 E4B (same QAT w4a16 family) instead of the 31B; never pooled
+FOLLOWUP_MODES = ('x3', 'e4b')
+FOLLOWUP_MANIFEST = {'x3': 'followup/x3_manifest.json', 'e4b': 'followup/e4b_manifest.json'}
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -80,6 +84,26 @@ HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc92
     'generation_config.json': ('git', 'f6bc6f4146a610a3881015c90d36a78beb1333bb'),
     'tokenizer_config.json': ('git', 'b22e2c5c05597a7e8c0cb1cebdb7d45570772005'),
 }
+HF_EXPECTED_E4B = {  # google/gemma-4-E4B-it-qat-w4a16-ct @ 6cd26aaa2357fb2bad8c51699a7558a4d1a965bb
+    'model.safetensors': ('sha256', '19d89d2a4b3e401a3eae75ec08ab112810421a036c91d8c8226b686be7fe0c5d'),
+    'tokenizer.json': ('sha256', 'cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f'),
+    'config.json': ('git', 'cc8c5ca64e33c073a961fc35777c38badb2efd52'),
+    'chat_template.jinja': ('git', 'fbe3b59b625cd1b8850ea592d4203df6ec04684b'),
+    'generation_config.json': ('git', 'f6bc6f4146a610a3881015c90d36a78beb1333bb'),
+    'tokenizer_config.json': ('git', 'b22e2c5c05597a7e8c0cb1cebdb7d45570772005'),
+}
+MODEL_SPECS = {
+    '31b': {'kaggle': 'gemma-4-31b-it-qat-w4a16-ct/2', 'dest': '/kaggle/working/model_52f3f65',
+            'overlay': 'notebooks/model_overlay', 'hf': HF_EXPECTED,
+            'revision': '52f3f65bc7a02d555763bc923bd1d9094898219d', 'tag': 'model:52f3f65-overlay'},
+    'e4b': {'kaggle': 'gemma-4-e4b-it-qat-w4a16-ct/2', 'dest': '/kaggle/working/model_e4b_6cd26aa',
+            'overlay': 'notebooks/e4b_overlay', 'hf': HF_EXPECTED_E4B,
+            'revision': '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'tag': 'model:e4b-6cd26aa-overlay'},
+}
+
+
+def model_spec():
+    return MODEL_SPECS['e4b' if MODE == 'e4b' else '31b']
 
 
 def save():
@@ -183,13 +207,14 @@ def model_path():
     """Kaggle weights + the two small files of HF revision 52f3f65 (Kaggle v2 ships the
     older release revision ca9d525 for them; weights are identical, see phase 7)."""
     global KAGGLE_MODEL
-    c = glob.glob('/kaggle/input/**/gemma-4-31b-it-qat-w4a16-ct/2', recursive=True)
+    spec = model_spec()
+    c = glob.glob(f"/kaggle/input/**/{spec['kaggle']}", recursive=True)
     if not c:
-        raise FileNotFoundError('31B QAT model input not attached')
+        raise FileNotFoundError(f"model input {spec['kaggle']} not attached")
     KAGGLE_MODEL = Path(c[0])
-    dest = Path('/kaggle/working/model_52f3f65')
+    dest = Path(spec['dest'])
     dest.mkdir(parents=True, exist_ok=True)
-    overlay = code_dir() / 'notebooks' / 'model_overlay'
+    overlay = code_dir() / spec['overlay']
     for f in KAGGLE_MODEL.iterdir():
         if f.name not in OVERLAY_FILES and not (dest / f.name).exists():
             os.symlink(f, dest / f.name)
@@ -463,7 +488,8 @@ def sha256(path):
 def model_hashes():
     out = {'files': sorted(p.name for p in MODEL.iterdir()), 'served_dir': str(MODEL),
            'kaggle_dir': str(KAGGLE_MODEL)}
-    for name, (kind, expected) in HF_EXPECTED.items():
+    expected_files = model_spec()['hf']
+    for name, (kind, expected) in expected_files.items():
         p = MODEL / name
         if not p.exists():
             out[name] = 'missing'
@@ -471,7 +497,7 @@ def model_hashes():
         got = sha256(p) if kind == 'sha256' else git_blob_sha1(p)
         out[name] = {'match': got == expected, 'got': got}
     out['all_match'] = all(isinstance(v, dict) and v['match'] for k, v in out.items()
-                           if k in HF_EXPECTED)
+                           if k in expected_files)
     return out
 
 
@@ -668,7 +694,7 @@ def environment_id():
         # one id for the 40 and the 80 GB A100 (both GA100, sm_80); the card is in R['colab_gpu']
         return 'colab-A100|py3.12|vllm0.19.1|tp1|model:52f3f65-overlay'
     return ('kaggle-L4x4|' + sh("nvidia-smi --query-gpu=name --format=csv,noheader | sort | uniq -c | tr -s ' '")
-            + '|img:37c64f7d|vllm0.19.1|tp4|model:52f3f65-overlay')
+            + '|img:37c64f7d|vllm0.19.1|tp4|' + model_spec()['tag'])
 
 
 def runner_cmd(code, mode, out_dir, extra):
@@ -731,7 +757,7 @@ SEALED = Path('/kaggle/working/results_sealed.tar.gz')
 # raw results (framings, logs): exported with the session for the frozen modes; for the x1
 # modes they live in a root-only directory OUTSIDE /kaggle/working, so a watchdog exit can
 # never leave them in the output (only the sealed archive and blind summaries are exported)
-RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith(('x1_', 'x3')) else Path('/kaggle/working/results')
+RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith(('x1_', 'x3', 'e4b')) else Path('/kaggle/working/results')
 SEAL_LOCK = threading.Lock()     # one snapshot/seal at a time (periodic and final)
 TMP_LOCK = threading.Lock()      # short lock: creating, replacing or sweeping a .sealed_*.tmp
 CLOSING = threading.Event()      # x1 watchdog: no new temporary archive after this is set
@@ -1158,7 +1184,7 @@ def stop_at():
         return min(t, float(X1_STOP_AT_EPOCH), KERNEL_T0 + float(X1_CUTOFF_S))
     if MODE == 'x1_calibration':
         return min(t, KERNEL_T0 + float(X1_CUTOFF_S))
-    if MODE == 'x3':
+    if MODE in FOLLOWUP_MODES:
         return min(t, float(X3['stop_at_epoch']))
     return min(t, deadline()) if MODE == 'confirmatory' else t
 
@@ -1256,16 +1282,15 @@ def smoke_block(code):
 
 # ------------------------------------------------------------------ D15 follow-up (x3, Colab)
 X3 = {}
-X3_OWN = {'followup/x3_manifest.json', 'followup/x3_manifest.json.sha256',
-          'followup/x3_manifest.json.ots'}
+X3_OWN = {f'followup/{k}_manifest.json{e}' for k in FOLLOWUP_MODES for e in ('', '.sha256', '.ots')}
 
 
 def x3_verify(code):
     """The bundle is the sealed D15 package (manifest hash, this script, every listed file with
     its hash, no extra file); the session chain is well formed (1 starts empty, k resumes)."""
-    mpath = code / 'followup' / 'x3_manifest.json'
+    mpath = code / FOLLOWUP_MANIFEST[MODE]
     if not mpath.exists() or sha256(mpath) != X3_MANIFEST_SHA256:
-        raise RuntimeError('x3 manifest missing or its hash differs from X3_MANIFEST_SHA256')
+        raise RuntimeError(f'{MODE} manifest missing or its hash differs from X3_MANIFEST_SHA256')
     m = json.loads(mpath.read_text())
     X3.update(m)
     if m['files'].get('notebooks/pilot_l4/pilot_l4.py') != SCRIPT_SHA256:
@@ -1284,7 +1309,8 @@ def x3_verify(code):
     if SHARD:
         raise RuntimeError('x3 has no shards')
     names = [b['name'] for b in m['blocks']]
-    if not names or names[0] != 'x3_main' or m['blocks'][0]['start_by_epoch'] is not None:
+    if not names or not names[0].endswith('_main') or m['blocks'][0]['start_by_epoch'] is not None \
+            or len(set(names)) != len(names) or m.get('mode', 'x3') != MODE:
         raise RuntimeError('x3 manifest: the main block comes first and has no start_by')
     return {'files': len(m['files']), 'session': int(SESSION),
             'stop_at_epoch': m['stop_at_epoch'], 'blocks': names}
@@ -1296,7 +1322,7 @@ def x3_chain(restored):
     log = RESULTS_DIR / 'x3_sessions.jsonl'
     k = int(SESSION)
     if k == 1:
-        if (RESULTS_DIR / 'x3_main').exists() or log.exists():
+        if (RESULTS_DIR / x3_blocks()[0]['name']).exists() or log.exists():
             raise RuntimeError('session 1 must start without x3 results')
     else:
         if not log.exists():
@@ -1401,7 +1427,7 @@ def x3_block(code):
 
 
 def x3_deadline_reached():
-    return MODE == 'x3' and bool(X3) and time.time() >= float(X3['stop_at_epoch'])
+    return MODE in FOLLOWUP_MODES and bool(X3) and time.time() >= float(X3['stop_at_epoch'])
 
 
 def x3_close_out(code):
@@ -1892,16 +1918,17 @@ elif __name__ == '__main__':
         if MODE.startswith('x1_'):
             if not phase('6_verify_x1')(x1_verify)(code)['ok']:
                 raise SystemExit('bundle is not the sealed D12 package: refusing to run')
-        if MODE == 'x3':
+        if MODE in FOLLOWUP_MODES:
             if not phase('6_verify_x3')(x3_verify)(code)['ok']:
                 raise SystemExit('bundle is not the sealed D15 package: refusing to run')
         MODEL = model_path()
         R['model_path'] = str(MODEL)
         h = model_hashes()
         if h['ok'] and h.get('all_match'):
-            R['verified_revision'] = '52f3f65bc7a02d555763bc923bd1d9094898219d'
+            R['verified_revision'] = model_spec()['revision']
         else:
-            raise SystemExit('served model files do not match HF 52f3f65: refusing to run')
+            raise SystemExit(f"served model files do not match HF {model_spec()['revision'][:7]}: "
+                             'refusing to run')
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         restored = phase('8a_restore')(restore_previous)()
         if not restored['ok']:
@@ -1909,12 +1936,12 @@ elif __name__ == '__main__':
         if MODE == 'confirmatory':
             if not phase('8c_session_chain')(session_chain)(restored)['ok']:
                 raise SystemExit('confirmatory session chain check failed: refusing to run')
-        if MODE == 'x3':
+        if MODE in FOLLOWUP_MODES:
             if not phase('8c_x3_chain')(x3_chain)(restored)['ok']:
                 raise SystemExit('x3 session chain check failed: refusing to run')
         if not isolation(code)['ok']:
             raise SystemExit('isolation checks failed: refusing to run')
-        verified = MODE in ('confirmatory', 'x3')   # close-out only under verified isolation
+        verified = MODE in ('confirmatory',) + FOLLOWUP_MODES   # close-out only under verified isolation
 
         tp, gpus = (1, '0') if PLATFORM == 'colab' else (4, '0,1,2,3')
 
@@ -1938,7 +1965,7 @@ elif __name__ == '__main__':
                     phase('9b_x1_select')(lambda: x1_select(code))()
             elif MODE == 'x1_transfer':
                 phase('9_x1_transfer')(lambda: x1_block(code))()
-            elif MODE == 'x3':
+            elif MODE in FOLLOWUP_MODES:
                 phase('9_x3')(lambda: x3_block(code))()
             else:
                 if PLATFORM != 'colab' or \
@@ -1952,12 +1979,12 @@ elif __name__ == '__main__':
             closed = phase('9d_close_out')(lambda: confirmatory_close_out(code))()
         if verified and x3_deadline_reached():
             closed = phase('9d_x3_close_out')(lambda: x3_close_out(code))()
-        if MODE == 'x3':      # before the seal removes the results it reads (Astra/Sol)
+        if MODE in FOLLOWUP_MODES:   # before the seal removes the results it reads (Astra/Sol)
             R['x3_status'] = x3_status(closed) if X3 else 'not_started'
         seal = phase('10_seal')(seal_results)()
         sh('chmod 0755 /kaggle')
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
-        shutil.rmtree('/kaggle/working/model_52f3f65', ignore_errors=True)
+        shutil.rmtree(model_spec()['dest'], ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         R['shard_status'] = shard_status(closed) if MODE == 'confirmatory' else None
         save()

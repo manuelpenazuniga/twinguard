@@ -1,0 +1,8 @@
+chat_template.jinja and tokenizer_config.json of google/gemma-4-E4B-it-qat-w4a16-ct at Hugging Face
+revision 6cd26aaa2357fb2bad8c51699a7558a4d1a965bb (2026-07-20), downloaded 2026-11-10 from
+https://huggingface.co/google/gemma-4-E4B-it-qat-w4a16-ct/resolve/<revision>/<file>.
+git blob sha1: chat_template.jinja fbe3b59b625cd1b8850ea592d4203df6ec04684b,
+tokenizer_config.json b22e2c5c05597a7e8c0cb1cebdb7d45570772005 (identical to the 31B overlay's).
+Kaggle's google/gemma-4/other/gemma-4-e4b-it-qat-w4a16-ct/2 ships the older release files
+(chat_template.jinja 16804 bytes, tokenizer_config.json 2741 bytes); its weights, config and
+tokenizer have HF's sizes and are hash-checked by the kernel (D16), as for the 31B (phase 7).

@@ -95,13 +95,13 @@ def relabel(obj):
     return json.loads(s)
 
 
-def verify_seal():
-    raw = MANIFEST.read_bytes()
-    want = (MANIFEST.parent / 'x3_manifest.json.sha256').read_text().split()[0]
+def verify_seal(manifest=MANIFEST):
+    raw = manifest.read_bytes()
+    want = Path(str(manifest) + '.sha256').read_text().split()[0]
     if sha(raw) != want:
-        raise SystemExit('x3 manifest hash differs from its .sha256')
-    if not (MANIFEST.parent / 'x3_manifest.json.ots').exists():
-        raise SystemExit('no OpenTimestamps proof for the x3 manifest')
+        raise SystemExit(f'{manifest.name} hash differs from its .sha256')
+    if not Path(str(manifest) + '.ots').exists():
+        raise SystemExit(f'no OpenTimestamps proof for {manifest.name}')
     m = json.loads(raw)
     sealed = {**m['files'], **m['analysis_files']}
     bad = [p for p, h in sealed.items() if p.startswith(CHECKED)
@@ -451,7 +451,7 @@ def first_start(block_dir):
     return None
 
 
-def provenance(m, seal_hash, root):
+def provenance(m, seal_hash, root, revision=REVISION):
     """Before the claim (Astra/Sol): which blocks ran and on time, and that every row, every
     runner manifest and every session of the chain come from this seal's single environment,
     model, revision and code commit."""
@@ -477,7 +477,7 @@ def provenance(m, seal_hash, root):
         df = pd.read_csv(d / 'runs.csv', dtype=str)
         bad = {k: sorted(set(df[k])) for k, want in (('environment_id', m['environment_id']),
                                                      ('model_id', MODEL),
-                                                     ('model_revision', REVISION))
+                                                     ('model_revision', revision))
                if set(df[k]) != {want}}
         if bad:
             raise SystemExit(f'{b["name"]}: rows not from the sealed environment/model: {bad}')
@@ -487,7 +487,7 @@ def provenance(m, seal_hash, root):
         sched = scheduled(Path(b['spec']).name, tuple(b['framings']))
         from runner import runner as RN
         if (man.get('environment_id'), man.get('model_revision'), man.get('code_commit'),
-                man.get('model_id')) != (m['environment_id'], REVISION,
+                man.get('model_id')) != (m['environment_id'], revision,
                                          df.harness_commit.iloc[0], MODEL) \
                 or man.get('schedule_sha256') != RN.schedule_digest(sched):
             raise SystemExit(f'{b["name"]}: runner manifest differs from the sealed run')

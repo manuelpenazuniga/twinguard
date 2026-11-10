@@ -16,8 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 OUT = ROOT / 'followup' / 'x3_manifest.json'
-OWN = {'followup/x3_manifest.json', 'followup/x3_manifest.json.sha256',
-       'followup/x3_manifest.json.ots'}
+# every follow-up manifest (x3: D15, e4b: D16) is excluded from the files it seals, as the kernel does
+OWN = {f'followup/{k}_manifest.json{e}' for k in ('x3', 'e4b') for e in ('', '.sha256', '.ots')}
 EXTRA_PATHS = ['followup', 'notebooks/colab/kaggle_env']   # bundled besides build_kernel.PATHS
 ANALYSIS_PATHS = ['explore/__init__.py', 'explore/build_x1.py', 'explore/admit_x1.py',
                   'explore/process_x1.py', 'explore/bank_x1/texts.json',
@@ -47,9 +47,10 @@ def git(*a):
     return subprocess.run(['git', *a], cwd=ROOT, capture_output=True, check=True).stdout
 
 
-def bundle_paths():
+def bundle_paths(extra=None):
     src = (ROOT / 'notebooks' / 'build_kernel.py').read_text()
-    return ast.literal_eval(re.search(r'PATHS = (\[.*?\])', src, re.S).group(1)) + EXTRA_PATHS
+    return ast.literal_eval(re.search(r'PATHS = (\[.*?\])', src, re.S).group(1)) + \
+        (EXTRA_PATHS if extra is None else extra)
 
 
 def main(argv=None):
@@ -77,6 +78,7 @@ def main(argv=None):
             raise SystemExit(f"{b['name']}: {n} scheduled runs, sealed {b['runs']}")
     manifest = {
         'package': 'TwinGuard D15 explicit-request follow-up (x3)',
+        'mode': 'x3',
         'commit': commit,
         'commit_utc': git('show', '-s', '--format=%cI', commit).decode().strip(),
         'plan': 'docs/decisions.md D15',
