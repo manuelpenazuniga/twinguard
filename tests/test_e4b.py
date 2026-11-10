@@ -146,8 +146,11 @@ def results_root(tmp_path, W_of=W_effect, status_of=None):
         r.update(model_revision=E.REVISION, environment_id='e4')
         if status_of:
             r.update(status_of(r))
+    for r in rows:
+        r.update(elapsed_seconds='1')
     d = write(rows, root / 'e4b_main')
-    (d / 'attempts.jsonl').write_text(json.dumps({'event': 'start', 'utc': 1.0}) + '\n')
+    (d / 'attempts.jsonl').write_text(''.join(
+        json.dumps({'event': 'start', 'run_id': s['run_id'], 'utc': 1.0}) + '\n' for s in sched))
     (d / 'manifest.json').write_text(json.dumps(
         {'environment_id': 'e4', 'model_revision': E.REVISION, 'code_commit': 'c',
          'model_id': MODEL, 'schedule_sha256': R.schedule_digest(sched)}))

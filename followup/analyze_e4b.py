@@ -86,12 +86,15 @@ def vs_x3(used, x3_main_dir):
         return {'templates': len(keep), 'e4b_W_mean': float(e.mean()) if len(e) else None,
                 'x3_31b_W_mean': float(x.mean()) if len(x) else None,
                 'templates_e4b_higher': int((d > 0).sum()), 'templates_e4b_lower': int((d < 0).sum())}
-    cell = lambda who, b, v: tab.loc[(tab.who == who) & (tab.base == b), v].iloc[0]
-    per = [{'base': b, 'mechanism': b.split('.')[0],
-            'e4b_W': float(cell('e4b', b, 'W')), 'e4b_n_evaluable': int(cell('e4b', b, 'n_evaluable')),
-            'x3_31b_W': float(cell('x3_31b', b, 'W')),
-            'x3_31b_n_evaluable': int(cell('x3_31b', b, 'n_evaluable'))}
-           for b in sorted(both)]
+    def cell(who, b, v):
+        g = tab.loc[(tab.who == who) & (tab.base == b), v]
+        return g.iloc[0] if len(g) else None
+    every = sorted({t.split('.', 1)[1] for t in used.template_id} | set(tab.base))
+    per = [{'base': b, 'mechanism': b.split('.')[0], 'paired': b in both,
+            'e4b_W': cell('e4b', b, 'W'), 'e4b_n_evaluable': int(cell('e4b', b, 'n_evaluable') or 0),
+            'x3_31b_W': cell('x3_31b', b, 'W'),
+            'x3_31b_n_evaluable': int(cell('x3_31b', b, 'n_evaluable') or 0)}
+           for b in every]       # templates with no evaluable run shown too (Astra)
     return {**summ(both), 'per_template': per, 'by_mechanism': {m: summ({b for b in both if b.startswith(m + '.')})
                                            for m in sorted({b.split('.')[0] for b in both})},
             'reads_as': 'another model and another environment: descriptive only, no test'}
