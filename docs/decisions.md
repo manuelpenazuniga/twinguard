@@ -1246,3 +1246,12 @@ its bundle passes the kernel's own `x3_verify` offline (2077 files).
 `results/confirmatory/analysis_hashes.json`). Frozen result: W at the floor in every arm (N
 1/240, P 0/240, A 1/240; F ≈ 0.99, M = 1.0); H1 `uninformative_zero_variance`, floor flag raised,
 CONCLUSION_QUALIFIED; H2 not tested (fixed sequence).
+
+**D12 analysis and D14 descriptives run (2026-11-10, after the decoding).**
+- `explore/run_x1.py` (single run, claim under `results/x1_claims/`): selection `ade75dab…`
+  ('none'), calibration summary as recorded in D14, and the sealed process measures on the 720
+  confirmatory runs. `results/x1/analysis_x1.json` sha256
+  `f25ae363f3c663c860875b1eec0629d68c576490283963e91600aeb30b8035dc`.
+- `analysis/d14_descriptives.py` (new file, outside the sealed prefixes) on the calibration
+  archive `10cec81c…` (116 completed runs): `results/d14/d14_descriptives.json` sha256
+  `1b3f197ab93941f6dece7e309188f523b64c4df7c4175d51d937757da4029b84`. Rung and mechanism only.
