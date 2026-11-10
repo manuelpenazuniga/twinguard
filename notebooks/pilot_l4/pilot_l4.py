@@ -102,8 +102,12 @@ MODEL_SPECS = {
 }
 
 
+MODEL_KIND = ''          # build --define MODEL_KIND=e4b: a runner_smoke on Kaggle with E4B (D16
+                         # start-up check: load, generation, tool calls on the toy fixture only)
+
+
 def model_spec():
-    return MODEL_SPECS['e4b' if MODE == 'e4b' else '31b']
+    return MODEL_SPECS['e4b' if MODE == 'e4b' or MODEL_KIND == 'e4b' else '31b']
 
 
 def save():

@@ -73,7 +73,8 @@ def main(argv=None):
         a.extra_path.append(COLAB_ENV_PATH)        # Colab builds carry the Kaggle environment lock
     if ('MODE=x3' in a.define or 'MODE=e4b' in a.define) and 'followup' not in a.extra_path:
         a.extra_path.append('followup')            # D15/D16: the derived bank and its manifest
-    if 'MODE=e4b' in a.define and 'notebooks/e4b_overlay' not in a.extra_path:
+    e4b = 'MODE=e4b' in a.define or 'MODEL_KIND=e4b' in a.define
+    if e4b and 'notebooks/e4b_overlay' not in a.extra_path:
         a.extra_path.append('notebooks/e4b_overlay')   # D16: E4B's two HF 6cd26aa files
     tar = subprocess.run(['git', 'archive', '--format=tar.gz', commit, '--', *PATHS, *a.extra_path], cwd=ROOT,
                          capture_output=True, check=True).stdout
@@ -116,7 +117,7 @@ def main(argv=None):
         meta['enable_gpu'] = False
         meta.pop('machine_shape', None)
         meta['model_sources'] = []
-    if 'MODE=e4b' in a.define:             # D16: the E4B model input instead of the 31B
+    if e4b:                                # D16: the E4B model input instead of the 31B
         meta['model_sources'] = ['google/gemma-4/Other/gemma-4-e4b-it-qat-w4a16-ct/2']
     if a.kernel_source:
         meta['kernel_sources'] = list(a.kernel_source)

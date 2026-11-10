@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT / 'tests'))
 
 from followup import analyze_e4b as E, analyze_x3 as AN  # noqa: E402
 from runner import runner as R  # noqa: E402
-from test_followup_x3 import synth, write, W_effect  # noqa: E402
+from test_followup_x3 import synth, write, W_effect, results_root as x3_root, M as X3M, SEAL as X3SEAL  # noqa: E402
 
 SCRIPT = ROOT / 'notebooks' / 'pilot_l4' / 'pilot_l4.py'
 MODEL = 'google/gemma-4-31b-it-qat-w4a16-ct'
@@ -160,17 +160,23 @@ M = {'environment_id': 'e4', 'blocks': [{'name': 'e4b_main', 'spec': 'followup/b
                                          'framings': ['N'], 'start_by_epoch': None}]}
 
 
+def seals(manifest=None):
+    return (X3M, X3SEAL) if manifest == AN.MANIFEST else (M, 'e' * 64)
+
+
 def test_e4b_end_to_end_with_x3_side_by_side(tmp_path, monkeypatch):
     from followup import detect_x3 as DX
     root = results_root(tmp_path, W_of=lambda s: 1)
-    x3 = write(synth(AN.scheduled('spec_main.csv', ('N', 'P', 'A')), W_effect), tmp_path / 'x3' / 'x3_main')
-    monkeypatch.setattr(AN, 'verify_seal', lambda manifest=None: (M, 'e' * 64))
+    x3 = x3_root(tmp_path / 'x3')
+    monkeypatch.setattr(AN, 'verify_seal', seals)
     monkeypatch.setattr(AN, 'CLAIMS', tmp_path / 'claims')
     monkeypatch.setattr(DX, 'run', lambda rows, dirs, out, workers: {'stub': len(rows)})
-    E.main(['--results', str(root), '--x3-results', str(x3.parent), '--out', str(tmp_path / 'o')])
+    E.main(['--results', str(root), '--x3-results', str(x3), '--out', str(tmp_path / 'o')])
     rep = json.loads((tmp_path / 'o' / 'e4b_report.json').read_text())
     assert rep['floor']['met'] and rep['pooled']['W'] == 1.0 and rep['complete_templates'] == 30
     assert rep['vs_x3']['templates'] == 30 and rep['vs_x3']['e4b_W_mean'] == 1.0
+    assert rep['x3_comparator']['seal_sha256'] == X3SEAL and len(rep['vs_x3']['per_template']) == 30
+    assert rep['vs_x3']['per_template'][0]['e4b_n_evaluable'] == 4
     assert rep['detectors'] == {'stub': 120} and 'C' in rep['row_descriptives']
     assert rep['provenance']['blocks']['e4b_main']['started']
 
@@ -178,10 +184,11 @@ def test_e4b_end_to_end_with_x3_side_by_side(tmp_path, monkeypatch):
 def test_e4b_capability_floor_drops_the_comparison(tmp_path, monkeypatch):
     from followup import detect_x3 as DX
     root = results_root(tmp_path, status_of=lambda r: {'status': 'no_patch', 'M': 0, 'W': 0, 'F': 0})
-    monkeypatch.setattr(AN, 'verify_seal', lambda manifest=None: (M, 'e' * 64))
+    monkeypatch.setattr(AN, 'verify_seal', seals)
     monkeypatch.setattr(AN, 'CLAIMS', tmp_path / 'claims')
     monkeypatch.setattr(DX, 'run', lambda rows, dirs, out, workers: {})
-    E.main(['--results', str(root), '--x3-results', str(tmp_path), '--out', str(tmp_path / 'o')])
+    E.main(['--results', str(root), '--x3-results', str(x3_root(tmp_path / 'x3')),
+            '--out', str(tmp_path / 'o')])
     rep = json.loads((tmp_path / 'o' / 'e4b_report.json').read_text())
     assert not rep['floor']['met'] and rep['floor']['M_pooled'] == 0.0
     assert rep['vs_x3'] == {'compared': False, 'reason': 'capability floor not met'}
@@ -192,3 +199,30 @@ def test_e4b_provenance_uses_its_revision(tmp_path):
     AN.provenance(M, 'e' * 64, root, revision=E.REVISION)
     with pytest.raises(SystemExit, match='sealed environment/model'):
         AN.provenance(M, 'e' * 64, root)                 # the 31B revision: refused
+
+
+def test_unauthenticated_comparator_is_refused_before_the_claim(tmp_path, monkeypatch):
+    """Astra/Sol: a wrong x3 directory never yields a comparison, and the claim is not spent."""
+    root = results_root(tmp_path, W_of=lambda s: 1)
+    bad = tmp_path / 'bad'
+    write(synth(AN.scheduled('spec_main.csv', ('N', 'P', 'A')), W_effect), bad / 'x3_main')
+    monkeypatch.setattr(AN, 'verify_seal', seals)
+    monkeypatch.setattr(AN, 'CLAIMS', tmp_path / 'claims')
+    with pytest.raises(SystemExit):
+        E.main(['--results', str(root), '--x3-results', str(bad), '--out', str(tmp_path / 'o')])
+    assert not (tmp_path / 'claims').exists() or not any((tmp_path / 'claims').iterdir())
+
+
+def test_e4b_startup_smoke_build(tmp_path):
+    """MODEL_KIND=e4b turns the toy-fixture runner smoke into E4B's start-up check (TP=4)."""
+    import base64
+    out = tmp_path / 'smoke'
+    subprocess.run([sys.executable, str(ROOT / 'notebooks' / 'build_kernel.py'),
+                    str(ROOT / 'notebooks' / 'pilot_l4'), '--out-dir', str(out),
+                    '--kernel-id', 'manuelpz/twinguard-e4b-smoke',
+                    '--define', 'MODE=runner_smoke', '--define', 'MODEL_KIND=e4b'],
+                   check=True, capture_output=True)
+    meta = json.loads((out / 'kernel-metadata.json').read_text())
+    assert meta['model_sources'] == ['google/gemma-4/Other/gemma-4-e4b-it-qat-w4a16-ct/2']
+    src = (out / 'pilot_l4.py').read_text()
+    assert "MODEL_KIND = 'e4b'" in src and "MODE = 'runner_smoke'" in src

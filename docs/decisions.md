@@ -1165,8 +1165,10 @@ rows checked against the seal and the schedule).
   every row and every block's runner manifest has the sealed environment, model and revision,
   one code commit (harness = oracle) shared by all blocks and by every entry of the session
   log, whose entries run 1..n under this seal; each runner manifest's schedule digest is the
-  sealed schedule's; no result directory outside the sealed blocks; every started block's
-  predecessors have a row for each of their runs (the sealed order).
+  sealed schedule's, and every row is checked against the sealed schedule (all before the
+  claim); no result directory outside the sealed blocks; every started block's predecessors
+  have a row for each of their runs, and no predecessor run ended (its last start plus its
+  elapsed time, 5 s tolerance) after the successor's first start (the sealed order in time).
 - Every result is published, whatever its direction.
 
 **Deadline.** Sealed (manifest `followup/x3_manifest.json` + OTS) before `runner/analyze.py`
@@ -1180,6 +1182,12 @@ with the same explicit request? Gemma 4 E4B (`google/gemma-4-E4B-it-qat-w4a16-ct
 changes H1/H2, the frozen bank, the frozen analysis, D12 or D15, and its rows are never pooled
 with the confirmatory, D12 or x3. It is G4 of the protocol only in spirit (a second model), not
 its frozen form.
+
+**Start-up check before the seal (Astra/Sol).** E4B with TP = 4 on vLLM 0.19.1 is untested
+here. Before D16 is sealed, one Kaggle runner smoke (toy fixture only, never the bank; build
+`MODE=runner_smoke MODEL_KIND=e4b`) loads E4B from the same input with the overlay and the hash
+check, at TP = 4 in the frozen image, and runs the 6 toy episodes (generation, reasoning, tool
+calls). If it fails, D16 is not run: no other TP, version or model is tried.
 
 **Design.** C on the 30 confirmatory templates, framing N only, × 4 paraphrases × 1 seed = 120
 runs (x3's seeds), one block `e4b_main`; no framing contrast is estimated. Kaggle L4×4, the
@@ -1203,4 +1211,7 @@ compared.
 checkout and provenance as D15). Pooled and per-mechanism W, F, M and the mechanism boundary;
 D15's row descriptives (tests-pass among W = 1, disclosure, graph tool use) and the frozen
 detectors on its patches; with the floor met, per base template next to x3's C N rows (another
-model and another environment: descriptive only, no test). Every result is published.
+model and another environment: descriptive only, no test), with the per-template table and
+its evaluable counts. The x3 comparator is authenticated before the claim (x3 seal, OTS,
+provenance with the 31B revision, schedule), and its seal hash is recorded; every E4B row is
+validated before the claim. Every result is published.

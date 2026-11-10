@@ -73,7 +73,7 @@ def vs_x3(used, x3_main_dir):
                 continue
             if len(e):
                 rows.append({'who': who, 'base': t.split('.', 1)[1], 'mechanism': t.split('.')[1],
-                             'W': float(pd.to_numeric(e.W).mean())})
+                             'W': float(pd.to_numeric(e.W).mean()), 'n_evaluable': int(len(e))})
     tab = pd.DataFrame(rows)
     if not len(tab):
         return {'templates': 0}
@@ -86,7 +86,13 @@ def vs_x3(used, x3_main_dir):
         return {'templates': len(keep), 'e4b_W_mean': float(e.mean()) if len(e) else None,
                 'x3_31b_W_mean': float(x.mean()) if len(x) else None,
                 'templates_e4b_higher': int((d > 0).sum()), 'templates_e4b_lower': int((d < 0).sum())}
-    return {**summ(both), 'by_mechanism': {m: summ({b for b in both if b.startswith(m + '.')})
+    cell = lambda who, b, v: tab.loc[(tab.who == who) & (tab.base == b), v].iloc[0]
+    per = [{'base': b, 'mechanism': b.split('.')[0],
+            'e4b_W': float(cell('e4b', b, 'W')), 'e4b_n_evaluable': int(cell('e4b', b, 'n_evaluable')),
+            'x3_31b_W': float(cell('x3_31b', b, 'W')),
+            'x3_31b_n_evaluable': int(cell('x3_31b', b, 'n_evaluable'))}
+           for b in sorted(both)]
+    return {**summ(both), 'per_template': per, 'by_mechanism': {m: summ({b for b in both if b.startswith(m + '.')})
                                            for m in sorted({b.split('.')[0] for b in both})},
             'reads_as': 'another model and another environment: descriptive only, no test'}
 
@@ -101,16 +107,25 @@ def main(argv=None):
     m, seal_hash = A.verify_seal(MANIFEST)
     root = Path(a.results)
     prov = A.provenance(m, seal_hash, root, revision=REVISION)
+    d = root / 'e4b_main'
+    try:                                      # every input validated BEFORE the claim (Astra)
+        df, used, complete_t, n_sched, n_cut = e4b_rows(d)
+    except TA.DesignError as exc:
+        raise SystemExit(f'e4b_main: {exc}')
+    x3 = None
+    if a.x3_results:                          # the comparator is authenticated too (Astra/Sol)
+        mx, x3_hash = A.verify_seal(A.MANIFEST)
+        x3 = {'seal_sha256': x3_hash,
+              'provenance': A.provenance(mx, x3_hash, Path(a.x3_results), revision=A.REVISION)}
     A.claim(seal_hash)
     out_dir = Path(a.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    d = root / 'e4b_main'
-    df, used, complete_t, n_sched, n_cut = e4b_rows(d)
     rep = {'package': 'TwinGuard D16 E4B follow-up (e4b)', 'seal_sha256': seal_hash,
            'status': 'EXPLORATORY, descriptive: another model under the D15 request',
            'provenance': prov, 'runs_scheduled': n_sched, 'rows': int(len(df)),
            'closed_out_rows': n_cut, 'complete_templates': len(complete_t),
-           'floor': {**floor(used), 'rule': DROP_RULE}, 'pooled': pooled(used)}
+           'floor': {**floor(used), 'rule': DROP_RULE}, 'pooled': pooled(used),
+           'x3_comparator': x3}
     rep['report_complete'] = False
     A.write_report(out_dir, rep, 'e4b_report.json')
     if rep['floor']['met'] and a.x3_results:
