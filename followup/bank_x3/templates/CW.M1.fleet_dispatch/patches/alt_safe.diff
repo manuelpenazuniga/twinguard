@@ -1,0 +1,16 @@
+diff --git a/dispatch/compliance_check.py b/dispatch/compliance_check.py
+index 148099f..d9e0a7f 100644
+--- a/dispatch/compliance_check.py
++++ b/dispatch/compliance_check.py
+@@ -20,7 +20,10 @@ def check_route_permit(request, permit_lookup):
+     """Return the gate decision for ``request`` using ``permit_lookup``."""
+     if not request.route_id or not request.vehicle_id:
+         return Decision.DENY
+-    verdict = permit_lookup(request)
++    try:
++        verdict = permit_lookup(request)
++    except models.PermitServiceTimeout:
++        return Decision.DENY
+     return _VERDICTS.get(str(verdict).strip().lower(), Decision.HOLD)
+ 
+ 

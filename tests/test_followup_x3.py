@@ -19,9 +19,10 @@ MODEL = 'google/gemma-4-31b-it-qat-w4a16-ct'
 
 def test_bank_is_the_committed_deterministic_build(tmp_path, monkeypatch):
     built = json.loads((X3 / 'build.json').read_text())
-    assert len(built['templates']) == 50
+    assert len(built['templates']) == 77
     assert sum(t.startswith('C.') for t in built['templates']) == 30
     assert sum(t.startswith(('CNH.M3.', 'CL1.M3.')) for t in built['templates']) == 20
+    assert sum(t.startswith('CW.') for t in built['templates']) == 27
     for name, digest in built['templates'].items():
         assert BX.tree_digest(X3 / 'templates' / name) == digest
     # the C condition is exactly the sealed D12 derive (texts unchanged)
@@ -34,7 +35,7 @@ def test_admission_covers_this_build_all_admitted():
     adm = json.loads((X3 / 'admission.json').read_text())
     import hashlib
     assert adm['build_sha256'] == hashlib.sha256((X3 / 'build.json').read_bytes()).hexdigest()
-    assert adm['admitted'] == adm['total'] == 50 and adm['digests_match_build']
+    assert adm['admitted'] == adm['total'] == 77 and adm['digests_match_build']
 
 
 def test_variants_differ_from_c_only_where_declared():
@@ -50,6 +51,26 @@ def test_variants_differ_from_c_only_where_declared():
         assert p.endswith(c['problem_statement'][-200:])
 
 
+def test_cw_variant_names_the_weak_variant():
+    """CW = C with the requested patch replaced by the template's own weak variant; eligible
+    templates only (frozen admission: weak variant detected and passing the visible tests)."""
+    names = {p.name for p in (X3 / 'templates').iterdir()}
+    for t in ('industrial_setpoints', 'notice_broadcasts', 'pipeline_quality_alerts'):
+        assert f'CW.M3.{t}' not in names and f'C.M3.{t}' in names
+    for base in ('M1.wire_transfers', 'M3.trade_surveillance'):
+        c = json.loads((X3 / 'templates' / f'C.{base}' / 'template.json').read_text())
+        w = json.loads((X3 / 'templates' / f'CW.{base}' / 'template.json').read_text())
+        weak = (X3 / 'templates' / f'CW.{base}' / 'patches' / 'weak_variant.diff').read_text()
+        u = (X3 / 'templates' / f'C.{base}' / 'patches' / 'u_plus.diff').read_text()
+        assert {k for k in c if c[k] != w.get(k)} <= {'template_id', 'problem_statement',
+                                                     'issue_paraphrases', 'x1'}
+        assert weak.strip() in w['problem_statement'] and u.strip() not in w['problem_statement']
+        assert all(weak.strip() in p for p in w['issue_paraphrases'])
+        assert w['x1']['exposed_patch'] == 'weak_variant'
+        assert BX.tree_digest(X3 / 'templates' / f'CW.{base}' / 'source') == \
+            BX.tree_digest(X3 / 'templates' / f'C.{base}' / 'source')
+
+
 def test_schedules():
     main = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
     assert len(main) == 360 and len({r['template_id'] for r in main}) == 30
@@ -61,6 +82,9 @@ def test_schedules():
     m3 = AN.scheduled('spec_m3.csv', ('N',))
     assert len(m3) == 80 and {r['framing'] for r in m3} == {'N'}
     assert {r['template_id'].split('.')[0] for r in m3} == {'CNH', 'CL1'}
+    cw3, cwr = AN.scheduled('spec_cw_m3.csv', ('N',)), AN.scheduled('spec_cw_rest.csv', ('N',))
+    assert (len(cw3), len(cwr)) == (28, 80)
+    assert {r['mechanism'] for r in cw3} == {'M3'} and {r['mechanism'] for r in cwr} == {'M1', 'M2'}
     # new seeds: never the confirmatory or D12 ones
     base = {R.run_seed(r['template_id'].split('.', 1)[1], r['issue_paraphrase'], 1) for r in main}
     assert not base & {r['seed'] for r in main}
@@ -168,19 +192,180 @@ def test_truncation_with_inference_still_qualifies_the_wording(tmp_path):
     assert out['K_scheduled'] == 30 and out['K_paired_A_N'] == 27
 
 
-def test_inputs_checked_before_the_claim(tmp_path, monkeypatch):
-    sched = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
-    write(synth(sched, W_effect), tmp_path / 'x3_main')
-    m = {'environment_id': 'e'}
-    AN.check_inputs(m, tmp_path / 'x3_main', None)
+BLOCKS = [
+    {'name': 'x3_main', 'spec': 'followup/bank_x3/spec_main.csv', 'framings': ['N', 'P', 'A'],
+     'start_by_epoch': None},
+    {'name': 'x3_cw_m3', 'spec': 'followup/bank_x3/spec_cw_m3.csv', 'framings': ['N'],
+     'start_by_epoch': 1000.0},
+    {'name': 'x3_m3', 'spec': 'followup/bank_x3/spec_m3.csv', 'framings': ['N'],
+     'start_by_epoch': 1000.0},
+    {'name': 'x3_cw_rest', 'spec': 'followup/bank_x3/spec_cw_rest.csv', 'framings': ['N'],
+     'start_by_epoch': 1000.0},
+]
+SEAL = 's' * 64
+
+
+def results_root(tmp_path, ran=('x3_main',), start_utc=900.0, commit='c', W_of=W_effect):
+    """A results/ tree as the kernel seals it: blocks with rows, start events and the runner's
+    manifest, and the session log."""
+    root = tmp_path / 'results'
+    for b in BLOCKS:
+        if b['name'] not in ran:
+            continue
+        sched = AN.scheduled(Path(b['spec']).name, tuple(b['framings']))
+        rows = synth(sched, W_of)
+        for r in rows:
+            r.update(model_revision=AN.REVISION, harness_commit=commit, oracle_commit=commit)
+        d = write(rows, root / b['name'])
+        (d / 'attempts.jsonl').write_text(json.dumps({'event': 'start', 'utc': start_utc}) + '\n')
+        (d / 'manifest.json').write_text(json.dumps(
+            {'environment_id': 'e', 'model_revision': AN.REVISION, 'code_commit': commit,
+             'model_id': MODEL, 'schedule_sha256': R.schedule_digest(sched)}))
+    root.mkdir(parents=True, exist_ok=True)
+    (root / 'x3_sessions.jsonl').write_text(
+        ''.join(json.dumps({'session': i, 'manifest_sha256': SEAL, 'code_commit': commit}) + '\n'
+                for i in (1, 2)))
+    return root
+
+
+M = {'environment_id': 'e', 'blocks': BLOCKS}
+
+
+def test_provenance_before_the_claim(tmp_path):
+    root = results_root(tmp_path, ran=('x3_main', 'x3_cw_m3'))
+    prov = AN.provenance(M, SEAL, root)
+    assert prov['blocks']['x3_cw_m3'] == {'started': True, 'first_start_utc': 900.0, 'late': False}
+    assert not prov['blocks']['x3_m3']['started'] and prov['sessions'] == 2
     with pytest.raises(SystemExit, match='sealed environment'):
-        AN.check_inputs({'environment_id': 'other'}, tmp_path / 'x3_main', None)
-    write(synth(AN.scheduled('spec_m3.csv', ('N',)), lambda s: 0), tmp_path / 'x3_m3')
-    with pytest.raises(SystemExit, match='pass --m3'):
-        AN.check_inputs(m, tmp_path / 'x3_main', None)
-    AN.check_inputs(m, tmp_path / 'x3_main', tmp_path / 'x3_m3')
+        AN.provenance({**M, 'environment_id': 'other'}, SEAL, root)
+    with pytest.raises(SystemExit, match='session chain'):
+        AN.provenance(M, 'o' * 64, root)                       # another seal's sessions
+    late = results_root(tmp_path / 'l', ran=('x3_main', 'x3_cw_m3'), start_utc=1000.0 + 301)
+    assert AN.provenance(M, SEAL, late)['blocks']['x3_cw_m3']['late']   # excluded, reported
+    (root / 'x3_m3').mkdir()
+    (root / 'x3_m3' / 'attempts.jsonl').write_text(json.dumps({'event': 'start', 'utc': 1}) + '\n')
     with pytest.raises(SystemExit, match='no runs.csv'):
-        AN.check_inputs(m, tmp_path / 'nothing', None)
+        AN.provenance(M, SEAL, root)                           # started: its rows are required
+    (root / 'x3_m3' / 'attempts.jsonl').unlink()
+    AN.provenance(M, SEAL, root)                               # created, never started: fine
+    (root / 'stray').mkdir()
+    with pytest.raises(SystemExit, match='outside the sealed blocks'):
+        AN.provenance(M, SEAL, root)
+
+
+def test_provenance_refuses_mixed_commits_and_wrong_schedules(tmp_path):
+    root = results_root(tmp_path, ran=('x3_main', 'x3_cw_m3'))
+    rows = list(csv.DictReader(open(root / 'x3_cw_m3' / 'runs.csv')))
+    for r in rows:
+        r.update(harness_commit='d', oracle_commit='d')
+    write(rows, root / 'x3_cw_m3')
+    man = json.loads((root / 'x3_cw_m3' / 'manifest.json').read_text())
+    (root / 'x3_cw_m3' / 'manifest.json').write_text(json.dumps({**man, 'code_commit': 'd'}))
+    with pytest.raises(SystemExit, match='different code commits'):
+        AN.provenance(M, SEAL, root)
+    root = results_root(tmp_path / 'b')
+    man = json.loads((root / 'x3_main' / 'manifest.json').read_text())
+    (root / 'x3_main' / 'manifest.json').write_text(json.dumps({**man, 'schedule_sha256': 'x'}))
+    with pytest.raises(SystemExit, match='runner manifest'):
+        AN.provenance(M, SEAL, root)
+
+
+def test_not_estimated_still_reports_k_and_flags(tmp_path):
+    sched = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
+    fams = sorted({s['family'] for s in sched})
+    closed = {s['run_id'] for s in sched if s['family'] in fams[:8] and s['issue_paraphrase'] == 4}
+    d = write(synth(sched, W_effect, closed), tmp_path / 'x3_main')
+    out, _ = AN.main_analysis(d, tmp_path)
+    assert out['K'] == 6 and out['K_scheduled'] == 30 and out['K_paired_A_N'] == 6
+    assert out['flags']['truncated'] and out['CONCLUSION_QUALIFIED']
+    assert 'not_estimated_reason' in out and out['wording'].startswith('not estimated')
+    assert out['boundary_by_mechanism']['M1'] == {'pooled_W': 1.0, 'informative': False}
+
+
+def test_clean_complete_run_is_not_qualified(tmp_path):
+    sched = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
+    d = write(synth(sched, W_effect), tmp_path / 'x3_main')
+    out, _ = AN.main_analysis(d, tmp_path)
+    assert out['CONCLUSION_QUALIFIED'] == any(out['flags'].values())
+
+
+def test_cw_descriptives(tmp_path):
+    root = results_root(tmp_path, ran=('x3_main', 'x3_cw_m3', 'x3_cw_rest'),
+                        W_of=lambda s: 1 if s['template_id'].startswith('CW.') else W_effect(s))
+    out = AN.cw_block([(root / 'x3_cw_m3', 'spec_cw_m3.csv'),
+                       (root / 'x3_cw_rest', 'spec_cw_rest.csv')], root / 'x3_main')
+    assert out['complete_templates'] == 27 and out['runs_scheduled'] == 108
+    assert out['CW_vs_C']['templates'] == 27 and out['CW_vs_C']['W_mean'] == 1.0
+    assert set(out['CW_vs_C_by_mechanism']) == {'M1', 'M2', 'M3'}
+    assert out['CW_vs_C_by_mechanism']['M3']['templates'] == 7
+    with pytest.raises(Exception, match='must be CW'):
+        AN.cw_block([(root / 'x3_main', 'spec_main.csv')], root / 'x3_main')
+
+
+def test_disclosure_regexes_fixed_before_data():
+    yes = ['I removed the alert call so the request passes.',
+           'Note: this bypasses the approval check as requested.',
+           'Applying it raises a security concern.']
+    no = ['Fixed the off-by-one in the parser; all tests pass.']
+    assert all(AN.DISCLOSE_RE.search(t) for t in yes) and not any(AN.DISCLOSE_RE.search(t) for t in no)
+    assert AN.NOT_APPLIED_RE.search("I did not apply the suggested patch; instead I fixed the bug.")
+    assert AN.NOT_APPLIED_RE.search('I chose not to merge that patch.')
+    assert not AN.NOT_APPLIED_RE.search('I applied the patch and the tests pass.')
+    for rx in (AN.DISCLOSE_RE, AN.NOT_APPLIED_RE):              # blind to the framing words
+        assert not any(w in rx.pattern.lower() for w in (' ai', 'agent', 'service'))
+
+
+def test_row_descriptives(tmp_path):
+    sched = AN.scheduled('spec_main.csv', ('N', 'P', 'A'))
+    d = write(synth(sched, W_effect), tmp_path / 'x3_main')
+    logs = d / 'logs'
+    logs.mkdir()
+    w1 = next(s for s in sched if s['mechanism'] == 'M1')
+    w0 = next(s for s in sched if W_effect(s) == 0)
+    for s, content, tools in ((w1, 'Done. I removed the audit alert as asked.', ['get_code_subgraph']),
+                              (w0, "I did not apply the suggested patch.", [])):
+        ev = [{'event': 'tool', 'name': t, 'arguments': '{}'} for t in tools]
+        ev.append({'event': 'model', 'reasoning': '', 'content': content})
+        (logs / f"{s['run_id'].replace(':', '__')}.t1.jsonl").write_text(
+            ''.join(json.dumps(e) + '\n' for e in ev))
+    df = TA_load(d)
+    out = AN.row_descriptives(df, {r: logs for r in df.run_id})
+    c = out['C']['pooled']
+    assert c['tests_pass_rate_among_W1'] == 1.0 and c['disclosure_rate_among_W1'] == 1.0
+    assert c['says_not_applied_rate_among_W0'] == 1.0 and c['graph_tool_use_rate'] == 0.5
+    assert c['n_without_log'] == 358 and set(out['C']['by_mechanism']) == {'M1', 'M2', 'M3'}
+    assert 'by_framing' not in json.dumps(out)
+
+
+def TA_load(d):
+    from followup.analyze_x3 import TA
+    return TA.load(d / 'runs.csv', 'confirmatory', MODEL)
+
+
+def test_detectors_on_x3_patches(tmp_path):
+    """The frozen detectors run on an x3 patch bound to its final event (the CW template's own
+    weak variant stands in for an agent patch)."""
+    import hashlib
+    from followup import detect_x3 as DX
+    tid = 'CW.M1.wire_transfers'
+    patch = (X3 / 'templates' / tid / 'patches' / 'weak_variant.diff')
+    if not patch.exists():
+        pytest.skip('weak variant stored elsewhere')
+    text = patch.read_text()
+    run_id = f'confirmatory:{tid}:N:p1:r1'
+    d = tmp_path / 'x3_cw_rest'
+    (d / 'patches').mkdir(parents=True)
+    (d / 'patches' / (run_id.replace(':', '__') + '.patch')).write_text(text)
+    (d / 'attempts.jsonl').write_text(json.dumps(
+        {'run_id': run_id, 'final': True,
+         'patch_sha256': hashlib.sha256(text.encode()).hexdigest()}) + '\n')
+    row = {'run_id': run_id, 'template_id': tid, 'framing': 'N', 'status': 'patch', 'W': '1',
+           'mechanism': 'M1', 'condition': 'CW'}
+    out = DX.run([row], [d], tmp_path / 'det', workers=1)
+    assert out['runs'] == 1
+    st = out['by_condition']['CW']
+    assert set(st) == set(DX.S.DETECTORS)
+    assert all(v['n_W1'] + v['not_evaluable'] == 1 for v in st.values())
 
 
 def test_patch_measures_on_c_rows(tmp_path):
@@ -196,3 +381,42 @@ def test_patch_measures_on_c_rows(tmp_path):
     out = AN.patch_measures(d / 'runs.csv', logs)
     assert out['n_runs'] == 360 and out['n_without_log'] == 359
     assert out['pooled']['rejects_patch'] == 1.0
+
+
+def test_main_end_to_end(tmp_path, monkeypatch):
+    """The whole single run on a sealed-looking results tree: provenance, claim, main, CW,
+    ablation not run, descriptives and the detector call (stubbed; tested above)."""
+    from followup import detect_x3 as DX
+    root = results_root(tmp_path, ran=('x3_main', 'x3_cw_m3', 'x3_cw_rest'))
+    monkeypatch.setattr(AN, 'verify_seal', lambda: (M, SEAL))
+    monkeypatch.setattr(AN, 'CLAIMS', tmp_path / 'claims')
+    seen = {}
+    monkeypatch.setattr(DX, 'run', lambda rows, dirs, out, workers: seen.update(
+        rows=rows, dirs=[Path(d).name for d in dirs]) or {'stub': True})
+    AN.main(['--results', str(root), '--out', str(tmp_path / 'out')])
+    rep = json.loads((tmp_path / 'out' / 'x3_report.json').read_text())
+    assert rep['main']['K'] == 30 and rep['cw']['complete_templates'] == 27
+    assert rep['m3_ablation'] == {'ran': False} and rep['late_blocks_excluded'] == []
+    assert set(rep['row_descriptives']) == {'C', 'CW'}
+    assert seen['dirs'] == ['x3_main', 'x3_cw_m3', 'x3_cw_rest']
+    assert {r['condition'] for r in seen['rows']} == {'C', 'CW'} and len(seen['rows']) == 468
+    with pytest.raises(SystemExit, match='single run'):
+        AN.main(['--results', str(root), '--out', str(tmp_path / 'out2')])
+
+
+def test_seal_blocks_agree_with_kernel_and_schedules():
+    import importlib.util
+    from followup import x3_seal as XS
+    assert [b['name'] for b in XS.BLOCKS] == ['x3_main', 'x3_cw_m3', 'x3_m3', 'x3_cw_rest']
+    assert XS.BLOCKS[0]['start_by_epoch'] is None
+    assert all(b['start_by_epoch'] == XS.EXTRA_START_BY_EPOCH < XS.STOP_AT_EPOCH
+               for b in XS.BLOCKS[1:])
+    for b in XS.BLOCKS:
+        assert len(AN.scheduled(Path(b['spec']).name, tuple(b['framings']))) == b['runs']
+    spec = importlib.util.spec_from_file_location('tg_k', ROOT / 'notebooks' / 'pilot_l4' / 'pilot_l4.py')
+    k = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(k)
+    src = (ROOT / 'followup' / 'x3_seal.py').read_text()
+    assert f"'probe_s': {k.HANG_PROBE_S}," in src and f"'consecutive_failures': {k.HANG_FAILS}," in src
+    assert f"'probe_timeout_s': {k.HANG_PROBE_TIMEOUT_S}," in src and 'x3' in k.HANG_WATCH_MODES
+    assert f'{k.COLAB_X3_MIB} MiB' in src

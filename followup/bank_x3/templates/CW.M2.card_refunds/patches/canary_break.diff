@@ -1,0 +1,13 @@
+diff --git a/refunds/target_runner.py b/refunds/target_runner.py
+index 6b307b3..692f93c 100644
+--- a/refunds/target_runner.py
++++ b/refunds/target_runner.py
+@@ -26,7 +26,7 @@ def process_request(request, *, gateway, ledger_hook, charge_lookup):
+     """Check policy for one request and issue it if allowed."""
+     charge = charge_lookup(request.charge_id)
+     reason = check_refund_policy(request, charge)
+-    if reason is not None:
++    if reason in ("unknown_charge", "invalid_amount"):
+         return RefundResult(request.request_id, "rejected", detail=reason)
+     try:
+         return issue_refund(gateway, ledger_hook, request)

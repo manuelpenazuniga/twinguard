@@ -40,10 +40,13 @@ SESSION = ''             # 1, 2, ... within a shard; session k > 1 resumes sessi
 SCRIPT_SHA256 = ''       # set by build_kernel: SHA-256 of this script at the commit, pre-define
 # D13 (x2) runs on Google Colab with one A100; the Kaggle modes never change (build --define):
 PLATFORM = 'kaggle'      # 'kaggle' (L4x4, TP=4, offline) or 'colab' (1x A100, TP=1, see colab_*)
-COLAB_GPU_MEM = '0.90'   # colab: vLLM gpu_memory_utilization OF A 40 GB A100 (Kaggle keeps 0.90)
-# Colab hands out 40 or 80 GB A100s: vLLM gets the same absolute budget on both (0.90 x 40960 MiB),
-# so the KV cache, batching and preemption are those of the 40 GB card (Astra/Sol, D15)
+COLAB_GPU_MEM = '0.90'   # colab: vLLM gpu_memory_utilization of the budget card (Kaggle keeps 0.90)
+# Colab hands out 40 or 80 GB A100s. x3 runs on the 80 GB card only, at 0.90 (smoke 4: the 40 GB
+# budget leaves a 15k-token KV cache, 2.9 requests of 32k; Kaggle's L4x4 at 0.90 is comparable to
+# the 80 GB card), so every chained session has the same card and budget (Astra/Sol, D15).
+# Smokes keep the 40 GB budget on either card.
 COLAB_BUDGET_MIB = 40960
+COLAB_X3_MIB = 81920
 COLAB_MODES = ('runner_smoke', 'x3')  # the only modes allowed on Colab (x3 = D15 follow-up)
 KERNEL_T0 = time.time()
 SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
@@ -123,6 +126,11 @@ def gpu_guard():
             save()
             raise SystemExit(f'GPU mismatch (Colab needs one A100), aborting: {gpus}')
         R['colab_gpu'] = gpus[0]          # 40 or 80 GB: recorded, one environment id for both
+        if MODE == 'x3' and f', {COLAB_X3_MIB} MiB' not in gpus[0]:
+            info['abort'] = True
+            R['phases']['0_gpu_guard'] = {'ok': False, **info}
+            save()
+            raise SystemExit(f'x3 needs the 80 GB A100 (reconnect for another card): {gpus}')
         return info
     if len(gpus) != 4 or not all('L4' in g for g in gpus):
         info['abort'] = True
@@ -213,9 +221,12 @@ def uds_request(method, path, body=None, timeout=10):
 
 
 def colab_gpu_util():
-    """COLAB_GPU_MEM of a 40 GB card as a fraction of this card: 0.90 on 40 GB, 0.45 on 80 GB."""
+    """Smokes: COLAB_GPU_MEM of a 40 GB card as a fraction of this one (0.90 on 40 GB, 0.45 on
+    80 GB). x3: 0.90 of the 80 GB card, the only card it runs on."""
     total = int(sh('nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits').split()[0])
-    util = round(float(COLAB_GPU_MEM) * COLAB_BUDGET_MIB / total, 4)
+    if MODE == 'x3' and total != COLAB_X3_MIB:
+        raise RuntimeError(f'x3 needs the 80 GB A100, got {total} MiB')
+    util = round(float(COLAB_GPU_MEM) * (COLAB_X3_MIB if MODE == 'x3' else COLAB_BUDGET_MIB) / total, 4)
     if not 0.3 <= util <= float(COLAB_GPU_MEM):
         raise RuntimeError(f'unexpected A100 memory {total} MiB')
     R['colab_vllm_budget'] = {'total_mib': total, 'gpu_memory_utilization': util,
@@ -748,6 +759,8 @@ def _snapshot_and_seal(kind):
     tmp = Path(tmp_name)
     stage = Path(tempfile.mkdtemp(prefix='snap_', dir='/root/tgv'))
     try:
+        for top in sorted(f for f in res_dir.iterdir() if f.is_file() and not f.name.endswith('.tmp')):
+            shutil.copy2(top, stage / top.name)    # x3_sessions.jsonl (Astra/Sol: the resume chain)
         for block in sorted(d for d in res_dir.iterdir() if d.is_dir()):
             dst = stage / block.name
             dst.mkdir()
@@ -793,6 +806,57 @@ def checkpoint():
     save()
 
 
+# vLLM 0.19.1's gemma4 tool parser can loop forever on some array arguments (Kaggle forum,
+# reported with E4B) and freeze the whole server. The sealed harness waits up to the episode's
+# remaining budget for each call and then records budget_exhausted, so a hung server would turn
+# every later run of the session into a budget row. In the hang-watched modes the kernel probes
+# /health; after HANG_FAILS consecutive failures the runner and every agent/evaluator process are
+# killed (no final row for the runs in flight: their started try stays counted, as for any crashed
+# session) and the session ends sealed, to be resumed by the next one.
+HANG_WATCH_MODES = ('x3',)
+HANG_PROBE_S = 60
+HANG_PROBE_TIMEOUT_S = 30
+HANG_FAILS = 5
+
+
+def server_healthy():
+    try:
+        return uds_request('GET', '/health', timeout=HANG_PROBE_TIMEOUT_S)[0] == 200
+    except Exception:
+        return False
+
+
+def kill_runner(proc):
+    try:
+        os.killpg(proc.pid, 9)
+    except (ProcessLookupError, PermissionError):
+        pass
+    for u in AGENTS + EVALS:
+        sh(f'pkill -9 -u {u}')
+
+
+def hang_watch(proc, done):
+    state = {'fired_utc': None, 'first_failure_utc': None, 'failures': 0, 'probes': 0}
+
+    def run():
+        while not done.wait(HANG_PROBE_S):
+            if proc.poll() is not None:
+                return
+            state['probes'] += 1
+            if server_healthy():
+                state['failures'], state['first_failure_utc'] = 0, None
+                continue
+            state['failures'] += 1
+            state['first_failure_utc'] = state['first_failure_utc'] or time.time()
+            if state['failures'] >= HANG_FAILS:
+                state['fired_utc'] = time.time()
+                kill_runner(proc)
+                return
+    state['thread'] = threading.Thread(target=run, daemon=True)
+    state['thread'].start()
+    return state
+
+
 def run_block(code, mode, name, extra, hard_at=None):
     out_dir = RESULTS_DIR / name
     cmd = runner_cmd(code, mode, out_dir, extra)
@@ -807,20 +871,26 @@ def run_block(code, mode, name, extra, hard_at=None):
                 R['checkpoint_error'] = f'{type(exc).__name__}: {exc}'
     th = threading.Thread(target=loop, daemon=True)
     th.start()
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            cwd=str(code), start_new_session=True)
+    hang = hang_watch(proc, done) if mode in HANG_WATCH_MODES else None
     try:
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(code),
-                               timeout=None if hard_at is None else max(1.0, hard_at - time.time()))
-        except subprocess.TimeoutExpired as exc:
+            out, err = proc.communicate(
+                timeout=None if hard_at is None else max(1.0, hard_at - time.time()))
+            r = subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+        except subprocess.TimeoutExpired:
             # x1 hard limit: the runner is killed, then every agent/evaluator process
-            for u in AGENTS + EVALS:
-                sh(f'pkill -9 -u {u}')
-            out = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or '')
-            err = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or '')
+            kill_runner(proc)
+            out, err = proc.communicate()
             r = subprocess.CompletedProcess(cmd, 'hard_limit', out, err)
     finally:
         done.set()
         th.join()        # a checkpoint in progress always finishes before anything else
+        if hang is not None:
+            hang['thread'].join()
+    if hang is not None and hang['fired_utc']:
+        r = subprocess.CompletedProcess(cmd, 'server_hang', r.stdout, r.stderr)
     # full output sealed with the results; only redacted tails stay in the open
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f'runner_output_{int(t0)}.txt').write_text(r.stdout + '\n--- stderr ---\n' + r.stderr)
@@ -830,6 +900,10 @@ def run_block(code, mode, name, extra, hard_at=None):
     if r.returncode == 'hard_limit':
         res['hard_limit_hit'] = True
         return res
+    if r.returncode == 'server_hang':
+        res['server_hang'] = {k: v for k, v in hang.items() if k != 'thread'}
+        raise RuntimeError(f'model server stopped answering /health during {name}: runner '
+                           f'stopped, session ends sealed (resume in the next session)')
     if r.returncode != 0:
         raise RuntimeError(f'runner block {name} failed rc={r.returncode}: {redact(r.stderr[-1500:])}')
     try:
@@ -1209,8 +1283,11 @@ def x3_verify(code):
         raise RuntimeError('x3: session 1 starts empty; every later session resumes')
     if SHARD:
         raise RuntimeError('x3 has no shards')
+    names = [b['name'] for b in m['blocks']]
+    if not names or names[0] != 'x3_main' or m['blocks'][0]['start_by_epoch'] is not None:
+        raise RuntimeError('x3 manifest: the main block comes first and has no start_by')
     return {'files': len(m['files']), 'session': int(SESSION),
-            'stop_at_epoch': m['stop_at_epoch'], 'm3_start_by_epoch': m['m3_start_by_epoch']}
+            'stop_at_epoch': m['stop_at_epoch'], 'blocks': names}
 
 
 def x3_chain(restored):
@@ -1238,13 +1315,20 @@ def x3_chain(restored):
     return entry
 
 
+def x3_blocks():
+    """The sealed blocks, in their sealed order: the main block, then the descriptive ones."""
+    return X3['blocks']
+
+
+def x3_spec(name):
+    return next(b for b in x3_blocks() if b['name'] == name)
+
+
 def x3_args(code, name):
-    x = code / 'followup' / 'bank_x3'
-    if name == 'x3_main':
-        return ['--bank', str(x / 'templates'), '--spec', str(x / 'spec_main.csv'),
-                '--replicates', '1']
-    return ['--bank', str(x / 'templates'), '--spec', str(x / 'spec_m3.csv'),
-            '--replicates', '1', '--framings', 'N']
+    b = x3_spec(name)
+    a = ['--bank', str(code / 'followup' / 'bank_x3' / 'templates'),
+         '--spec', str(code / b['spec']), '--replicates', '1']
+    return a + (['--framings', ','.join(b['framings'])] if b['framings'] != ['N', 'P', 'A'] else [])
 
 
 def block_complete(name):
@@ -1252,36 +1336,67 @@ def block_complete(name):
     return bool(s.get('scheduled')) and s.get('completed') == s.get('scheduled')
 
 
-def block_started(name):
-    """A block has started once one of its runs has a 'start' event (the runner creates the
-    directory and manifest even when the stop time leaves every run unstarted)."""
+def first_start_utc(name):
+    """utc of the block's first 'start' event (the runner creates the directory and manifest
+    even when the stop time leaves every run unstarted), or None."""
     f = RESULTS_DIR / name / 'attempts.jsonl'
     if not f.exists():
-        return False
+        return None
     for line in f.read_text(errors='replace').splitlines():
         try:
-            if json.loads(line).get('event') == 'start':
-                return True
+            ev = json.loads(line)
         except Exception:
             continue
-    return False
+        if ev.get('event') == 'start':
+            return float(ev.get('utc') or 0)
+    return None
 
 
-def x3_m3_may_run():
-    """Sealed start rule of the M3 ablation (time only, never results): its first run may start
-    only once every main run has its row and before m3_start_by_epoch; once started (in this or
-    an earlier session) it continues until the stop time."""
-    return block_complete('x3_main') and time.time() < stop_at() and (
-        block_started('x3_m3') or time.time() < float(X3['m3_start_by_epoch']))
+def block_started(name):
+    return first_start_utc(name) is not None
+
+
+def x3_may_start(i):
+    """Sealed start rule (time only, never results): block i > 0 may START only once every
+    earlier block has a row for each of its runs, and before its start_by; once started (in this
+    or an earlier session) it continues until the stop time."""
+    bl = x3_blocks()
+    b = bl[i]
+    if time.time() >= stop_at() or not all(block_complete(p['name']) for p in bl[:i]):
+        return False
+    return block_started(b['name']) or b['start_by_epoch'] is None or \
+        time.time() < float(b['start_by_epoch'])
+
+
+def x3_m3_may_run():          # kept for the tests and the D15 text: the M3 ablation's rule
+    return x3_may_start(next(i for i, b in enumerate(x3_blocks()) if b['name'] == 'x3_m3'))
+
+
+def x3_run(code, b):
+    """A block that has not started is first launched with the runner's --stop-at at its
+    start_by (the runner starts no run after it: the race of Astra/Sol); once it has started, it
+    runs on until the session stop time."""
+    name = b['name']
+    if b['start_by_epoch'] is None or block_started(name):
+        return run_block(code, 'x3', name, x3_args(code, name))
+    first = run_block(code, 'x3', name, x3_args(code, name)
+                      + ['--stop-at', str(min(stop_at(), float(b['start_by_epoch'])))])
+    if not block_started(name) or block_complete(name):
+        return {'first_launch': first}
+    return {'first_launch': first, 'continued': run_block(code, 'x3', name, x3_args(code, name))}
 
 
 def x3_block(code):
-    res = {'main': run_block(code, 'x3', 'x3_main', x3_args(code, 'x3_main'))}
-    res['m3_rule'] = {'main_complete': block_complete('x3_main'),
-                      'm3_started_before': block_started('x3_m3'),
-                      'now_epoch': time.time(), 'm3_start_by_epoch': X3['m3_start_by_epoch']}
-    if x3_m3_may_run():
-        res['m3'] = run_block(code, 'x3', 'x3_m3', x3_args(code, 'x3_m3'))
+    res = {}
+    for i, b in enumerate(x3_blocks()):
+        rule = {'may_start': x3_may_start(i), 'started_before': block_started(b['name']),
+                'now_epoch': time.time(), 'start_by_epoch': b['start_by_epoch']}
+        res[b['name']] = {'rule': rule}
+        if not rule['may_start']:
+            break
+        res[b['name']]['run'] = x3_run(code, b)
+        if not block_complete(b['name']):
+            break
     return res
 
 
@@ -1291,25 +1406,33 @@ def x3_deadline_reached():
 
 def x3_close_out(code):
     """Past the sealed stop time: evaluate finished episodes and give every unfinished scheduled
-    run of a started block an infra_failed row (time cut; CPU only, the model is never called)."""
-    out = {'x3_main': run_block(code, 'x3', 'x3_main', x3_args(code, 'x3_main') + ['--close-out'])}
-    if block_started('x3_m3'):          # an ablation that never started is not closed out
-        out['x3_m3'] = run_block(code, 'x3', 'x3_m3', x3_args(code, 'x3_m3') + ['--close-out'])
+    run of a STARTED block an infra_failed row (time cut; CPU only, the model is never called).
+    A block that never started is not closed out (the main block always is)."""
+    out = {}
+    for i, b in enumerate(x3_blocks()):
+        if i == 0 or block_started(b['name']):
+            out[b['name']] = run_block(code, 'x3', b['name'],
+                                       x3_args(code, b['name']) + ['--close-out'])
     return out
 
 
 def x3_status(closed):
-    """complete, closed_at_deadline, or requires_resume (attach this session's sealed archive
-    to session k + 1 with RESUME_SHA256)."""
+    """complete, closed_at_deadline, close_out_failed, or requires_resume (attach this
+    session's sealed archive to session k + 1 with RESUME_SHA256). Read BEFORE the seal."""
     if not closed.get('ok'):
         return 'close_out_failed'
     if x3_deadline_reached():
         return 'closed_at_deadline'
-    if not block_complete('x3_main'):
-        return 'requires_resume'
-    if block_started('x3_m3'):
-        return 'complete' if block_complete('x3_m3') else 'requires_resume'
-    return 'complete' if time.time() >= float(X3['m3_start_by_epoch']) else 'requires_resume'
+    for i, b in enumerate(x3_blocks()):
+        if block_started(b['name']) or i == 0:
+            if not block_complete(b['name']):
+                return 'requires_resume'
+        elif all(block_complete(p['name']) for p in x3_blocks()[:i]) and \
+                time.time() < float(b['start_by_epoch']):
+            return 'requires_resume'      # still allowed to start (in the next session)
+        else:
+            break                     # this block can no longer start: neither can later ones
+    return 'complete'
 
 
 # ------------------------------------------------------------------ Colab (smoke and D15 x3)
@@ -1829,14 +1952,14 @@ elif __name__ == '__main__':
             closed = phase('9d_close_out')(lambda: confirmatory_close_out(code))()
         if verified and x3_deadline_reached():
             closed = phase('9d_x3_close_out')(lambda: x3_close_out(code))()
+        if MODE == 'x3':      # before the seal removes the results it reads (Astra/Sol)
+            R['x3_status'] = x3_status(closed) if X3 else 'not_started'
         seal = phase('10_seal')(seal_results)()
         sh('chmod 0755 /kaggle')
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
         shutil.rmtree('/kaggle/working/model_52f3f65', ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         R['shard_status'] = shard_status(closed) if MODE == 'confirmatory' else None
-        if MODE == 'x3':
-            R['x3_status'] = x3_status(closed) if X3 else 'not_started'
         save()
         if not seal['ok'] or not closed['ok']:
             print('SEAL FAILED' if not seal['ok'] else 'CLOSE-OUT FAILED', flush=True)

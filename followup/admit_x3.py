@@ -7,6 +7,12 @@
        x3 and history, and history is empty
   CL1  the C checks of its C twin, plus: CONTRIBUTING.md is the generic D12 L1 file, every other
        file equals the C twin's
+  CW   the C checks of its C twin, plus: every file but template.json equals the C twin's;
+       template.json equals the twin's except template_id, x1 and the issue texts, which are the
+       base texts + the audited request + patches/weak_variant.diff byte for byte; the inserted
+       text carries no framing token and no banned word; the frozen eligibility rule holds
+       (weak variant applied, detected, visible tests pass) and the technical admission of the
+       CW template itself shows the same
 and, for all, full technical admission (bank/admission.py verify: S+ -> W = 0, U+ -> W = 1,
 oracles, canary, isomorphism, vocabulary).
 
@@ -23,9 +29,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from bank import admission  # noqa: E402
+from bank.render import ACTOR, PLACEHOLDERS  # noqa: E402
 from explore.admit_x1 import files, static_checks  # noqa: E402  (sealed, unchanged)
-from explore.build_x1 import tree_digest  # noqa: E402
-from followup.build_x3 import TEXTS, X3, derive_x3, load_texts  # noqa: E402
+from explore.build_x1 import exposure, tree_digest  # noqa: E402
+from followup.build_x3 import BANK, TEXTS, X3, cw_eligible, derive_x3, load_texts  # noqa: E402
 
 
 def sha(b):
@@ -51,6 +58,8 @@ def variant_checks(tdir, texts, work):
     if set(new) != set(ref):
         probs.append(f'file set differs from C: {sorted(set(new) ^ set(ref))}')
     editable = {'template.json'} | ({'source/CONTRIBUTING.md'} if cond == 'CL1' else set())
+    if cond == 'CW':
+        return cw_checks(tdir, twin, tid, texts, rep, new, ref)
     for rel in sorted(set(new) & set(ref)):
         if rel not in editable and new[rel] != ref[rel]:
             probs.append(f'changed vs C: {rel}')
@@ -70,6 +79,38 @@ def variant_checks(tdir, texts, work):
     return rep
 
 
+def cw_checks(tdir, twin, tid, texts, rep, new, ref):
+    probs = rep['problems']
+    if set(new) != set(ref):
+        probs.append(f'file set differs from C: {sorted(set(new) ^ set(ref))}')
+    for rel in sorted(set(new) & set(ref)):
+        if rel != 'template.json' and new[rel] != ref[rel]:
+            probs.append(f'changed vs C: {rel}')
+    nm, cm = json.loads(new['template.json']), json.loads(ref['template.json'])
+    for k in sorted(set(nm) | set(cm)):
+        if k not in ('template_id', 'x1', 'problem_statement', 'issue_paraphrases') \
+                and nm.get(k) != cm.get(k):
+            probs.append(f'template.json key changed vs C: {k}')
+    if nm.get('template_id') != tdir.name:
+        probs.append('template_id does not match the directory')
+    base = json.loads((BANK / 'templates' / tid / 'template.json').read_text(encoding='utf-8'))
+    add = exposure(texts['preface_c'],
+                   (BANK / 'templates' / tid / 'patches' / 'weak_variant.diff').read_text(encoding='utf-8'))
+    if nm['problem_statement'] != base['problem_statement'] + add:
+        probs.append('problem_statement is not base + request + weak_variant.diff')
+    if nm['issue_paraphrases'] != [p + add for p in base['issue_paraphrases']]:
+        probs.append('issue_paraphrases are not base + request + weak_variant.diff')
+    tokens = list(PLACEHOLDERS) + sorted(set(ACTOR.values())) + [n for n in
+             (base['unrelated_note'].get('ai'), base['unrelated_note'].get('neutral')) if n]
+    if any(t.lower() in add.lower() for t in tokens):
+        probs.append('inserted text carries a framing token')
+    if admission.BANNED_RE.search(add):
+        probs.append(f'inserted text has a banned word: {admission.BANNED_RE.search(add).group(0)}')
+    if not cw_eligible(tid):
+        probs.append('not eligible by the frozen weak-variant rule')
+    return rep
+
+
 def one(args):
     tdir, texts, work = args
     tdir = Path(tdir)
@@ -78,6 +119,13 @@ def one(args):
     rep['technical_pass'] = tech.get('technical_pass')
     rep['technical_error'] = tech.get('error')
     rep['criteria'] = {k: v.get('pass') for k, v in tech.get('criteria', {}).items()}
+    if rep['condition'] == 'CW':
+        o = tech.get('criteria', {}).get('6_oracles', {})
+        w = o.get('weak_variant') or {}
+        rep['weak_variant_here'] = {'detected': o.get('weak_variant_detected'),
+                                    'visible_tests_pass': (w.get('tests') or {}).get('passed')}
+        if not (o.get('weak_variant_detected') and (w.get('tests') or {}).get('passed')):
+            rep['problems'].append('weak variant not detected or failing visible tests here')
     rep['admitted'] = not rep['problems'] and rep['technical_pass'] is True
     return tdir.name, rep
 

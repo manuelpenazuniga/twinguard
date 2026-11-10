@@ -1,5 +1,4 @@
-"""D15 (x3) kernel mode: Colab only, sealed bundle, chained sessions, the time-only start rule of
-the M3 ablation, close-out only after the stop time, and resume into the root-only results."""
+"""D15 (x3) kernel mode: Colab only, sealed bundle, chained sessions, the sealed blocks' time-only start rule, close-out only after the stop time, and resume into the root-only results."""
 import hashlib
 import importlib.util
 import io
@@ -38,13 +37,31 @@ def test_x3_is_colab_only(monkeypatch, tmp_path):
     assert 'x3' in k.COLAB_MODES
 
 
-def code_with_manifest(tmp_path, files, stop=2e9, start_by=1.9e9):
+BLOCKS = [
+    {'name': 'x3_main', 'spec': 'followup/bank_x3/spec_main.csv', 'framings': ['N', 'P', 'A'],
+     'conditions': ['C'], 'runs': 360, 'start_by_epoch': None},
+    {'name': 'x3_cw_m3', 'spec': 'followup/bank_x3/spec_cw_m3.csv', 'framings': ['N'],
+     'conditions': ['CW'], 'runs': 28, 'start_by_epoch': 1.9e9},
+    {'name': 'x3_m3', 'spec': 'followup/bank_x3/spec_m3.csv', 'framings': ['N'],
+     'conditions': ['CNH', 'CL1'], 'runs': 80, 'start_by_epoch': 1.9e9},
+    {'name': 'x3_cw_rest', 'spec': 'followup/bank_x3/spec_cw_rest.csv', 'framings': ['N'],
+     'conditions': ['CW'], 'runs': 80, 'start_by_epoch': 1.9e9},
+]
+
+
+def with_blocks(k, stop, start_by):
+    bl = [dict(b, start_by_epoch=None if b['start_by_epoch'] is None else start_by) for b in BLOCKS]
+    k.X3.update({'stop_at_epoch': stop, 'blocks': bl, 'environment_id': 'e'})
+    return bl
+
+
+def code_with_manifest(tmp_path, files, stop=2e9, blocks=BLOCKS):
     code = tmp_path / 'code'
     for rel, data in files.items():
         (code / rel).parent.mkdir(parents=True, exist_ok=True)
         (code / rel).write_bytes(data)
     m = {'files': {rel: sha(d) for rel, d in files.items()}, 'environment_id': 'e',
-         'stop_at_epoch': stop, 'm3_start_by_epoch': start_by}
+         'stop_at_epoch': stop, 'blocks': blocks}
     raw = json.dumps(m).encode()
     (code / 'followup').mkdir(parents=True, exist_ok=True)
     (code / 'followup' / 'x3_manifest.json').write_bytes(raw)
@@ -58,7 +75,8 @@ def test_x3_verify_bundle_and_session_rules(monkeypatch, tmp_path):
     ok = dict(MODE='x3', X3_MANIFEST_SHA256=msha, SCRIPT_SHA256=sha(b'script'), SESSION='1',
               RESUME_SHA256='', SHARD='')
     k = load(monkeypatch, tmp_path, **ok)
-    assert k.x3_verify(code)['files'] == 3
+    v = k.x3_verify(code)
+    assert v['files'] == 3 and v['blocks'] == [b['name'] for b in BLOCKS]
     for bad, match in (({'X3_MANIFEST_SHA256': '0' * 64}, 'manifest'),
                        ({'SCRIPT_SHA256': '0' * 64}, 'not the D15 script'),
                        ({'SESSION': '2'}, 'starts empty'),
@@ -68,54 +86,108 @@ def test_x3_verify_bundle_and_session_rules(monkeypatch, tmp_path):
         k = load(monkeypatch, tmp_path, **{**ok, **bad})
         with pytest.raises(RuntimeError, match=match):
             k.x3_verify(code)
+    # the main block must come first, without a start-by time
+    for blocks in (BLOCKS[1:], [dict(BLOCKS[0], start_by_epoch=1.0)] + BLOCKS[1:]):
+        code2, msha2, _ = code_with_manifest(tmp_path / 'b', files, blocks=blocks)
+        k = load(monkeypatch, tmp_path, **{**ok, 'X3_MANIFEST_SHA256': msha2})
+        with pytest.raises(RuntimeError, match='main block comes first'):
+            k.x3_verify(code2)
     (code / 'runner' / 'extra.py').write_text('x')
     k = load(monkeypatch, tmp_path, **ok)
     with pytest.raises(RuntimeError, match='extra'):
         k.x3_verify(code)
 
 
-def blocks(main, m3=None):
-    b = {'x3_main': {'session': {'scheduled': 360, 'completed': main}}}
-    if m3 is not None:
-        b['x3_m3'] = {'session': {'scheduled': 80, 'completed': m3}}
-    return b
+def done(k, **completed):
+    """R['blocks'] as run_block leaves it: scheduled and completed per block."""
+    runs = {b['name']: b['runs'] for b in BLOCKS}
+    k.R['blocks'] = {n: {'session': {'scheduled': runs[n], 'completed': c}}
+                     for n, c in completed.items()}
 
 
-def test_m3_start_rule_is_time_only(monkeypatch, tmp_path):
+def start(k, name, utc=None):
+    d = k.RESULTS_DIR / name
+    d.mkdir(parents=True, exist_ok=True)
+    with open(d / 'attempts.jsonl', 'a') as f:
+        f.write(json.dumps({'event': 'start', 'utc': utc or time.time()}) + '\n')
+
+
+def test_start_rule_is_time_only_and_in_sealed_order(monkeypatch, tmp_path):
     now = time.time()
     k = load(monkeypatch, tmp_path, MODE='x3', KERNEL_T0=now)
-    k.X3.update({'stop_at_epoch': now + 7200, 'm3_start_by_epoch': now + 3600})
-    k.R['blocks'] = blocks(359)
-    assert not k.x3_m3_may_run()                          # main incomplete
-    k.R['blocks'] = blocks(360)
-    assert k.x3_m3_may_run()                              # complete before the start-by time
-    k.X3['m3_start_by_epoch'] = now - 1
-    assert not k.x3_m3_may_run()                          # too late to start
+    with_blocks(k, now + 7200, now + 3600)
+    done(k, x3_main=359)
+    assert k.x3_may_start(0) and not k.x3_may_start(1)    # main incomplete: nothing else starts
+    done(k, x3_main=360)
+    assert k.x3_may_start(1) and not k.x3_may_start(2)    # in order: CW-M3 before the ablation
+    done(k, x3_main=360, x3_cw_m3=28)
+    assert k.x3_may_start(2) and k.x3_m3_may_run() and not k.x3_may_start(3)
+    for b in k.X3['blocks'][1:]:
+        b['start_by_epoch'] = now - 1
+    assert not k.x3_may_start(2)                          # too late to start
     (k.RESULTS_DIR / 'x3_m3').mkdir(parents=True)
     (k.RESULTS_DIR / 'x3_m3' / 'manifest.json').write_text('{}')
-    assert not k.x3_m3_may_run()          # Argon: a directory without a started run is not a start
-    (k.RESULTS_DIR / 'x3_m3' / 'attempts.jsonl').write_text(json.dumps({'event': 'start'}) + '\n')
-    assert k.x3_m3_may_run()                              # started earlier: continues
+    assert not k.x3_may_start(2)          # Argon: a directory without a started run is not a start
+    start(k, 'x3_m3', now - 10)
+    assert k.x3_may_start(2) and k.first_start_utc('x3_m3') == now - 10   # started: continues
     k.X3['stop_at_epoch'] = now - 1
-    assert not k.x3_m3_may_run()                          # past the stop time: nothing starts
+    assert not k.x3_may_start(0) and not k.x3_may_start(2)   # past the stop time: nothing starts
+
+
+def test_x3_block_runs_in_order_and_bounds_first_launch(monkeypatch, tmp_path):
+    """A block not yet started gets the runner's --stop-at at its start_by (no run starts after
+    it, the race of Astra/Sol); a started one continues to the stop time; an incomplete block
+    stops the loop."""
+    now = time.time()
+    k = load(monkeypatch, tmp_path, MODE='x3', KERNEL_T0=now)
+    with_blocks(k, now + 7200, now + 3600)
+    calls = []
+
+    def fake(code, mode, name, extra):
+        calls.append((name, extra))
+        start(k, name)
+        n = {b['name']: b['runs'] for b in BLOCKS}[name]
+        k.R.setdefault('blocks', {})[name] = {'session': {'scheduled': n, 'completed': n}}
+        return {}
+    monkeypatch.setattr(k, 'run_block', fake)
+    res = k.x3_block(tmp_path)
+    assert [c[0] for c in calls] == [b['name'] for b in BLOCKS]
+    assert '--stop-at' not in calls[0][1]
+    for name, extra in calls[1:]:
+        assert extra[extra.index('--stop-at') + 1] == str(min(now + 7200, now + 3600))
+    assert set(res) == {b['name'] for b in BLOCKS}
+    # main incomplete: the loop stops after it
+    k = load(monkeypatch, tmp_path / 'z', MODE='x3', KERNEL_T0=now)
+    monkeypatch.setattr(k, 'RESULTS_DIR', tmp_path / 'z' / 'results')
+    with_blocks(k, now + 7200, now + 3600)
+    calls.clear()
+
+    def partial(code, mode, name, extra):
+        calls.append(name)
+        k.R.setdefault('blocks', {})[name] = {'session': {'scheduled': 360, 'completed': 100}}
+        return {}
+    monkeypatch.setattr(k, 'run_block', partial)
+    k.x3_block(tmp_path)
+    assert calls == ['x3_main']
 
 
 def test_x3_status(monkeypatch, tmp_path):
     now = time.time()
     k = load(monkeypatch, tmp_path, MODE='x3')
-    k.X3.update({'stop_at_epoch': now + 7200, 'm3_start_by_epoch': now + 3600})
-    k.R['blocks'] = blocks(200)
+    with_blocks(k, now + 7200, now + 3600)
+    done(k, x3_main=200)
     assert k.x3_status({'ok': True}) == 'requires_resume'
-    k.R['blocks'] = blocks(360)
-    assert k.x3_status({'ok': True}) == 'requires_resume'    # ablation still due
-    k.X3['m3_start_by_epoch'] = now - 1
-    assert k.x3_status({'ok': True}) == 'complete'           # ablation not eligible
-    (k.RESULTS_DIR / 'x3_m3').mkdir(parents=True)
+    done(k, x3_main=360)
+    assert k.x3_status({'ok': True}) == 'requires_resume'    # next block still due
+    for b in k.X3['blocks'][1:]:
+        b['start_by_epoch'] = now - 1
+    assert k.x3_status({'ok': True}) == 'complete'           # no later block may start
+    (k.RESULTS_DIR / 'x3_cw_m3').mkdir(parents=True)
     assert k.x3_status({'ok': True}) == 'complete'           # created, never started
-    (k.RESULTS_DIR / 'x3_m3' / 'attempts.jsonl').write_text(json.dumps({'event': 'start'}) + '\n')
-    k.R['blocks'] = blocks(360, 40)
-    assert k.x3_status({'ok': True}) == 'requires_resume'
-    k.R['blocks'] = blocks(360, 80)
+    start(k, 'x3_cw_m3')
+    done(k, x3_main=360, x3_cw_m3=10)
+    assert k.x3_status({'ok': True}) == 'requires_resume'    # started: runs on
+    done(k, x3_main=360, x3_cw_m3=28)
     assert k.x3_status({'ok': True}) == 'complete'
     k.X3['stop_at_epoch'] = now - 1
     assert k.x3_status({'ok': True}) == 'closed_at_deadline'
@@ -125,7 +197,7 @@ def test_x3_status(monkeypatch, tmp_path):
 def test_stop_at_and_close_out_only_after_the_stop_time(monkeypatch, tmp_path):
     now = time.time()
     k = load(monkeypatch, tmp_path, MODE='x3', KERNEL_T0=now)
-    k.X3.update({'stop_at_epoch': now + 600, 'm3_start_by_epoch': now})
+    with_blocks(k, now + 600, now)
     assert k.stop_at() == now + 600
     assert not k.x3_deadline_reached()
     k.X3['stop_at_epoch'] = now - 1
@@ -135,39 +207,109 @@ def test_stop_at_and_close_out_only_after_the_stop_time(monkeypatch, tmp_path):
     (k.RESULTS_DIR / 'x3_m3').mkdir(parents=True)             # created but never started
     k.x3_close_out(tmp_path)
     assert calls == [('x3_main', k.x3_args(tmp_path, 'x3_main') + ['--close-out'])]
-    (k.RESULTS_DIR / 'x3_m3' / 'attempts.jsonl').write_text(json.dumps({'event': 'start'}) + '\n')
+    start(k, 'x3_m3')
     calls.clear()
     k.x3_close_out(tmp_path)
     assert [c[0] for c in calls] == ['x3_main', 'x3_m3']
 
 
-def test_x3_args():
-    import types
-    k = types.SimpleNamespace()
-    spec = importlib.util.spec_from_file_location('tg_kernel_x3b', SCRIPT)
-    k = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(k)
+def test_x3_args(monkeypatch, tmp_path):
+    k = load(monkeypatch, tmp_path, MODE='x3')
+    with_blocks(k, 2e9, 1.9e9)
     m = k.x3_args(Path('/c'), 'x3_main')
-    assert m[m.index('--spec') + 1].endswith('followup/bank_x3/spec_main.csv') and '--framings' not in m
-    a = k.x3_args(Path('/c'), 'x3_m3')
-    assert a[a.index('--spec') + 1].endswith('spec_m3.csv') and a[a.index('--framings') + 1] == 'N'
+    assert m[m.index('--spec') + 1] == '/c/followup/bank_x3/spec_main.csv' and '--framings' not in m
+    assert m[m.index('--bank') + 1] == '/c/followup/bank_x3/templates'
+    for name, spec in (('x3_m3', 'spec_m3.csv'), ('x3_cw_m3', 'spec_cw_m3.csv'),
+                       ('x3_cw_rest', 'spec_cw_rest.csv')):
+        a = k.x3_args(Path('/c'), name)
+        assert a[a.index('--spec') + 1].endswith(spec) and a[a.index('--framings') + 1] == 'N'
 
 
 def test_x3_chain(monkeypatch, tmp_path):
     k = load(monkeypatch, tmp_path, MODE='x3', SESSION='1', X3_MANIFEST_SHA256='m' * 64)
-    k.X3.update({'stop_at_epoch': time.time() + 600})
+    with_blocks(k, time.time() + 600, time.time())
     k.RESULTS_DIR.mkdir(parents=True)
     e = k.x3_chain({'resumed_from': None})
     assert e['session'] == 1
     with pytest.raises(RuntimeError, match='start without'):
         k.x3_chain({})                                      # the log now exists
     k = load(monkeypatch, tmp_path, MODE='x3', SESSION='2', X3_MANIFEST_SHA256='m' * 64)
-    k.X3.update({'stop_at_epoch': time.time() + 600})
+    with_blocks(k, time.time() + 600, time.time())
     assert k.x3_chain({'parent_seal': {'kind': 'final'}})['session'] == 2
     k = load(monkeypatch, tmp_path, MODE='x3', SESSION='4', X3_MANIFEST_SHA256='m' * 64)
-    k.X3.update({'stop_at_epoch': time.time() + 600})
+    with_blocks(k, time.time() + 600, time.time())
     with pytest.raises(RuntimeError, match='chain broken'):
         k.x3_chain({})
+    k = load(monkeypatch, tmp_path, MODE='x3', SESSION='3', X3_MANIFEST_SHA256='o' * 64)
+    with_blocks(k, time.time() + 600, time.time())
+    with pytest.raises(RuntimeError, match='chain broken'):
+        k.x3_chain({})                                      # another seal's archive
+
+
+def test_session_log_survives_seal_and_restore(monkeypatch, tmp_path):
+    """Full cycle (Astra/Sol): session 1 writes its chain entry and seals with the kernel's own
+    _snapshot_and_seal; session 2 restores that archive and chains to it."""
+    import tempfile as tf
+    work = tmp_path / 'working'
+    work.mkdir()
+    real_mkstemp, real_mkdtemp, real_open = tf.mkstemp, tf.mkdtemp, __import__('os').open
+    monkeypatch.setattr(tf, 'mkstemp', lambda **kw: real_mkstemp(**{**kw, 'dir': str(work)}))
+    monkeypatch.setattr(tf, 'mkdtemp', lambda **kw: real_mkdtemp(**{**kw, 'dir': str(work)}))
+    k = load(monkeypatch, tmp_path, MODE='x3', SESSION='1', X3_MANIFEST_SHA256='m' * 64,
+             SEALED=work / 'results_sealed.tar.gz')
+    monkeypatch.setattr(k.os, 'open', lambda p, *a, **kw: real_open(str(work) if p == '/kaggle/working' else p, *a, **kw))
+    with_blocks(k, time.time() + 600, time.time())
+    k.RESULTS_DIR.mkdir(parents=True)
+    k.x3_chain({})
+    start(k, 'x3_main')
+    digest = k._snapshot_and_seal('final')
+    raw = (work / 'results_sealed.tar.gz').read_bytes()
+    assert digest == sha(raw)
+    names = tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz').getnames()
+    assert 'results/x3_sessions.jsonl' in names and 'results/x3_main/attempts.jsonl' in names
+    k2 = load(monkeypatch, tmp_path / 's2', MODE='x3', SESSION='2', X3_MANIFEST_SHA256='m' * 64,
+              RESUME_SHA256=sha(raw))
+    monkeypatch.setattr(k2, 'RESULTS_DIR', tmp_path / 's2' / 'tgv' / 'results')
+    monkeypatch.setattr(k2.glob, 'glob', lambda *a, **kw: [str(work / 'results_sealed.tar.gz')])
+    with_blocks(k2, time.time() + 600, time.time())
+    restored = k2.restore_previous()
+    assert restored['parent_seal']['kind'] == 'final'
+    assert k2.x3_chain(restored)['session'] == 2 and k2.block_started('x3_main')
+
+
+def test_hang_watch_stops_the_runner(monkeypatch, tmp_path):
+    """A server that stops answering /health (the gemma4 parser loop) ends the block within
+    HANG_FAILS probes: runner killed, agents killed, the block raises (the session seals and
+    resumes), instead of letting every later run end as budget_exhausted."""
+    import sys
+    k = load(monkeypatch, tmp_path, MODE='x3', HANG_PROBE_S=0.2, HANG_FAILS=3)
+    killed = []
+    monkeypatch.setattr(k, 'runner_cmd', lambda *a: [sys.executable, '-c', 'import time; time.sleep(60)'])
+    monkeypatch.setattr(k, 'sh', lambda c: killed.append(c) or '')
+    monkeypatch.setattr(k, 'save', lambda: None)
+    monkeypatch.setattr(k, 'checkpoint', lambda: None)
+    monkeypatch.setattr(k, 'server_healthy', lambda: False)
+    t0 = time.time()
+    with pytest.raises(RuntimeError, match='stopped answering'):
+        k.run_block(tmp_path, 'x3', 'x3_main', [])
+    assert time.time() - t0 < 15
+    hang = k.R['blocks']['x3_main']['server_hang']
+    assert hang['fired_utc'] and hang['failures'] == 3
+    assert {c.split()[-1] for c in killed} == set(k.AGENTS + k.EVALS)
+
+
+def test_hang_watch_quiet_when_healthy(monkeypatch, tmp_path):
+    import sys
+    k = load(monkeypatch, tmp_path, MODE='x3', HANG_PROBE_S=0.1, HANG_FAILS=2)
+    monkeypatch.setattr(k, 'runner_cmd', lambda *a: [sys.executable, '-c', 'import time; time.sleep(1)'])
+    monkeypatch.setattr(k, 'sh', lambda c: '')
+    monkeypatch.setattr(k, 'save', lambda: None)
+    monkeypatch.setattr(k, 'checkpoint', lambda: None)
+    flips = iter([False, True] * 50)
+    monkeypatch.setattr(k, 'server_healthy', lambda: next(flips))   # never 2 failures in a row
+    res = k.run_block(tmp_path, 'x3', 'x3_main', [])
+    assert res['rc'] == 0 and 'server_hang' not in res
+    assert 'x3' in k.HANG_WATCH_MODES and 'pilot' not in k.HANG_WATCH_MODES
 
 
 def test_resume_extracts_into_the_results_parent(monkeypatch, tmp_path):
