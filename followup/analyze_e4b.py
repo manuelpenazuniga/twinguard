@@ -76,7 +76,10 @@ def vs_x3(used, x3_main_dir):
                              'W': float(pd.to_numeric(e.W).mean()), 'n_evaluable': int(len(e))})
     tab = pd.DataFrame(rows)
     if not len(tab):
-        return {'templates': 0}
+        return {'templates': 0, 'per_template': [
+            {'base': b, 'mechanism': b.split('.')[0], 'paired': False, 'e4b_W': None,
+             'e4b_n_evaluable': 0, 'x3_31b_W': None, 'x3_31b_n_evaluable': 0}
+            for b in sorted({t.split('.', 1)[1] for t in used.template_id})]}
     both = set(tab.loc[tab.who == 'x3_31b', 'base']) & set(tab.loc[tab.who == 'e4b', 'base'])
 
     def summ(keep):

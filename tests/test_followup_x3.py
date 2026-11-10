@@ -503,3 +503,14 @@ def test_provenance_checks_rows_and_time_order_before_the_claim(tmp_path):
     write(rows, root / 'x3_main')
     with pytest.raises(SystemExit, match='no elapsed time'):
         AN.provenance(M, SEAL, root)
+    for st, el, extra in (('infra_failed', 'invalid', ''), ('infra_failed', '', 'episode')):   # Sol r6
+        rows[3].update(status=st, elapsed_seconds=el, W='', F='', M='', crash='')
+        write(rows, root / 'x3_main')
+        evs = ok + (json.dumps({'event': 'episode_done', 'run_id': rows[3]['run_id']}) + '\n' if extra else '')
+        (root / 'x3_main' / 'attempts.jsonl').write_text(evs)
+        with pytest.raises(SystemExit, match='invalid time|no elapsed time'):
+            AN.provenance(M, SEAL, root)
+    rows[3].update(status='infra_failed', elapsed_seconds='', W='', F='', M='', crash='')
+    write(rows, root / 'x3_main')
+    (root / 'x3_main' / 'attempts.jsonl').write_text(ok)
+    AN.provenance(M, SEAL, root)                           # empty, infra_failed, no episode: start

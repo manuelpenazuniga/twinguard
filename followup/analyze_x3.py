@@ -510,7 +510,7 @@ def run_ends(block_dir):
     elapsed_seconds (the final event has no time of its own; evaluation adds after). Every row
     must have a start event and a finite, non-negative elapsed time (empty only for an
     infra_failed row without an episode, whose bound is its start); otherwise SystemExit."""
-    starts = {}
+    starts, episodes = {}, set()
     for line in (Path(block_dir) / 'attempts.jsonl').read_text(errors='replace').splitlines():
         try:
             ev = json.loads(line)
@@ -518,16 +518,22 @@ def run_ends(block_dir):
             continue
         if ev.get('event') == 'start' and ev.get('run_id'):
             starts[ev['run_id']] = float(ev.get('utc') or 0)
-    df = pd.read_csv(Path(block_dir) / 'runs.csv', dtype=str)
+        elif ev.get('event') == 'episode_done' and ev.get('run_id'):
+            episodes.add(ev['run_id'])
+    df = pd.read_csv(Path(block_dir) / 'runs.csv', dtype=str, keep_default_na=False)
     out = {}
     for r in df.itertuples():
         if r.run_id not in starts:
             raise SystemExit(f'{Path(block_dir).name}: {r.run_id} has a row but no start event')
-        el = pd.to_numeric(r.elapsed_seconds, errors='coerce')
-        if pd.isna(el):
-            if r.status != 'infra_failed':
+        raw = str(r.elapsed_seconds).strip()
+        if raw == '':
+            if r.status != 'infra_failed' or r.run_id in episodes:   # Sol r6
                 raise SystemExit(f'{Path(block_dir).name}: {r.run_id} has no elapsed time')
             el = 0.0
+        else:
+            el = pd.to_numeric(raw, errors='coerce')
+            if pd.isna(el):
+                raise SystemExit(f'{Path(block_dir).name}: {r.run_id} has an invalid time')
         if not math.isfinite(float(el)) or float(el) < 0 or not math.isfinite(starts[r.run_id]):
             raise SystemExit(f'{Path(block_dir).name}: {r.run_id} has an invalid time')
         out[r.run_id] = starts[r.run_id] + float(el)
