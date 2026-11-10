@@ -71,20 +71,26 @@ def test_colab_netns_check_fails_closed(monkeypatch, tmp_path):
     k = load(monkeypatch, tmp_path, PLATFORM='colab')
     calls = []
 
-    def sh(cmd, links='lo', state='down', rc='1'):
+    LO = '1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default qlen 1000\\    link/loopback 00:00:00:00:00:00'
+
+    def sh(cmd, links='lo', ip=LO, rc='3'):
         calls.append(cmd)
         if '/proc/net/dev' in cmd:
             return links
-        if 'operstate' in cmd:
-            return state
+        if 'ip -o link show' in cmd:
+            return ip
         return rc
     monkeypatch.setattr(k, 'sh', sh)
     out = k.colab_netns_check()
-    assert out['links'] == ['lo'] and out['method'].startswith('netns')
-    probes = [c for c in calls if 'create_connection' in c]
-    assert len(probes) == 3 and all(c.startswith('unshare --net -- setpriv --reuid=tgagent0') for c in probes)
-    for kw, match in (({'links': 'lo\neth0'}, 'not empty'), ({'state': 'up'}, 'not empty'),
-                      ({'rc': '0'}, 'reaches the network')):
+    assert out['links'] == ['lo'] and out['method'].startswith('netns+ipc')
+    probes = [c for c in calls if 'b64decode' in c]
+    assert len(probes) == 3 and all(c.startswith('unshare --net --ipc -- setpriv --reuid=tgagent0') for c in probes)
+    assert all(c.startswith('unshare --net --ipc -- ') for c in calls)
+    UP = LO.replace('<LOOPBACK>', '<LOOPBACK,UP,LOWER_UP>').replace('state DOWN', 'state UNKNOWN')
+    for kw, match in (({'links': 'lo\neth0'}, 'not empty'), ({'ip': UP}, 'not empty'),
+                      ({'ip': LO + '\n2: eth0: <BROADCAST> state DOWN'}, 'not empty'),
+                      ({'rc': '0'}, 'not denied'), ({'rc': '4'}, 'not denied'),   # refused/other != unreachable
+                      ({'rc': '127'}, 'not denied')):
         monkeypatch.setattr(k, 'sh', lambda c, kw=kw: sh(c, **kw))
         with pytest.raises(RuntimeError, match=match):
             k.colab_netns_check()
@@ -95,7 +101,7 @@ def test_colab_runner_and_probes_run_in_a_network_namespace(monkeypatch, tmp_pat
     seen = []
     monkeypatch.setattr(k, 'sh', lambda c: seen.append(c) or '1')
     k.as_user('tgagent0', 'ls /')
-    assert seen[0].startswith('unshare --net -- setpriv --reuid=tgagent0')
+    assert seen[0].startswith('unshare --net --ipc -- setpriv --reuid=tgagent0')
     kg = load(monkeypatch, tmp_path)                    # Kaggle: unchanged
     seen.clear()
     monkeypatch.setattr(kg, 'sh', lambda c: seen.append(c) or '1')
@@ -103,7 +109,8 @@ def test_colab_runner_and_probes_run_in_a_network_namespace(monkeypatch, tmp_pat
     assert seen[0].startswith('setpriv --reuid=tgagent0')
     src = SCRIPT.read_text()
     rc = src.split('def runner_cmd(')[1].split('\ndef ')[0]
-    assert "(['unshare', '--net', '--'] + cmd) if PLATFORM == 'colab' else cmd" in rc
+    assert "(COLAB_NETNS + cmd) if PLATFORM == 'colab' else cmd" in rc
+    assert k.COLAB_NETNS == ['unshare', '--net', '--ipc', '--']
 
 
 def test_colab_isolation_probes_include_the_network(monkeypatch, tmp_path):
@@ -397,3 +404,51 @@ def test_bootstrap_sync_copies_install_logs(tmp_path, monkeypatch):
     cb.sync(tmp_path / 'drive')
     assert (tmp_path / 'drive' / 'install_1_lock.log').read_text() == 'pip log'
     assert not list((tmp_path / 'drive').glob('.*.part'))
+
+
+def test_colab_net_probe_classifies_outcomes(tmp_path):
+    """The connect probe: 3 only for unreachable; a refused connection (lo up, nothing listening)
+    is 4, i.e. NOT counted as denied."""
+    import socket
+    import subprocess
+    import sys
+    spec = importlib.util.spec_from_file_location('tg_np', SCRIPT)
+    k = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(k)
+    so = socket.socket(); so.bind(('127.0.0.1', 0)); port = so.getsockname()[1]; so.close()
+    r = subprocess.run([sys.executable, '-I', '-c', k.COLAB_NET_PROBE, '127.0.0.1', str(port)])
+    assert r.returncode == 4
+    srv = socket.socket(); srv.bind(('127.0.0.1', 0)); srv.listen(1)
+    r = subprocess.run([sys.executable, '-I', '-c', k.COLAB_NET_PROBE, '127.0.0.1', str(srv.getsockname()[1])])
+    srv.close()
+    assert r.returncode == 0
+
+
+@pytest.mark.parametrize('total,util', [('40960', 0.9), ('81920', 0.45)])
+def test_colab_vllm_budget_is_the_40gb_one(monkeypatch, tmp_path, total, util):
+    """Astra/Sol: same absolute vLLM budget on the 40 and the 80 GB A100 (KV, batching,
+    preemption as on 40 GB), recorded."""
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    monkeypatch.setattr(k, 'sh', lambda c: total if 'memory.total' in c else '')
+    assert k.colab_gpu_util() == util
+    assert k.R['colab_vllm_budget']['budget_mib'] == 36864
+    monkeypatch.setattr(k, 'sh', lambda c: '16000' if 'memory.total' in c else '')
+    with pytest.raises(RuntimeError, match='unexpected A100'):
+        k.colab_gpu_util()
+    src = SCRIPT.read_text()
+    assert "gpu_memory_utilization=colab_gpu_util() if PLATFORM == 'colab' else 0.90" in src
+
+
+def test_colab_net_probe_survives_the_as_user_shell_layers(monkeypatch, tmp_path):
+    """The probe command as as_user builds it, run through the real shells (without unshare and
+    setpriv, which need root): a closed local port gives 4, never a syntax error (1)."""
+    import socket
+    import subprocess
+    k = load(monkeypatch, tmp_path, PLATFORM='kaggle')
+    seen = []
+    monkeypatch.setattr(k, 'sh', lambda c: seen.append(c) or '')
+    so = socket.socket(); so.bind(('127.0.0.1', 0)); port = so.getsockname()[1]; so.close()
+    k.as_user('tgagent0', k.colab_net_probe_cmd('127.0.0.1', port))
+    cmd = seen[0].split(' -- ', 1)[1]                    # drop "setpriv ... --"
+    r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    assert r.stdout.strip() == '4', (cmd, r.stdout, r.stderr)

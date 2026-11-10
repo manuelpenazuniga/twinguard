@@ -40,7 +40,10 @@ SESSION = ''             # 1, 2, ... within a shard; session k > 1 resumes sessi
 SCRIPT_SHA256 = ''       # set by build_kernel: SHA-256 of this script at the commit, pre-define
 # D13 (x2) runs on Google Colab with one A100; the Kaggle modes never change (build --define):
 PLATFORM = 'kaggle'      # 'kaggle' (L4x4, TP=4, offline) or 'colab' (1x A100, TP=1, see colab_*)
-COLAB_GPU_MEM = '0.90'   # colab: vLLM gpu_memory_utilization (Kaggle keeps the official 0.90)
+COLAB_GPU_MEM = '0.90'   # colab: vLLM gpu_memory_utilization OF A 40 GB A100 (Kaggle keeps 0.90)
+# Colab hands out 40 or 80 GB A100s: vLLM gets the same absolute budget on both (0.90 x 40960 MiB),
+# so the KV cache, batching and preemption are those of the 40 GB card (Astra/Sol, D15)
+COLAB_BUDGET_MIB = 40960
 COLAB_MODES = ('runner_smoke', 'x3')  # the only modes allowed on Colab (x3 = D15 follow-up)
 KERNEL_T0 = time.time()
 SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
@@ -209,6 +212,17 @@ def uds_request(method, path, body=None, timeout=10):
         c.close()
 
 
+def colab_gpu_util():
+    """COLAB_GPU_MEM of a 40 GB card as a fraction of this card: 0.90 on 40 GB, 0.45 on 80 GB."""
+    total = int(sh('nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits').split()[0])
+    util = round(float(COLAB_GPU_MEM) * COLAB_BUDGET_MIB / total, 4)
+    if not 0.3 <= util <= float(COLAB_GPU_MEM):
+        raise RuntimeError(f'unexpected A100 memory {total} MiB')
+    R['colab_vllm_budget'] = {'total_mib': total, 'gpu_memory_utilization': util,
+                              'budget_mib': round(util * total)}
+    return util
+
+
 def start_server(tp, gpus, port, tag, extra=()):
     """Official adk_submission.VllmServer with the getting-started notebook's VllmConfig."""
     os.environ.update(CUDA_VISIBLE_DEVICES=gpus, VLLM_NO_USAGE_STATS='1',
@@ -229,7 +243,7 @@ def start_server(tp, gpus, port, tag, extra=()):
                 return False
     cfg = VllmConfig(model=str(MODEL), port=port, host='127.0.0.1', tool_call_parser='gemma4',
                      reasoning_parser='gemma4', max_model_len=32768, dtype='bfloat16',
-                     gpu_memory_utilization=float(COLAB_GPU_MEM) if PLATFORM == 'colab' else 0.90,
+                     gpu_memory_utilization=colab_gpu_util() if PLATFORM == 'colab' else 0.90,
                      enable_auto_tool_choice=True,
                      enable_lora=False, scheduler_reserve_full_isl=False,
                      tensor_parallel_size=tp, startup_timeout=60 * 20, extra_args=tuple(extra))
@@ -505,7 +519,7 @@ ISO = {}
 def as_user(u, cmd):
     """Run cmd as uid u; on Colab inside a fresh, empty network namespace, exactly the
     context agents and evaluators run in (the runner itself starts in one, see runner_cmd)."""
-    netns = 'unshare --net -- ' if PLATFORM == 'colab' else ''
+    netns = ' '.join(COLAB_NETNS) + ' ' if PLATFORM == 'colab' else ''
     return sh(f'{netns}setpriv --reuid={u} --regid={u} --clear-groups --no-new-privs -- '
               f'bash -c {json.dumps(cmd)} >/dev/null 2>&1; echo $?')
 
@@ -671,7 +685,7 @@ def runner_cmd(code, mode, out_dir, extra):
     # Colab: the runner (root) and every agent/evaluator it starts live in a fresh network
     # namespace with no interface but a down loopback: no internet, no host services, no
     # abstract sockets of the host; the model is reached through the Unix socket's path
-    return (['unshare', '--net', '--'] + cmd) if PLATFORM == 'colab' else cmd
+    return (COLAB_NETNS + cmd) if PLATFORM == 'colab' else cmd
 
 
 RUN_ID_RE = re.compile(r'(pilot|confirmatory|runner_smoke):[\w.]+:[NPA]:p\d+:r\d+'
@@ -1309,6 +1323,18 @@ def x3_status(closed):
 # wheelhouse and the evaluator need (pip-tools style, hashed), every version as on Kaggle.
 COLAB_ENV = Path('notebooks') / 'colab' / 'kaggle_env'
 COLAB_TORCH_INDEX = 'https://download.pytorch.org/whl/cu128'
+# the runner (so every agent and evaluator) and every isolation probe start in fresh network AND
+# System V IPC namespaces; files, pathname sockets and /dev/shm stay governed by uid permissions,
+# probed in 8_isolation (the boundary is declared in D15)
+COLAB_NETNS = ['unshare', '--net', '--ipc', '--']
+# connect probe run as an agent uid inside the namespace: exit 0 = connected, 3 = unreachable
+# (ENETUNREACH / EHOSTUNREACH / EADDRNOTAVAIL), 4 = any other error. Only 3 counts as denied.
+COLAB_NET_PROBE = ("import errno, socket, sys\n"
+                   "try:\n    socket.create_connection((sys.argv[1], int(sys.argv[2])), 3)\n"
+                   "except OSError as e:\n"
+                   "    sys.exit(3 if e.errno in (errno.ENETUNREACH, errno.EHOSTUNREACH, "
+                   "errno.EADDRNOTAVAIL) else 4)\n"
+                   "sys.exit(0)\n")
 COLAB_EXPECTED = '0.19.1 2.10.0+cu128 5.13.1'      # vllm torch transformers, as on Kaggle
 # imported after the install (smoke 3: vLLM's server imports uvloop, which no package declares):
 # a missing runtime import fails the install with the full list, before any model or server
@@ -1450,24 +1476,34 @@ def colab_install():
     return out
 
 
+def colab_net_probe_cmd(host, port):
+    """COLAB_NET_PROBE as one shell-safe command (base64: it passes two shell layers)."""
+    import base64
+    code = base64.b64encode(COLAB_NET_PROBE.encode()).decode()
+    return (f'{sys.executable} -I -c "import base64;exec(base64.b64decode(\'{code}\'))" '
+            f'{host} {int(port)}')
+
+
 def colab_netns_check():
     """Colab has internet and local services (Jupyter and others) and no usable netfilter
     (iptables is refused even to root). Isolation is a fresh network namespace instead: the
     runner and all its children (agents, evaluators) run in one (runner_cmd), and every
     isolation probe runs in one too (as_user). Checked here: inside a new namespace only a
-    down loopback exists and, as an agent uid, external, metadata and loopback connections
-    fail. Fail closed."""
-    links = sh("unshare --net -- cat /proc/net/dev | tail -n +3 | cut -d: -f1 | tr -d ' '").split()
-    state = sh('unshare --net -- cat /sys/class/net/lo/operstate')
-    if links != ['lo'] or state not in ('down', 'unknown'):
-        raise RuntimeError(f'network namespace not empty: links={links} lo={state!r}')
-    probes = {f'{h}:{port}': (f"{sys.executable} -I -c \"import socket;"
-                               f"socket.create_connection(('{h}',{port}),3)\"")
-              for h, port in (('8.8.8.8', 53), ('169.254.169.254', 80), ('127.0.0.1', 8080))}
-    reach = [k for k, c in probes.items() if as_user(AGENTS[0], c) == '0']
+    down loopback exists (read over netlink inside the namespace, not from the inherited /sys)
+    and, as an agent uid, external, metadata and loopback connections fail as unreachable (any
+    other outcome, a refusal or an error, counts as not denied). Fail closed."""
+    ns = ' '.join(COLAB_NETNS)
+    links = sh(f"{ns} cat /proc/net/dev | tail -n +3 | cut -d: -f1 | tr -d ' '").split()
+    ip = sh(f'{ns} ip -o link show').strip().splitlines()
+    up = [l for l in ip if 'state DOWN' not in l or ',UP' in l.split('>')[0]]
+    if links != ['lo'] or len(ip) != 1 or ': lo:' not in ip[0] or up:
+        raise RuntimeError(f'network namespace not empty: links={links} ip={ip}')
+    rcs = {f'{h}:{port}': as_user(AGENTS[0], colab_net_probe_cmd(h, port))
+           for h, port in (('8.8.8.8', 53), ('169.254.169.254', 80), ('127.0.0.1', 8080))}
+    reach = {k: rc for k, rc in rcs.items() if rc != '3'}
     if reach:
-        raise RuntimeError(f'agent uid reaches the network inside the namespace: {reach}')
-    return {'method': 'netns (unshare --net)', 'links': links, 'lo': state}
+        raise RuntimeError(f'agent uid not denied the network inside the namespace: {reach}')
+    return {'method': 'netns+ipc (' + ns + ')', 'links': links, 'ip_link': ip, 'probe_rc': rcs}
 
 
 def colab_hide():
