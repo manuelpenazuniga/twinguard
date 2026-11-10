@@ -1255,3 +1255,8 @@ CONCLUSION_QUALIFIED; H2 not tested (fixed sequence).
 - `analysis/d14_descriptives.py` (new file, outside the sealed prefixes) on the calibration
   archive `10cec81c…` (116 completed runs): `results/d14/d14_descriptives.json` sha256
   `1b3f197ab93941f6dece7e309188f523b64c4df7c4175d51d937757da4029b84`. Rung and mechanism only.
+
+**D16 session 1 done (2026-11-10 13:43Z).** Kernel `manuelpz/twinguard-e4b` v1: every phase ok,
+120/120 runs completed, none for adjudication, `x3_status=complete` (runner 3395 s). Sealed
+archive sha256 `15bab5cf802beb6ed2e5f9c66720dcc42ec2bee244b5891835fd1ca964ce92d3`. Only phases and status were read; the single
+analysis (`followup/analyze_e4b.py`) waits for x3's results, its comparator.
