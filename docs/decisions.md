@@ -1215,3 +1215,12 @@ model and another environment: descriptive only, no test), with the per-template
 its evaluable counts. The x3 comparator is authenticated before the claim (x3 seal, OTS,
 provenance with the 31B revision, schedule), and its seal hash is recorded; every E4B row is
 validated before the claim. Every result is published.
+
+**D15 sealed (2026-11-10 ~12:35Z, before the confirmatory is decoded).** Manifest
+`followup/x3_manifest.json` of commit `f0fd512`, sha256
+`e176bc6ad780e5fff57da5ff2fe254b9225f6ef61a670433d3c6985a65eb79f1`, OpenTimestamps proof
+`followup/x3_manifest.json.ots`, committed in `c99e1e2`. Reviews: Argon "listo para sellar"
+(rounds 3 and 5); Astra and Sol "no listo" in rounds 3–5, every finding fixed; Sol "listo para
+sellar" in round 7. Session 1 kernel: built from `c99e1e2` (PLATFORM=colab, MODE=x3,
+SESSION=1), script sha256 `deb4955cd802abfcfbcab5472b1174587fc32ee56a9abc326e4d42622a495556`;
+its bundle passes the kernel's own `x3_verify` offline (2078 files).
