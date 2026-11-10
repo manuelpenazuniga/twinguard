@@ -1310,6 +1310,14 @@ def x3_status(closed):
 COLAB_ENV = Path('notebooks') / 'colab' / 'kaggle_env'
 COLAB_TORCH_INDEX = 'https://download.pytorch.org/whl/cu128'
 COLAB_EXPECTED = '0.19.1 2.10.0+cu128 5.13.1'      # vllm torch transformers, as on Kaggle
+# imported after the install (smoke 3: vLLM's server imports uvloop, which no package declares):
+# a missing runtime import fails the install with the full list, before any model or server
+COLAB_IMPORT_PROBE = ('vllm.entrypoints.openai.api_server', 'uvicorn.loops.uvloop',
+                      'uvicorn.protocols.http.httptools_impl', 'adk_submission')
+COLAB_IMPORT_CODE = ('import importlib, sys\nbad = []\nfor m in sys.argv[1:]:\n    try:\n'
+                     '        importlib.import_module(m)\n    except Exception as e:\n'
+                     "        bad.append(f'{m}: {type(e).__name__}: {e}')\n"
+                     "print('\\n'.join(bad))\nsys.exit(1 if bad else 0)\n")
 # credential-like argument names (`--NotebookApp.token X`, `--token=X`, `KAGGLE_KEY=X`, `?token=X`);
 # `--max-num-batched-tokens` or `--thinking-token-budget` are not credentials
 COLAB_SECRET_SCAN = r'''
@@ -1437,6 +1445,8 @@ def colab_install():
         raise RuntimeError(f'package versions differ from the Kaggle serving stack: {ver!r}')
     if not_kaggle:
         raise RuntimeError(f'packages not as on Kaggle: {not_kaggle[:20]}')
+    step('4_imports', [sys.executable, '-c', COLAB_IMPORT_CODE, *COLAB_IMPORT_PROBE])
+    out['imports_ok'] = list(COLAB_IMPORT_PROBE)
     return out
 
 

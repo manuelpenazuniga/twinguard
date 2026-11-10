@@ -196,9 +196,44 @@ def test_colab_install_replicates_kaggle(monkeypatch, tmp_path):
             lock, wheels = calls[:2]
             assert {'--no-deps', '--require-hashes', '-r'} <= set(lock)
             assert {'--no-deps', '--force-reinstall'} <= set(wheels) and '--require-hashes' not in wheels
+            probe = calls[-1]
+            assert probe[1] == '-c' and probe[3:] == list(k.COLAB_IMPORT_PROBE)
+            assert out['imports_ok'] == list(k.COLAB_IMPORT_PROBE)
         else:
             with pytest.raises(RuntimeError, match=err):
                 k.colab_install()
+
+
+def test_colab_install_fails_on_a_missing_runtime_import(monkeypatch, tmp_path):
+    """Smoke 3: vLLM's server imports uvloop, which no package declares. The install imports the
+    serving modules and fails with the list, before any model or server work."""
+    k = load(monkeypatch, tmp_path, PLATFORM='colab')
+    calls, state, h, work = _install_env(monkeypatch, tmp_path, k)
+    state['freeze'] = f'a @ file:///tmp/wheelhouse/a-1-py3-none-any.whl#sha256={h}\n' + REQ
+    monkeypatch.setattr(k, 'sh', lambda c: '0.19.1 2.10.0+cu128 5.13.1' if 'import vllm' in c else 'x')
+
+    def run(cmd, **kw):
+        calls.append(cmd)
+        if cmd[1] == '-c':
+            return type('R', (), {'returncode': 1, 'stdout': "uvicorn.loops.uvloop: ModuleNotFoundError: No module named 'uvloop'", 'stderr': ''})()
+        return type('R', (), {'returncode': 0, 'stdout': state['freeze'] if 'freeze' in cmd else '', 'stderr': ''})()
+    monkeypatch.setattr(k.subprocess, 'run', run)
+    with pytest.raises(RuntimeError, match="(?s)4_imports failed:.*uvloop"):
+        k.colab_install()
+    assert (work / 'install' / '4_imports.log').exists()
+
+
+def test_colab_import_probe_code_runs(tmp_path):
+    """The probe program itself: ok modules pass, a missing one is listed and exits 1."""
+    import subprocess
+    import sys
+    spec = importlib.util.spec_from_file_location('tg_probe', ROOT / 'notebooks' / 'pilot_l4' / 'pilot_l4.py')
+    k = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(k)
+    ok = subprocess.run([sys.executable, '-c', k.COLAB_IMPORT_CODE, 'json', 'csv'], capture_output=True, text=True)
+    assert ok.returncode == 0
+    bad = subprocess.run([sys.executable, '-c', k.COLAB_IMPORT_CODE, 'json', 'no_such_mod_tg'], capture_output=True, text=True)
+    assert bad.returncode == 1 and 'no_such_mod_tg: ModuleNotFoundError' in bad.stdout
 
 
 def test_colab_install_rejects_a_wheel_kaggle_did_not_install(monkeypatch, tmp_path):
@@ -264,6 +299,11 @@ def test_kaggle_env_lock_matches_the_kaggle_freeze():
         assert kaggle.get(norm(n)) == v, head
         assert '--hash=sha256:' in b, head
     assert not any(norm(b.split('==')[0]).startswith('nvidia-cutlass') for b in blocks)
+    # runtime-optional packages of the serving stack that Kaggle has and no package declares
+    # (smoke 3: vLLM's server imports uvloop); present on Kaggle, so present here
+    names = {norm(b.split('==')[0]) for b in blocks}
+    assert {'uvloop', 'httptools', 'orjson', 'ujson', 'email-validator', 'xxhash', 'nvtx', 'optree',
+            'opt-einsum'} <= names
 
 
 def test_colab_secret_scan_flags_credentials_not_token_counts(tmp_path, monkeypatch):
