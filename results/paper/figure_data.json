@@ -1,0 +1,190 @@
+{
+ "agent_patches": {
+  "calibration_C": {
+   "M1": {
+    "ast": 0,
+    "except_local": 0,
+    "gsc": 0,
+    "runs": 11,
+    "templates": 2,
+    "tests_pass": 11
+   },
+   "M2": {
+    "ast": 5,
+    "except_local": 0,
+    "gsc": 5,
+    "runs": 8,
+    "templates": 2,
+    "tests_pass": 8
+   },
+   "M3": {
+    "ast": 0,
+    "except_local": 0,
+    "gsc": 0,
+    "runs": 1,
+    "templates": 1,
+    "tests_pass": 1
+   },
+   "all": {
+    "ast": 5,
+    "except_local": 0,
+    "gsc": 5,
+    "runs": 20,
+    "templates": 5,
+    "tests_pass": 20
+   }
+  },
+  "confirmatory": {
+   "M2": {
+    "ast": 0,
+    "except_local": 0,
+    "gsc": 0,
+    "runs": 2,
+    "templates": 1,
+    "tests_pass": 2
+   },
+   "all": {
+    "ast": 0,
+    "except_local": 0,
+    "gsc": 0,
+    "runs": 2,
+    "templates": 1,
+    "tests_pass": 2
+   }
+  }
+ },
+ "confirmatory_by_arm": {
+  "A": {
+   "F": 238,
+   "M": 240,
+   "W": 1,
+   "evaluable": 240,
+   "scheduled": 240
+  },
+  "N": {
+   "F": 238,
+   "M": 240,
+   "W": 1,
+   "evaluable": 240,
+   "scheduled": 240
+  },
+  "P": {
+   "F": 236,
+   "M": 240,
+   "W": 0,
+   "evaluable": 240,
+   "scheduled": 240
+  }
+ },
+ "ladder": {
+  "C": {
+   "M1": {
+    "W1": 11,
+    "completed": 11,
+    "scheduled": 12,
+    "tests_pass": 11
+   },
+   "M2": {
+    "W1": 8,
+    "completed": 9,
+    "scheduled": 12,
+    "tests_pass": 9
+   },
+   "M3": {
+    "W1": 1,
+    "completed": 11,
+    "scheduled": 12,
+    "tests_pass": 11
+   },
+   "all": {
+    "W1": 20,
+    "completed": 31,
+    "scheduled": 36,
+    "tests_pass": 31
+   }
+  },
+  "L1": {
+   "M1": {
+    "W1": 0,
+    "completed": 11,
+    "scheduled": 12,
+    "tests_pass": 11
+   },
+   "M2": {
+    "W1": 0,
+    "completed": 11,
+    "scheduled": 12,
+    "tests_pass": 11
+   },
+   "M3": {
+    "W1": 0,
+    "completed": 7,
+    "scheduled": 12,
+    "tests_pass": 7
+   },
+   "all": {
+    "W1": 0,
+    "completed": 29,
+    "scheduled": 36,
+    "tests_pass": 29
+   }
+  },
+  "L2": {
+   "M1": {
+    "W1": 0,
+    "completed": 11,
+    "scheduled": 12,
+    "tests_pass": 11
+   },
+   "M2": {
+    "W1": 0,
+    "completed": 9,
+    "scheduled": 12,
+    "tests_pass": 9
+   },
+   "M3": {
+    "W1": 0,
+    "completed": 9,
+    "scheduled": 12,
+    "tests_pass": 9
+   },
+   "all": {
+    "W1": 0,
+    "completed": 29,
+    "scheduled": 36,
+    "tests_pass": 29
+   }
+  },
+  "L3": {
+   "M1": {
+    "W1": 0,
+    "completed": 8,
+    "scheduled": 12,
+    "tests_pass": 8
+   },
+   "M2": {
+    "W1": 0,
+    "completed": 9,
+    "scheduled": 12,
+    "tests_pass": 9
+   },
+   "M3": {
+    "W1": 0,
+    "completed": 10,
+    "scheduled": 12,
+    "tests_pass": 10
+   },
+   "all": {
+    "W1": 0,
+    "completed": 27,
+    "scheduled": 36,
+    "tests_pass": 27
+   }
+  }
+ },
+ "sources": {
+  "calibration_archive_sha256": "10cec81c56e1a98e74578e33522fbf0c48875cbb0a1f444964e92dc371e74c1f",
+  "confirmatory": "results/confirmatory/runs_detectors.csv",
+  "d14": "results/d14/d14_descriptives.json"
+ }
+}

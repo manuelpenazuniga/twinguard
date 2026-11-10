@@ -10,6 +10,9 @@ Every number is counted from a results file and printed with its source; nothing
 
   python analysis/paper_tables.py --calibration-archive x1_cal_out/results_sealed.tar.gz \
       --out results/paper/tables_2_3b.md
+
+The same counts go to figure_data.json next to --out (with its sha256), the only input of
+analysis/paper_figures.py, so the figures redraw on CPU without the calibration archive.
 """
 import argparse
 import csv
@@ -64,14 +67,26 @@ def table3b(rows, states, label):
             tmpl[key].add(r['template_id'])
             for d in DETS:
                 c[d] += states[r['run_id']][d] == 'alert'
-    out = []
+    out, data = [], {}
     for key in ('M1', 'M2', 'M3', 'all'):
         if key not in t:
             continue
         c = t[key]
+        data[key] = {'runs': c['runs'], 'templates': len(tmpl[key]), 'tests_pass': c['F1'],
+                     **{d: c[d] for d in DETS}}
         out.append(f"| {label} | {key} | {c['runs']} | {len(tmpl[key])} | {c['F1']}/{c['runs']} | "
                    + ' | '.join(f"{c[d]}/{c['runs']}" for d in DETS) + ' |')
-    return out
+    return out, data
+
+
+def confirmatory_by_arm(conf):
+    arms = {}
+    for f in ('N', 'P', 'A'):
+        rs = [r for r in conf if r['framing'] == f]
+        ev = [r for r in rs if r['status'] in EV]
+        arms[f] = {'scheduled': len(rs), 'evaluable': len(ev),
+                   **{k: sum(r[k] == '1' for r in ev) for k in ('M', 'F', 'W')}}
+    return arms
 
 
 def main(argv=None):
@@ -91,6 +106,11 @@ def main(argv=None):
         block = Path(work) / 'results' / 'x1_calibration'
         rows = list(csv.DictReader(open(block / 'runs.csv', encoding='utf-8')))
         c = counts_calibration(rows)
+        fig = {'sources': {'calibration_archive_sha256': D.CAL_SHA256,
+                           'confirmatory': 'results/confirmatory/runs_detectors.csv',
+                           'd14': 'results/d14/d14_descriptives.json'},
+               'ladder': {}, 'agent_patches': {},
+               'confirmatory_by_arm': confirmatory_by_arm(conf)}
         lines += ['## Table 2. Calibration ladder (D12; 6 pilot templates, 2 per mechanism; '
                   'pooled framings, 1 seed)', '',
                   'Source: calibration archive sha256 ' + D.CAL_SHA256[:16] + '..., '
@@ -109,6 +129,9 @@ def main(argv=None):
                 src = pm['pooled'] if mech == 'all' else pm['by_mechanism'][mech]
                 mp, rp = src['mentions_patch'], src['rejects_patch']
                 fmt = lambda m: '—' if m['mean'] is None else f"{round(m['mean'] * m['n'])}/{m['n']}"
+                fig['ladder'].setdefault(rung, {})[mech] = {
+                    'scheduled': x['scheduled'], 'completed': x['completed'], 'W1': x['W1'],
+                    'tests_pass': x['F1']}
                 lines.append(f"| {rung if mech == 'M1' else ''} | {what[rung] if mech == 'M1' else ''} "
                              f"| {mech} | {x['scheduled']} | {x['completed']} | {x['closed_or_failed']} "
                              f"| {x['W1']}/{x['completed']} | {x['F1']}/{x['completed']} | {fmt(mp)} | {fmt(rp)} |")
@@ -122,8 +145,11 @@ def main(argv=None):
               'results/confirmatory/runs_detectors.csv (the single analysis).', '',
               '| Set | Mechanism | Runs W = 1 | Distinct templates | Tests pass | GSC alert | '
               'AST alert | except alert |', '|---|---|---|---|---|---|---|---|']
-    lines += table3b(cal_w1, cal_states, 'Calibration C (explicit request)')
-    lines += table3b(conf_w1, conf_states, 'Confirmatory (no request)')
+    for key, (rs, st, label) in {'calibration_C': (cal_w1, cal_states, 'Calibration C (explicit request)'),
+                                 'confirmatory': (conf_w1, conf_states, 'Confirmatory (no request)')}.items():
+        out, data = table3b(rs, st, label)
+        lines += out
+        fig['agent_patches'][key] = data
     per_t = defaultdict(lambda: [0, 0])
     for r in cal_w1:
         per_t[r['template_id']][0] += 1
@@ -139,7 +165,13 @@ def main(argv=None):
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     text = '\n'.join(lines) + '\n'
     Path(a.out).write_text(text)
-    print(json.dumps({'out': a.out, 'sha256': hashlib.sha256(text.encode()).hexdigest()}))
+    fd = json.dumps(fig, indent=1, sort_keys=True) + '\n'
+    fpath = Path(a.out).parent / 'figure_data.json'
+    fpath.write_text(fd)
+    fsha = hashlib.sha256(fd.encode()).hexdigest()
+    (fpath.parent / 'figure_data.json.sha256').write_text(f'{fsha}  figure_data.json\n')
+    print(json.dumps({'out': a.out, 'sha256': hashlib.sha256(text.encode()).hexdigest(),
+                      'figure_data_sha256': fsha}))
 
 
 if __name__ == '__main__':
