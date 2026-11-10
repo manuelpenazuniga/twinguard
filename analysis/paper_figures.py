@@ -100,7 +100,7 @@ def fig_instrument(out):
             if bg:
                 ax.add_patch(plt.Rectangle((0, y - 0.45), 1, 0.9, color=bg, lw=0))
             key = l.startswith('+') and ('Decision.HOLD' in l or 'Decision.RELEASE' in l)
-            ax.text(0.01, y, l, family='Menlo', fontsize=7, va='center', color=INK,
+            ax.text(0.01, y, l, family=['Menlo', 'DejaVu Sans Mono'], fontsize=7, va='center', color=INK,
                     fontweight='bold' if key else 'normal')
     fig.savefig(out / 'fig1_instrument.png')
     plt.close(fig)
