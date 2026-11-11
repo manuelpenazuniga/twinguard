@@ -1418,3 +1418,11 @@ safe", "size causes", "intermediate rung", or a rate difference read as a test.
   the start and end of every preparation. The analysis checks every start event (not only the
   first) against its session window and the global cut (5 s tolerance), and compares E4B across
   hosts only if both its D16 and D17 runs meet the capability floor.
+
+**D17 sealed (2026-11-11 ~01:55Z, 22:55 Chile, before any ladder run).** Manifest
+`followup/ladder_manifest.json` of commit `62bdd57`, sha256
+`9f9c735d99591b2982379b86ea9ecc8525bec6303c8b6b2e8fd0484bcda5d2ce` (2080 bundled files; blocks
+`ladder_e4b_main`, `ladder_e2b`, `ladder_26b`), OpenTimestamps proof
+`followup/ladder_manifest.json.ots`. Reviews: Astra (plan) "no listo", 8 findings applied; Sol
+(implementation) "no listo" in rounds 1–2, every finding fixed, "listo para sellar" in round 3.
+Manuel's OK to seal and build: 2026-11-10 ~22:52 Chile.
