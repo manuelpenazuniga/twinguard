@@ -1436,3 +1436,29 @@ kagglehub's "Colab cache" mounts Kaggle inputs read-only under `/kaggle/input`. 
 `/kaggle/input` is still read-only, unmounts what is under it; the wheelhouse then downloads with
 plain kagglehub and the kernel still checks every wheel against the Kaggle freeze. The sealed
 manifest, kernel script (`5d93238c…`) and analysis are unchanged.
+
+**D17 session 1 done (2026-11-11 04:18Z).** Colab A100 80 GB, script `5d93238c…`: every phase ok,
+`x3_status=complete` (all three blocks done or failed). Sealed archive sha256
+`88621628b94d65a6bf94a2b20d8ba85f1a179a53a6845e8c37bf25f62826360a` (copy in
+`results/sealed/ladder_session1.tar.gz`). Only phases, statuses and start-up errors were read.
+- `ladder_e4b_main`: server loaded in 245 s; toy check passed (6/6 rows, 6 with tool calls);
+  120/120 runs completed, none for adjudication (runner 3208 s).
+- `ladder_e2b` and `ladder_26b`: `startup_failed`. Both attempts of both servers stopped with
+  `OSError: [Errno 98] Address already in use` while binding the root-only socket
+  `/root/tgv/vllm.sock`, before any weight was loaded: the E4B server left the socket in place
+  after `stop()` and the kernel did not remove it (x3 and D16 started a single server, so it never
+  showed; the tests mocked the server start). A kernel bug, not a property of the models.
+
+### Deviation D17b "ladder2" (Manuel, 2026-11-11 ~08:00 Chile, after reading only the statuses above)
+
+D17 session 1 and its sealed records stay as they are (E2B and 26B-A4B are reported there as
+`startup_failed` with the cause). D17b re-runs exactly those two blocks with D17's design, rules,
+host path and analysis, after one kernel fix: before every server start (and after a failed
+attempt) the kernel kills any process still holding the socket path and removes the socket file
+(`ladder_free_socket`; a socket that cannot be removed ends the session). Its own seal
+(`followup/ladder2_seal.py` → `followup/ladder2_manifest.json` + OTS), blocks
+`ladder2_e2b_main`, `ladder2_26b` (same models, revisions, environment ids, order), global cut
+2026-11-11 21:00Z, single analysis `followup/analyze_ladder2.py` (D17's `analyze_ladder.py`
+unchanged, on D17b's seal; once, O_EXCL claim). D17's sealed files are not modified (its seal
+still verifies). E4B's D17 block is analysed by D17's single analysis; the D17 and D17b reports
+are read together, each with its own seal; nothing is pooled. No other change, model or setting.

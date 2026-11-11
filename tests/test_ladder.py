@@ -196,6 +196,7 @@ def test_ladder_serve_checks_hashes_starts_twice_and_rechecks_isolation(monkeypa
     monkeypatch.setattr(k, 'model_hash_check', lambda: {'all_match': True})
     frees = []
     monkeypatch.setattr(k, 'ladder_free_gpu', lambda: frees.append(1) or {'used_mib': 0})
+    monkeypatch.setattr(k, 'ladder_free_socket', lambda: {'killed': [], 'removed_stale_socket': False})
     tries = []
 
     def start(tp, gpus, port, tag, extra=()):
@@ -557,3 +558,117 @@ def test_bootstrap_ladder_disables_the_colab_cache_and_needs_a_writable_input():
     assert body.index("os.environ['DISABLE_COLAB_CACHE'] = '1'") < body.index('import kagglehub')
     assert body.index('writable_input()') < body.index('import kagglehub')
     assert "umount -l" in boot and "/proc/mounts" in boot
+
+
+# ------------------------------------------------------------------ D17b (ladder2)
+def test_ladder_free_socket_kills_the_holder_and_removes_the_file(monkeypatch, tmp_path):
+    k = ladder_kernel(monkeypatch, tmp_path)
+    uds = tmp_path / 'vllm.sock'
+    uds.write_text('')                        # the socket of D17 session 1
+    monkeypatch.setattr(k, 'UDS', uds)
+    alive = {101: [9999]}                     # pid -> socket inodes it holds
+    monkeypatch.setattr(k, 'socket_holders', lambda path: sorted(p for p, i in alive.items() if i))
+    killed = []
+    monkeypatch.setattr(k.os, 'kill', lambda pid, sig: killed.append(pid) or alive.pop(pid))
+    monkeypatch.setattr(k.time, 'sleep', lambda s: None)
+    out = k.ladder_free_socket()
+    assert killed == [101] and out == {'killed': [101], 'removed_stale_socket': True} and not uds.exists()
+    assert k.ladder_free_socket() == {'killed': [], 'removed_stale_socket': False}
+    alive[202] = [1]                          # a holder that survives SIGKILL ends the session
+    monkeypatch.setattr(k.os, 'kill', lambda pid, sig: None)
+    monkeypatch.setattr(k.time, 'time', iter([0, 0, 100, 100, 100]).__next__)
+    with pytest.raises(k.SessionFatal, match='still held'):
+        k.ladder_free_socket()
+
+
+def test_socket_holders_reads_inodes_and_root_fds(monkeypatch, tmp_path):
+    k = ladder_kernel(monkeypatch, tmp_path)
+    proc = tmp_path / 'proc'
+    (proc / 'net').mkdir(parents=True)
+    (proc / 'net' / 'unix').write_text(
+        'Num RefCount Protocol Flags Type St Inode Path\n'
+        '0000: 00000002 00000000 00010000 0001 01 4242 /root/tgv/vllm.sock\n'
+        '0000: 00000002 00000000 00010000 0001 01 5555 /other.sock\n')
+    for pid, uid, link in ((101, 0, 'socket:[4242]'), (102, 1001, 'socket:[4242]'), (103, 0, 'socket:[5555]')):
+        (proc / str(pid) / 'fd').mkdir(parents=True)
+        (proc / str(pid) / 'status').write_text(f'Uid:\t{uid}\t{uid}\t{uid}\t{uid}\n')
+        os_link = proc / str(pid) / 'fd' / '3'
+        os_link.symlink_to(link)
+    real = k.Path
+    monkeypatch.setattr(k, 'Path', lambda p, *a: real(str(p).replace('/proc', str(proc), 1)) if str(p).startswith('/proc') else real(p, *a))
+    assert k.socket_holders('/root/tgv/vllm.sock') == [101]
+    # Sol: one unreadable descriptor never drops the process that holds the socket
+    (proc / '101' / 'fd' / '0').symlink_to('pipe:[1]')
+    real_readlink = k.os.readlink
+
+    def readlink(fd):
+        if str(fd).endswith('/101/fd/0'):
+            raise PermissionError('fd 0')
+        return real_readlink(fd)
+    monkeypatch.setattr(k.os, 'readlink', readlink)
+    assert k.socket_holders('/root/tgv/vllm.sock') == [101]
+    (proc / 'net' / 'unix').unlink()          # an unreadable socket table ends the session
+    with pytest.raises(k.SessionFatal, match='net/unix'):
+        k.socket_holders('/root/tgv/vllm.sock')
+
+
+def test_ladder_serve_frees_the_socket_before_every_attempt(monkeypatch, tmp_path):
+    k = ladder_kernel(monkeypatch, tmp_path)
+    dest = tmp_path / 'm'
+    dest.mkdir()
+    monkeypatch.setattr(k, 'model_path', lambda: dest)
+    monkeypatch.setattr(k, 'model_hash_check', lambda: {'all_match': True})
+    monkeypatch.setattr(k, 'ladder_free_gpu', lambda: {'used_mib': 0})
+    order = []
+    monkeypatch.setattr(k, 'ladder_free_socket', lambda: order.append('free') or {'killed': []})
+
+    def start(tp, gpus, port, tag, extra=()):
+        order.append('start')
+        if '--max-num-seqs' not in extra:
+            raise RuntimeError('OSError: [Errno 98] Address already in use')
+        k.SERVED[port] = str(dest)
+        return object(), 1.0, list(extra)
+    monkeypatch.setattr(k, 'start_server', start)
+    monkeypatch.setattr(k, 'server_unreachable', lambda: {'ok': True})
+    monkeypatch.setattr(k, 'code_dir', lambda: ROOT)
+    monkeypatch.setattr(k, 'ladder_toy', lambda code, kind: {'ok': True})
+    out = k.ladder_serve('e2b', [])
+    assert order == ['free', 'start', 'free', 'start'] and len(out['socket_freed']) == 2
+
+
+def test_ladder_socket_that_cannot_be_removed_ends_the_session(monkeypatch, tmp_path):
+    k = ladder_kernel(monkeypatch, tmp_path)
+
+    class Sock:
+        def unlink(self):
+            raise PermissionError('read-only')
+
+        def exists(self):
+            return True
+
+        def __str__(self):
+            return '/root/tgv/vllm.sock'
+    monkeypatch.setattr(k, 'UDS', Sock())
+    real = k.Path
+    empty = tmp_path / 'proc'
+    empty.mkdir()
+    monkeypatch.setattr(k, 'Path', lambda p, *a: real(str(empty)) if str(p) == '/proc' else real(p, *a))
+    with pytest.raises(k.SessionFatal):
+        k.ladder_free_socket()
+
+
+def test_ladder2_seal_and_kernel_manifest_path(monkeypatch, tmp_path):
+    from followup import ladder2_seal as L2
+    assert [b['name'] for b in L2.BLOCKS] == ['ladder2_e2b_main', 'ladder2_26b']
+    assert [b['model'] for b in L2.BLOCKS] == ['e2b', '26b_a4b']
+    assert all(b['revision'] == {x['model']: x for x in LS.BLOCKS}[b['model']]['revision'] for b in L2.BLOCKS)
+    assert L2.STOP_AT_EPOCH == 1794430800 and 'followup/ladder2_manifest.json' in L2.OWN
+    assert 'followup/analyze_ladder2.py' in L2.ANALYSIS_PATHS
+    k = kernel(monkeypatch, tmp_path, MODE='ladder')
+    assert 'followup/ladder2_manifest.json.ots' in k.X3_OWN
+    src = SCRIPT.read_text()
+    assert "f'followup/{LADDER_SEAL}_manifest.json'" in src and "LADDER_SEAL = 'ladder'" in src
+    import runpy
+    g = runpy.run_path(str(ROOT / 'followup' / 'analyze_ladder2.py'), run_name='not_main')
+    assert str(g['L'].MANIFEST).endswith('followup/ladder2_manifest.json')
+    g['L'].MANIFEST = ROOT / 'followup' / 'ladder_manifest.json'          # restore for other tests

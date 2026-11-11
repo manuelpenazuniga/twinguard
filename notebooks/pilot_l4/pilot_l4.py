@@ -77,8 +77,10 @@ X3_MANIFEST_SHA256 = ''          # SHA-256 of the mode's sealed manifest (x3: D1
 # D17 'ladder': the same machinery on Colab (x3's A100 80 GB) with three models in sealed blocks,
 # one server at a time (26B-A4B, E2B, E4B from their pinned HF revisions; no overlay)
 FOLLOWUP_MODES = ('x3', 'e4b', 'ladder')
+LADDER_SEAL = 'ladder'   # build --define LADDER_SEAL=ladder2: D17b (E2B and 26B-A4B re-run after the
+                         # socket bug of D17 session 1), same mode and machinery, its own manifest
 FOLLOWUP_MANIFEST = {'x3': 'followup/x3_manifest.json', 'e4b': 'followup/e4b_manifest.json',
-                     'ladder': 'followup/ladder_manifest.json'}
+                     'ladder': f'followup/{LADDER_SEAL}_manifest.json'}
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -1361,7 +1363,8 @@ def smoke_block(code):
 
 # ------------------------------------------------------------------ D15 follow-up (x3, Colab)
 X3 = {}
-X3_OWN = {f'followup/{k}_manifest.json{e}' for k in FOLLOWUP_MODES for e in ('', '.sha256', '.ots')}
+X3_OWN = {f'followup/{k}_manifest.json{e}' for k in FOLLOWUP_MODES + ('ladder2',)
+          for e in ('', '.sha256', '.ots')}
 
 
 def x3_verify(code):
@@ -1620,6 +1623,83 @@ def ladder_toy(code, kind):
     return out
 
 
+def socket_holders(path):
+    """PIDs of root processes holding an open unix socket bound to `path` (Sol: the real owner,
+    via /proc/net/unix inodes and each process's fd links, never a command-line match)."""
+    inodes = set()
+    try:
+        table = Path('/proc/net/unix').read_text()
+    except OSError as exc:                    # Sol: an unreadable table is never "no holder"
+        raise SessionFatal(f'cannot read /proc/net/unix to free {path}: {exc}')
+    for line in table.splitlines()[1:]:
+        f = line.split()
+        if len(f) >= 8 and f[-1] == str(path):
+            inodes.add(f[6])
+    pids = []
+    if not inodes:
+        return pids
+    for d in Path('/proc').iterdir():
+        if not d.name.isdigit() or int(d.name) == os.getpid():
+            continue
+        try:
+            uid = next(int(l.split()[1]) for l in (d / 'status').read_text().splitlines()
+                       if l.startswith('Uid:'))
+        except (OSError, StopIteration, ValueError, IndexError):
+            continue                          # gone, or not readable as a process
+        if uid != 0:
+            continue
+        try:
+            fds = list((d / 'fd').iterdir())
+        except FileNotFoundError:
+            continue                          # exited meanwhile
+        except OSError:                       # Sol: an unreadable fd table is never "not a holder"
+            fds = None
+        links = set()
+        for fd in fds or ():
+            try:                              # per descriptor: one failure never drops the process
+                links.add(os.readlink(fd))
+            except OSError:
+                pass
+        if fds is None:
+            try:
+                cmd = (d / 'cmdline').read_bytes().replace(b'\0', b' ').decode(errors='replace')
+            except OSError:
+                cmd = ''
+            if 'vllm' in cmd and str(path) in cmd:
+                pids.append(int(d.name))      # conservative: vLLM's API server for this socket
+        elif any(f'socket:[{i}]' in links for i in inodes):
+            pids.append(int(d.name))
+    return pids
+
+
+def ladder_free_socket():
+    """D17b: in D17 session 1 the E4B server left the root-only socket in place after stop(), so
+    both later servers failed with "Address already in use" before loading any weight. Kill the
+    root processes that really hold the socket (waiting until they are gone) and remove the file;
+    a socket that cannot be freed ends the session (never a block's start-up failure)."""
+    killed = socket_holders(UDS)
+    for pid in killed:
+        try:
+            os.kill(pid, 9)
+        except (ProcessLookupError, PermissionError):
+            pass
+    t0 = time.time()
+    while socket_holders(UDS):
+        if time.time() - t0 > 30:
+            raise SessionFatal(f'the server socket {UDS} is still held after SIGKILL: {killed}')
+        time.sleep(1)
+    try:
+        UDS.unlink()
+        removed = True
+    except FileNotFoundError:
+        removed = False
+    except OSError as exc:                    # Sol: never a block's start-up failure
+        raise SessionFatal(f'the server socket {UDS} could not be removed: {exc}')
+    if UDS.exists():
+        raise SessionFatal(f'the server socket {UDS} could not be removed')
+    return {'killed': killed, 'removed_stale_socket': removed}
+
+
 def ladder_serve(kind, procs):
     """Stop the previous server; serve `kind` from its pinned HF files (hash-checked) on the
     root-only socket, with the study's two start attempts; re-check that no agent/evaluator uid
@@ -1627,6 +1707,7 @@ def ladder_serve(kind, procs):
     global LADDER_KIND, MODEL
     stop(procs)
     procs.clear()
+    sockets = [ladder_free_socket()]          # the API server first, then the GPU check
     freed = [ladder_free_gpu()]
     t_start = time.time()
     LADDER_KIND = kind
@@ -1646,6 +1727,7 @@ def ladder_serve(kind, procs):
             errs.append({'extra': list(extra), 'error': f'{type(e).__name__}: {e}'[-1500:]})
             stop(procs)
             procs.clear()
+            sockets.append(ladder_free_socket())
             freed.append(ladder_free_gpu())       # a failed attempt may leave engine workers
     else:
         raise RuntimeError(json.dumps(errs)[-3000:])
@@ -1664,7 +1746,7 @@ def ladder_serve(kind, procs):
            'start_utc': t_start,
            'load_seconds': secs, 'extra_args': ex, 'start_errors': errs,
            'vllm_budget': R.get('colab_vllm_budget'), 'max_model_len': 32768,
-           'concurrency': len(AGENTS), 'gpu_freed': freed}
+           'concurrency': len(AGENTS), 'gpu_freed': freed, 'socket_freed': sockets}
     try:
         rec['kv'] = kv_info(f'{kind}_8000')
     except Exception as exc:
