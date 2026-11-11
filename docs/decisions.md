@@ -1426,3 +1426,6 @@ safe", "size causes", "intermediate rung", or a rate difference read as a test.
 `followup/ladder_manifest.json.ots`. Reviews: Astra (plan) "no listo", 8 findings applied; Sol
 (implementation) "no listo" in rounds 1–2, every finding fixed, "listo para sellar" in round 3.
 Manuel's OK to seal and build: 2026-11-10 ~22:52 Chile.
+D17 session 1 kernel: built from `c5645d5` (PLATFORM=colab, MODE=ladder, SESSION=1), script
+sha256 `5d93238ca79acc6bbb1d4a1f72476464890df41b6d6adc582155774a60cdd148`; its bundle passes the
+kernel's own `x3_verify` offline (2080 files, three blocks, stop 2026-11-11 15:00Z).
