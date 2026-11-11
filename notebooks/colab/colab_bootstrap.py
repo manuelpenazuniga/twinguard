@@ -62,8 +62,38 @@ def venv():
             'uv': sh('uv --version', check=False)}
 
 
+def writable_input():
+    """D17 writes the HF models under /kaggle/input. kagglehub's "Colab cache" mounts Kaggle inputs
+    read-only there; a reused runtime may still have that mount: unmount everything under
+    /kaggle/input (deepest first) and check that it is writable."""
+    root = Path('/kaggle/input')
+
+    def ok():
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            probe = root / '.tg_write_probe'
+            probe.write_text('x')
+            probe.unlink()
+            return True
+        except OSError:
+            return False
+    if ok():
+        return {'unmounted': []}
+    mounts = [l.split()[1] for l in Path('/proc/mounts').read_text().splitlines()
+              if l.split()[1] == str(root) or l.split()[1].startswith(str(root) + '/')]
+    for m in sorted(mounts, key=len, reverse=True):
+        sh(f'umount -l {m}', check=False)
+    if not ok():
+        raise RuntimeError('/kaggle/input is read-only even after unmounting: '
+                           'Runtime > Disconnect and delete runtime, then run again')
+    return {'unmounted': mounts}
+
+
 def downloads(user, key, ladder=False):
     """The wheelhouse (Kaggle), then either the 31B Kaggle model or, for D17, the three HF models."""
+    if ladder:                                # D17: plain kagglehub downloads, writable /kaggle/input
+        os.environ['DISABLE_COLAB_CACHE'] = '1'
+        print('input', writable_input(), flush=True)
     os.environ.update(KAGGLE_USERNAME=user, KAGGLE_KEY=key, KAGGLEHUB_CACHE=CACHE)
     try:
         import kagglehub

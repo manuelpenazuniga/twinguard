@@ -1429,3 +1429,10 @@ Manuel's OK to seal and build: 2026-11-10 ~22:52 Chile.
 D17 session 1 kernel: built from `c5645d5` (PLATFORM=colab, MODE=ladder, SESSION=1), script
 sha256 `5d93238ca79acc6bbb1d4a1f72476464890df41b6d6adc582155774a60cdd148`; its bundle passes the
 kernel's own `x3_verify` offline (2080 files, three blocks, stop 2026-11-11 15:00Z).
+D17 launch, operational fix outside the seal (2026-11-10 ~23:15 Chile): the first launch stopped
+in the Colab bootstrap, before the kernel ran (`OSError: Read-only file system: /kaggle/input/hf`):
+kagglehub's "Colab cache" mounts Kaggle inputs read-only under `/kaggle/input`. The bootstrap
+(notebook code, not in the sealed bundle) now sets `DISABLE_COLAB_CACHE=1` for D17 and, if
+`/kaggle/input` is still read-only, unmounts what is under it; the wheelhouse then downloads with
+plain kagglehub and the kernel still checks every wheel against the Kaggle freeze. The sealed
+manifest, kernel script (`5d93238c…`) and analysis are unchanged.

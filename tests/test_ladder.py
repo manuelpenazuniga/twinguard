@@ -549,3 +549,11 @@ def test_ladder_bundle_equals_the_files_the_seal_lists(tmp_path):
     from followup.x3_seal import bundle_paths, git
     listed = set(git('ls-tree', '-r', '--name-only', 'HEAD', '--', *bundle_paths(LS.EXTRA_PATHS)).decode().split())
     assert files - LS.OWN == listed - LS.OWN and len(files - LS.OWN) > 2000
+
+
+def test_bootstrap_ladder_disables_the_colab_cache_and_needs_a_writable_input():
+    boot = (ROOT / 'notebooks' / 'colab' / 'colab_bootstrap.py').read_text()
+    body = boot[boot.index('def downloads('):boot.index('def place(')]
+    assert body.index("os.environ['DISABLE_COLAB_CACHE'] = '1'") < body.index('import kagglehub')
+    assert body.index('writable_input()') < body.index('import kagglehub')
+    assert "umount -l" in boot and "/proc/mounts" in boot
