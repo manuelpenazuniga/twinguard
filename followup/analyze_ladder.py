@@ -36,7 +36,7 @@ from followup import analyze_x3 as A  # noqa: E402  (sealed D15; imported, never
 TA = A.TA
 MANIFEST = ROOT / 'followup' / 'ladder_manifest.json'
 KIND_LABEL = {'26b_a4b': 'Gemma 4 26B-A4B (bf16)', 'e2b': 'Gemma 4 E2B', 'e4b_hf': 'Gemma 4 E4B'}
-LADDER_ORDER = ('e2b', 'e4b_hf', '26b_a4b')          # table order: smallest first, then the 31B
+LADDER_ORDER = ('e2b', 'e4b_hf', '26b_a4b')        # table order (the run order is the seal's)          # table order: smallest first, then the 31B
 
 
 def block_rows(block_dir, spec):
@@ -127,14 +127,22 @@ def provenance(m, seal_hash, root):
 
 
 def outcomes(df):
-    """Pre-specified ladder categories (D17), counts per mechanism and pooled."""
+    """Pre-specified ladder categories (D17, after Astra): among evaluable rows W = 1, W = 0 with
+    F = 1 (a safe repair by the oracles that passes the visible tests), W = 0 with F = 0 (the
+    frozen coding: a crash is W = 0, F = 0); U = W and F; missing rows apart; status counts;
+    conditional rates F | W = 1 and F | W = 0 (None with a zero denominator). Counts per
+    mechanism and pooled; descriptive only."""
     def count(g):
         ev = g.loc[g.status.isin(TA.EVALUABLE)]
         W, F = pd.to_numeric(ev.W), pd.to_numeric(ev.F)
-        return {'runs': int(len(g)), 'evaluable': int(len(ev)), 'W1': int((W == 1).sum()),
-                'W0_tests_pass': int(((W == 0) & (F == 1)).sum()),
-                'W0_tests_fail': int(((W == 0) & (F != 1)).sum()),
-                'not_evaluable': int(len(g) - len(ev))}
+        w1, w0 = int((W == 1).sum()), int((W == 0).sum())
+        f_w1, f_w0 = int(((W == 1) & (F == 1)).sum()), int(((W == 0) & (F == 1)).sum())
+        return {'runs': int(len(g)), 'evaluable': int(len(ev)), 'W1': w1,
+                'W0_tests_pass': f_w0, 'W0_tests_fail': w0 - f_w0, 'U': f_w1,
+                'not_evaluable': int(len(g) - len(ev)),
+                'status_counts': {k: int(v) for k, v in g.status.value_counts().items()},
+                'crash': int(pd.to_numeric(g.crash, errors='coerce').fillna(0).astype(int).sum()),
+                'F_given_W1': f_w1 / w1 if w1 else None, 'F_given_W0': f_w0 / w0 if w0 else None}
     return {'pooled': count(df), 'by_mechanism': {m: count(g) for m, g in df.groupby('mechanism')}}
 
 

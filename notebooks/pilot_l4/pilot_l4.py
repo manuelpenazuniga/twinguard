@@ -134,7 +134,7 @@ MODEL_SPECS = {
                'dest': '/kaggle/working/model_e4b_6cd26aa_hf', 'hf': HF_EXPECTED_E4B,
                'revision': '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'tag': 'model:e4b-6cd26aa'},
 }
-LADDER_KINDS = ('26b_a4b', 'e2b', 'e4b_hf')
+LADDER_KINDS = ('e4b_hf', 'e2b', '26b_a4b')
 LADDER_KIND = ''         # D17: the model of the ladder block being served (set by ladder_switch)
 
 
@@ -758,9 +758,10 @@ def environment_id(kind=None):
 
 
 def runner_cmd(code, mode, out_dir, extra):
-    kind = x3_spec(out_dir.name)['model'] if MODE == 'ladder' else None
+    blk = next((b for b in x3_blocks() if b['name'] == out_dir.name), None) if MODE == 'ladder' else None
+    kind = (blk['model'] if blk else LADDER_KIND) if MODE == 'ladder' else None
     env_id = environment_id(kind) if MODE == 'ladder' else environment_id()
-    if MODE == 'ladder' and env_id != x3_spec(out_dir.name)['environment_id']:
+    if blk is not None and env_id != blk['environment_id']:
         raise RuntimeError(f'environment {env_id!r} differs from the D17 block {out_dir.name}')
     if mode == 'confirmatory' and env_id != FREEZE['environment_id']:
         raise RuntimeError(f'environment {env_id!r} differs from the frozen {FREEZE["environment_id"]!r}')
@@ -951,8 +952,8 @@ def hang_watch(proc, done):
     return state
 
 
-def run_block(code, mode, name, extra, hard_at=None):
-    out_dir = RESULTS_DIR / name
+def run_block(code, mode, name, extra, hard_at=None, out_root=None):
+    out_dir = (out_root or RESULTS_DIR) / name
     cmd = runner_cmd(code, mode, out_dir, extra)
     t0 = time.time()
     done = threading.Event()
@@ -1527,6 +1528,49 @@ def ladder_may_start(i):
                                            for p in bl[:i])
 
 
+LADDER_LOG = 'ladder_serve.jsonl'    # sealed in results/: every start, its arguments, toy check
+TOY_DIR = UDS_DIR / 'toy'           # root-only, outside the sealed results (never analysed)
+TOY_RULE = ('6 toy episodes (tests/fixtures/tpl_m1, never the bank): all 6 with a row that is not '
+            'infra_failed, and at least one with tool_calls >= 1; repair quality is never judged')
+
+
+def ladder_log(rec):
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(RESULTS_DIR / LADDER_LOG, 'a') as f:
+        f.write(json.dumps(rec, default=str) + '\n')
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def ladder_toy(code, kind):
+    """Sealed technical check before the bank (Astra): generation and tool calls work."""
+    spec = UDS_DIR / 'fixture_spec.csv'
+    fb = UDS_DIR / 'fixture_bank'
+    fb.mkdir(parents=True, exist_ok=True)
+    dst = fb / 'FIXTURE.m1_toy'
+    if not dst.exists():
+        shutil.copytree(code / 'tests' / 'fixtures' / 'tpl_m1', dst)
+        m = json.loads((dst / 'template.json').read_text())
+        m['issue_paraphrases'] = [m['problem_statement']] * 4
+        (dst / 'template.json').write_text(json.dumps(m))
+    spec.write_text('template_id,split,family,mechanism\nFIXTURE.m1_toy,pilot,logistics,M1\n')
+    TOY_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(TOY_DIR / kind, ignore_errors=True)
+    run = run_block(code, 'runner_smoke', kind,
+                    ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'],
+                    out_root=TOY_DIR)
+    import csv as _csv
+    f = TOY_DIR / kind / 'runs.csv'
+    rows = list(_csv.DictReader(open(f, newline=''))) if f.exists() else []
+    tools = [int(float(r.get('tool_calls') or 0)) for r in rows]
+    out = {'rule': TOY_RULE, 'rows': len(rows),
+           'status_counts': {x: sum(r['status'] == x for r in rows) for x in {r['status'] for r in rows}},
+           'episodes_with_tool_calls': sum(t >= 1 for t in tools), 'runner_rc': run.get('rc')}
+    out['ok'] = len(rows) == 6 and not any(r['status'] == 'infra_failed' for r in rows) \
+        and out['episodes_with_tool_calls'] >= 1
+    return out
+
+
 def ladder_serve(kind, procs):
     """Stop the previous server; serve `kind` from its pinned HF files (hash-checked) on the
     root-only socket, with the study's two start attempts; re-check that no agent/evaluator uid
@@ -1557,8 +1601,19 @@ def ladder_serve(kind, procs):
     u = server_unreachable()
     if not u.get('ok'):
         raise IsolationBreach(f'server reachable by an agent/evaluator uid: {u}')
-    return {'hashes': h, 'load_seconds': secs, 'extra_args': ex, 'start_errors': errs,
-            'unreachable': u}
+    rec = {'model': kind, 'revision': model_spec()['revision'], 'utc': time.time(),
+           'load_seconds': secs, 'extra_args': ex, 'start_errors': errs,
+           'vllm_budget': R.get('colab_vllm_budget'), 'max_model_len': 32768,
+           'concurrency': len(AGENTS)}
+    try:
+        rec['kv'] = kv_info(f'{kind}_8000')
+    except Exception as exc:
+        rec['kv'] = f'{type(exc).__name__}: {exc}'
+    rec['toy'] = ladder_toy(code_dir(), kind)
+    ladder_log(rec)
+    if not rec['toy']['ok']:
+        raise RuntimeError(f"toy check failed: {rec['toy']}")
+    return {'hashes': h, **rec, 'unreachable': u}
 
 
 def ladder_block(code, procs):

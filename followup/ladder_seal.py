@@ -25,15 +25,18 @@ ANALYSIS_PATHS = ['explore/__init__.py', 'explore/process_x1.py', 'explore/bank_
                   'followup/detect_x3.py', 'docs/decisions.md']
 ENV = 'colab-A100|py3.12|vllm0.19.1|tp1|model:'
 SPEC = 'followup/bank_x3/spec_main.csv'
-# order fixed in D17: the intermediate size first, then the smallest, then E4B again
+# order fixed in D17 (Astra): the configuration known to run on vLLM 0.19.1 first (E4B, as in
+# D16), then E2B, then the 26B-A4B (bf16 MoE, the most likely to fail or hang) last
 BLOCKS = [
-    {'name': 'ladder_26b_main', 'model': '26b_a4b', 'hf_repo': 'google/gemma-4-26B-A4B-it',
+    {'name': 'ladder_e4b_main', 'model': 'e4b_hf', 'hf_repo': 'google/gemma-4-E4B-it-qat-w4a16-ct',
+     'revision': '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'environment_id': ENV + 'e4b-6cd26aa',
+     'precision': 'QAT w4a16'},
+    {'name': 'ladder_e2b', 'model': 'e2b', 'hf_repo': 'google/gemma-4-E2B-it-qat-w4a16-ct',
+     'revision': '971342c08f607aa7779983f6b5289778b5d271a7', 'environment_id': ENV + 'e2b-971342c',
+     'precision': 'QAT w4a16'},
+    {'name': 'ladder_26b', 'model': '26b_a4b', 'hf_repo': 'google/gemma-4-26B-A4B-it',
      'revision': '4d7ae4984b7db7de8f8457170b3f1a419ee76d52', 'environment_id': ENV + '26b-a4b-4d7ae49',
      'precision': 'bf16 (no QAT w4a16 release)'},
-    {'name': 'ladder_e2b', 'model': 'e2b', 'hf_repo': 'google/gemma-4-E2B-it-qat-w4a16-ct',
-     'revision': '971342c08f607aa7779983f6b5289778b5d271a7', 'environment_id': ENV + 'e2b-971342c'},
-    {'name': 'ladder_e4b', 'model': 'e4b_hf', 'hf_repo': 'google/gemma-4-E4B-it-qat-w4a16-ct',
-     'revision': '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'environment_id': ENV + 'e4b-6cd26aa'},
 ]
 for _b in BLOCKS:
     _b.update(spec=SPEC, conditions=['C'], framings=['N'], runs=120, start_by_epoch=None)
@@ -63,6 +66,15 @@ def main(argv=None):
         if len(A.scheduled(Path(b['spec']).name, tuple(b['framings']))) != b['runs']:
             raise SystemExit(f"{b['name']}: schedule size differs from the sealed runs")
     texts = json.loads(git('show', f'{commit}:explore/bank_x1/texts.json'))
+    import importlib.util
+    ks = importlib.util.spec_from_file_location('tg_kernel_seal', ROOT / 'notebooks' / 'pilot_l4' / 'pilot_l4.py')
+    k = importlib.util.module_from_spec(ks)
+    ks.loader.exec_module(k)
+    models = {b['model']: {'hf_repo': k.MODEL_SPECS[b['model']]['hf_repo'],
+                           'revision': k.MODEL_SPECS[b['model']]['revision'],
+                           'served_files': k.MODEL_SPECS[b['model']]['hf']} for b in BLOCKS}
+    if any(models[b['model']]['revision'] != b['revision'] for b in BLOCKS):
+        raise SystemExit('block revisions differ from the kernel MODEL_SPECS')
     manifest = {
         'package': 'TwinGuard D17 Gemma 4 size ladder under the D15 request (ladder)',
         'mode': 'ladder',
@@ -77,12 +89,19 @@ def main(argv=None):
         'request_text': texts['preface_c'],
         'admission': {'admitted': adm['admitted'], 'total': adm['total'], 'build_sha256': build_sha},
         'blocks': BLOCKS,
+        'models': models,
+        'server': {'tp': 1, 'max_model_len': 32768, 'dtype': 'bfloat16', 'gpu_memory_utilization': 0.9,
+                   'parsers': 'gemma4 tool and reasoning', 'socket': 'root-only unix socket',
+                   'attempts': ['default arguments', '--max-num-seqs 32'],
+                   'startup_timeout_s': 1200, 'logged_in': 'results/ladder_serve.jsonl'},
         'order_rule': 'a block starts only after every earlier block has a row for each run or a '
                       'recorded start-up failure, and before the stop time',
-        'startup_failure': 'files failing the hash check, or a server that does not start with the '
-                           "default arguments nor with --max-num-seqs 32: the block's "
-                           'startup_failed.json is sealed and the next block may start; no other '
-                           'version, TP or setting is tried',
+        'startup_failure': 'files failing the hash check (no retry), a server that does not start '
+                           'within 20 minutes with the default arguments nor with --max-num-seqs 32, '
+                           'or a failed toy check: the block\'s startup_failed.json is sealed and the '
+                           'next block may start; no other version, TP, setting or model is tried; a '
+                           'block that already started is never declared failed',
+        'toy_check': k.TOY_RULE,
         'order_seed': A.ORDER_SEED, 'paraphrases': [1, 2, 3, 4], 'replicates': 1,
         'stop_at_utc': STOP_AT_UTC, 'stop_at_epoch': STOP_AT_EPOCH,
         'sessions': 'chained (SESSION k resumes k-1 with RESUME_SHA256); unfinished runs are '
