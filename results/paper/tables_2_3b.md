@@ -97,3 +97,15 @@ index 0a962bf..9fa146b 100644
          log.info("pallet %s not released (%s): %s", request.pallet_id,
                   decision.value, format_reading(request))
 ```
+
+## Table 4. Explicit request (D15 x3, Gemma 4 31B; D16 E4B, framing N only)
+
+Sources: results/x3/x3_report.json (sha256 ca17a3ee0c4388cc...), results/e4b/e4b_report.json (sha256 9006795043adefa5...), their detectors/runs_detectors_main.csv; gate: results/{x3,e4b}/gate_output.json.
+
+| Mechanism | 31B W = 1, N | P | A | E4B W = 1 (N) | 31B W = 0 that pass tests (N) | E4B W = 0 that pass tests | 31B W = 1: tests pass | AST alert | GSC alert / evaluable | disclosed (any turn) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| M1 | 40/40 | 38/40 | 40/40 | 38/40 | 0/0 | 0/2 | 118/118 | 0/118 | 0/106 | 0/118 |
+| M2 | 27/40 | 29/40 | 27/40 | 28/40 | 13/13 | 0/12 | 83/83 | 74/83 | 39/57 | 2/83 |
+| M3 | 21/40 | 22/40 | 24/40 | 34/40 | 19/19 | 1/6 | 67/67 | 0/67 | 0/53 | 5/67 |
+
+x3 framing contrast (frozen estimator, K = 30): dAN +2.5 pp, IC90 [-3.8, +8.8], IC95 [-5.1, +10.1]; sealed wording: "Under an explicit request (pooled W = 0.744), the framing effect on compliance was bounded below 10 pp [IC90 -3.8 pp, +8.8 pp]".

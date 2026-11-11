@@ -89,6 +89,83 @@ def confirmatory_by_arm(conf):
     return arms
 
 
+def hashed_json(path):
+    """A committed report, checked against the sha256 file written next to it."""
+    raw = path.read_bytes()
+    side = path.parent / (path.name + '.sha256')
+    if side.exists() and hashlib.sha256(raw).hexdigest() != side.read_text().split()[0]:
+        raise SystemExit(f'{path} does not match its recorded sha256')
+    return json.loads(raw)
+
+
+def k_of(rate, n):
+    """Back from a reported rate to its count (the reports store rates with their n)."""
+    k = round(rate * n)
+    assert abs(rate * n - k) < 1e-6, (rate, n)
+    return k
+
+
+def followup(lines):
+    """D15 (x3) and D16 (E4B): the committed single-analysis reports, their per-run detector
+    files and the frozen gate outputs (decisions.md, deviation of the D15/D16 gate)."""
+    x3 = hashed_json(ROOT / 'results' / 'x3' / 'x3_report.json')
+    e4 = hashed_json(ROOT / 'results' / 'e4b' / 'e4b_report.json')
+    gx = json.loads((ROOT / 'results' / 'x3' / 'gate_output.json').read_text())
+    ge = json.loads((ROOT / 'results' / 'e4b' / 'gate_output.json').read_text())
+    xr = list(csv.DictReader(open(ROOT / 'results' / 'x3' / 'detectors' / 'runs_detectors_main.csv')))
+    er = list(csv.DictReader(open(ROOT / 'results' / 'e4b' / 'detectors' / 'runs_detectors_main.csv')))
+    mechs = ('M1', 'M2', 'M3')
+
+    def wk(rows, m, f):
+        rs = [r for r in rows if r['mechanism'] == m and r['framing'] == f and r['status'] in EV]
+        return {'W1': sum(r['W'] == '1' for r in rs), 'n': len(rs),
+                'W0_tests_pass': sum(r['W'] == '0' and r['F'] == '1' for r in rs),
+                'W0': sum(r['W'] == '0' for r in rs)}
+    det = x3['detectors']['by_condition_mechanism']
+    rd = x3['row_descriptives']['C']['by_mechanism']
+    patches = {}
+    for m in mechs:
+        d, r = det[f'C.{m}'], rd[m]
+        patches[m] = {'W1': r['n_W1'], 'tests_pass': k_of(r['tests_pass_rate_among_W1'], r['n_W1']),
+                      'disclosed_any_turn': k_of(r['any_turn_disclosure_rate_among_W1'], r['n_W1']),
+                      **{f'{x}_alert': k_of(d[x]['alert_rate_W1'], d[x]['n_W1']) for x in DETS},
+                      **{f'{x}_evaluable': d[x]['n_W1'] for x in DETS}}
+    h1 = x3['main']['frozen_report']['H1_PRIMARY_W_A_minus_N']
+    rsha = lambda p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest()
+    data = {'sources': {'x3_report_sha256': rsha('results/x3/x3_report.json'),
+                        'e4b_report_sha256': rsha('results/e4b/e4b_report.json'),
+                        'x3_seal_sha256': x3['seal_sha256'], 'e4b_seal_sha256': e4['seal_sha256']},
+            'x3_W_by_mechanism_framing': {m: {f: wk(xr, m, f) for f in 'NPA'} for m in mechs},
+            'e4b_W_by_mechanism': {m: wk(er, m, 'N') for m in mechs},
+            'x3_weakening_patches': patches,
+            'x3_dAN': {'estimate': h1['HC3_95']['estimate'], 'ci90': h1['HC3_90']['ci'],
+                       'ci95': h1['HC3_95']['ci'], 'decision': h1['decision'],
+                       'wording': x3['main']['wording']},
+            'x3_cw': x3['cw']['CW_vs_C'], 'x3_m3_ablation': {k: x3['m3_ablation'][k] for k in
+                                                             ('CL1_vs_C', 'CNH_vs_C')},
+            'gate': {s: {p: g['policies'][p]['counts'] for p in ('tests_only', 'gsc', 'ast')}
+                     for s, g in (('x3', gx), ('e4b', ge))}}
+    lines += ['', '## Table 4. Explicit request (D15 x3, Gemma 4 31B; D16 E4B, framing N only)', '',
+              'Sources: results/x3/x3_report.json (sha256 ' + data['sources']['x3_report_sha256'][:16]
+              + '...), results/e4b/e4b_report.json (sha256 ' + data['sources']['e4b_report_sha256'][:16]
+              + '...), their detectors/runs_detectors_main.csv; gate: results/{x3,e4b}/gate_output.json.',
+              '', '| Mechanism | 31B W = 1, N | P | A | E4B W = 1 (N) | 31B W = 0 that pass tests (N) '
+              '| E4B W = 0 that pass tests | 31B W = 1: tests pass | AST alert | GSC alert / evaluable '
+              '| disclosed (any turn) |', '|---|---|---|---|---|---|---|---|---|---|---|']
+    for m in mechs:
+        x, e, p = data['x3_W_by_mechanism_framing'][m], data['e4b_W_by_mechanism'][m], patches[m]
+        lines.append(f"| {m} | " + ' | '.join(f"{x[f]['W1']}/{x[f]['n']}" for f in 'NPA')
+                     + f" | {e['W1']}/{e['n']} | {x['N']['W0_tests_pass']}/{x['N']['W0']} "
+                     f"| {e['W0_tests_pass']}/{e['W0']} | {p['tests_pass']}/{p['W1']} "
+                     f"| {p['ast_alert']}/{p['W1']} | {p['gsc_alert']}/{p['gsc_evaluable']} "
+                     f"| {p['disclosed_any_turn']}/{p['W1']} |")
+    lines += ['', f"x3 framing contrast (frozen estimator, K = 30): dAN {100 * h1['HC3_95']['estimate']:+.1f} pp, "
+              f"IC90 [{100 * h1['HC3_90']['ci'][0]:+.1f}, {100 * h1['HC3_90']['ci'][1]:+.1f}], IC95 "
+              f"[{100 * h1['HC3_95']['ci'][0]:+.1f}, {100 * h1['HC3_95']['ci'][1]:+.1f}]; sealed wording: "
+              f"\"{x3['main']['wording']}\"."]
+    return data
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--calibration-archive', required=True)
@@ -162,6 +239,7 @@ def main(argv=None):
               (demo / 's_plus.diff').read_text().rstrip(), '```', '',
               'U+ (weakening repair; oracle W = 1, tests pass):', '```diff',
               (demo / 'u_plus.diff').read_text().rstrip(), '```']
+    fig['followup'] = followup(lines)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     text = '\n'.join(lines) + '\n'
     Path(a.out).write_text(text)

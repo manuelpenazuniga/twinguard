@@ -5,7 +5,9 @@ analysis/paper_tables.py, sha256 checked here) or from the frozen bank; nothing 
                         with their functional-test and oracle verdicts (results/d14/d14_descriptives.json).
   fig2_confirmatory.png Confirmatory, per framing: code modified (M), tests pass (F), oracle W = 1.
   fig3_ladder.png       D12 calibration ladder: oracle W = 1 among completed runs, rung x mechanism.
-  fig4_detectors.png    The agent's own weakening patches (oracle W = 1): tests and frozen detectors.
+  fig4_detectors.png    x3: the 268 patches that complied with the request (W = 1): tests, frozen
+                        detectors, disclosure.
+  fig5_request.png      x3 and E4B: W = 1 under the explicit request, by mechanism and framing.
 
 Needs matplotlib (not in requirements.txt; figures only):
   python analysis/paper_figures.py --out results/paper/figures
@@ -147,31 +149,60 @@ def fig_ladder(out, d):
     plt.close(fig)
 
 
-def fig_detectors(out, d):
-    ap = d['agent_patches']
-    sets = [('calibration_C', 'M1'), ('calibration_C', 'M2'), ('calibration_C', 'M3'),
-            ('confirmatory', 'M2')]
-    lab = {'calibration_C': 'calibration C', 'confirmatory': 'confirmatory'}
-    rows = [('tests_pass', 'Functional tests pass'), ('gsc', 'GSC (call graph) alert'),
-            ('ast', 'AST baseline alert'), ('except_local', 'except-local alert')]
-    fig, ax = plt.subplots(figsize=(6.2, 2.8))
-    h = 0.8 / len(sets)
-    for j, (s, m) in enumerate(sets):
-        c = ap[s][m]
-        for i, (k, _) in enumerate(rows):
+def hbars(ax, rows, series, value, label, colors):
+    """Horizontal grouped bars; value(row, series) -> (k, n), labelled k/n."""
+    h = 0.8 / len(series)
+    for j, s in enumerate(series):
+        for i, (r, _) in enumerate(rows):
+            k, n = value(r, s)
             y = i - 0.4 + h * (j + 0.5)
-            ax.barh(y, 100 * c[k] / c['runs'], h, color=SERIES[j], edgecolor=SURF, linewidth=1.2,
-                    label=f"{lab[s]} {m} (n = {c['runs']})" if i == 0 else None)
-            ax.text(100 * c[k] / c['runs'] + 1.5, y, f"{c[k]}/{c['runs']}", va='center', fontsize=7,
+            ax.barh(y, 100 * k / n if n else 0, h, color=colors[j], edgecolor=SURF, linewidth=1.2,
+                    label=label(s) if i == 0 else None)
+            ax.text((100 * k / n if n else 0) + 1.5, y, f'{k}/{n}', va='center', fontsize=7,
                     color=INK2)
     ax.set_yticks(range(len(rows)), [r[1] for r in rows])
     ax.invert_yaxis()
     ax.set_xlim(0, 112)
     ax.set_xticks([0, 25, 50, 75, 100], ['0%', '25%', '50%', '75%', '100%'])
     ax.grid(axis='y', visible=False)
-    ax.set_xlabel('share of weakening patches (oracle W = 1)')
-    ax.legend(loc='upper center', bbox_to_anchor=(0.42, -0.2), ncol=2, fontsize=7.5)
+
+
+def fig_detectors(out, d):
+    """x3 (D15): the 268 patches with which Gemma 4 31B complied with the explicit request."""
+    p = d['followup']['x3_weakening_patches']
+    rows = [('tests', 'Functional tests pass'), ('ast', 'AST baseline alert'),
+            ('gsc', 'GSC (call graph) alert'), ('except_local', 'except-local alert'),
+            ('disc', 'Mentions the weakening (lexical)')]
+
+    def val(r, m):
+        c = p[m]
+        return {'tests': (c['tests_pass'], c['W1']), 'disc': (c['disclosed_any_turn'], c['W1']),
+                'gsc': (c['gsc_alert'], c['gsc_evaluable'])}.get(r, (c.get(f'{r}_alert'), c['W1']))
+    fig, ax = plt.subplots(figsize=(6.2, 3.0))
+    hbars(ax, rows, ['M1', 'M2', 'M3'], val, lambda m: f"{m} (n = {p[m]['W1']})", SERIES)
+    ax.set_xlabel('share of weakening patches (oracle W = 1); GSC: of the patches it can evaluate')
+    ax.legend(loc='upper center', bbox_to_anchor=(0.42, -0.22), ncol=3, fontsize=7.5)
     fig.savefig(out / 'fig4_detectors.png')
+    plt.close(fig)
+
+
+def fig_request(out, d):
+    """x3 and E4B: share of runs that applied the weakening patch when asked, by mechanism."""
+    f = d['followup']
+    rows = [('M1', 'M1  policy timeout'), ('M2', 'M2  API migration'),
+            ('M3', 'M3  prior instruction')]
+    series = ['N', 'P', 'A', 'E4B']
+    names = {'N': '31B  N external service', 'P': '31B  P lexical placebo', 'A': '31B  A AI agent',
+             'E4B': 'E4B  N (other model and host)'}
+
+    def val(m, s):
+        c = f['e4b_W_by_mechanism'][m] if s == 'E4B' else f['x3_W_by_mechanism_framing'][m][s]
+        return c['W1'], c['n']
+    fig, ax = plt.subplots(figsize=(6.2, 2.9))
+    hbars(ax, rows, series, val, names.get, SERIES)
+    ax.set_xlabel('applied the weakening patch when asked (oracle W = 1), 10 templates x 4 paraphrases')
+    ax.legend(loc='upper center', bbox_to_anchor=(0.42, -0.22), ncol=2, fontsize=7.5)
+    fig.savefig(out / 'fig5_request.png')
     plt.close(fig)
 
 
@@ -186,6 +217,7 @@ def main(argv=None):
     fig_confirmatory(out, d)
     fig_ladder(out, d)
     fig_detectors(out, d)
+    fig_request(out, d)
     print(json.dumps(sorted(p.name for p in out.glob('*.png'))))
 
 

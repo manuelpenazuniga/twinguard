@@ -121,7 +121,58 @@ sh(sys.executable, 'analysis/paper_figures.py', '--out', WORK / 'figures')
 for p in sorted((WORK / 'figures').glob('*.png')):
     print(p.name)
     display(Image(filename=str(p), width=720))"""),
-    ('md', """## 6. Optional: relabel every confirmatory run from its patch
+    ('md', """## 6. Explicit request: x3 (Gemma 4 31B) and E4B, re-run from their sealed archives
+
+Each follow-up was analysed once, with an O_EXCL claim keyed to its seal hash
+(`results/x3_claims/`). Here both analyses run again in a fresh clone in which only those
+claims are removed: after verifying the seal (manifest hash and the sealed files of the
+checkout), they read the extracted archives and must reproduce every field of the committed
+reports, along with the per-run detector files. The one exception is the gate: in the runs of
+record it failed on a relative path (`gate_rc` 1, kept as is; see the deviation in
+`docs/decisions.md`). Its corrected output, `results/{x3,e4b}/gate_output.json`, must equal the
+gate that this re-run computes."""),
+    ('code', """def flat(d, p=''):
+    if isinstance(d, dict):
+        for k, v in d.items():
+            yield from flat(v, f'{p}/{k}')
+    elif isinstance(d, list):
+        for i, v in enumerate(d):
+            yield from flat(v, f'{p}/{i}')
+    else:
+        yield p, d
+
+fu = WORK / 'followup_clone'
+if not fu.exists():
+    sh('git', 'clone', '-q', REPO, fu)
+for c in (fu / 'results' / 'x3_claims').glob('*.claim'):
+    c.unlink()                              # only in this throwaway clone
+ext = {}
+for name in ('x3_session1', 'e4b_session1'):
+    ext[name] = WORK / name
+    if not ext[name].exists():
+        with tarfile.open(SEALED / f'{name}.tar.gz') as t:
+            t.extractall(ext[name], filter='data')
+runs = {'x3': ['followup/analyze_x3.py', '--results', ext['x3_session1'] / 'results'],
+        'e4b': ['followup/analyze_e4b.py', '--results', ext['e4b_session1'] / 'results',
+                '--x3-results', ext['x3_session1'] / 'results']}
+for k, args in runs.items():
+    out_k = WORK / 'followup_out' / k
+    r = sh(sys.executable, *args, '--out', out_k, cwd=fu)
+    new = json.loads((out_k / f'{k}_report.json').read_text())
+    old = json.loads((REPO / 'results' / k / f'{k}_report.json').read_text())
+    a = {p: v for p, v in flat(new) if not p.startswith('/detectors/gate')}
+    b = {p: v for p, v in flat(old) if not p.startswith('/detectors/gate')}
+    check(f'{k} report reproduced (every field outside the gate)', a == b)
+    for f in ('runs_detectors_main.csv', 'detectors.jsonl'):
+        check(f'{k} detectors/{f} identical',
+              sha(out_k / 'detectors' / f) == sha(REPO / 'results' / k / 'detectors' / f))
+    check(f'{k} gate equals results/{k}/gate_output.json',
+          new['detectors'].get('gate') == json.loads((REPO / 'results' / k / 'gate_output.json').read_text()))
+x3 = json.loads((REPO / 'results/x3/x3_report.json').read_text())['main']
+print('x3 pooled', x3['pooled'], 'by mechanism', x3['pooled_W_by_mechanism'])
+print(x3['wording'])
+print((REPO / 'results/paper/tables_2_3b.md').read_text().split('## Table 4')[1])"""),
+    ('md', """## 7. Optional: relabel every confirmatory run from its patch
 
 `reproduce --relabel` rebuilds every evaluable label (tests and oracle) from each run's final
 patch, bound by hash to the evaluated patch. It runs agent-written code, so do it only inside an

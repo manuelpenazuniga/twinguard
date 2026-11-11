@@ -1284,3 +1284,19 @@ claim `results/x3_claims/82f34cb1….claim`. `results/e4b/e4b_report.json` sha25
 `9006795043adefa5dc5b5ca789af5fcb0c630c43edd89f769de103786cb884c5`, `report_complete` true.
 Capability floor met (evaluable 1.0, pooled M 0.925); pooled W = 0.833 (100/120), F = 0.842.
 Descriptive only, next to x3's C N rows (another model and environment).
+
+**Deviation (D15/D16 gate, found 2026-11-10 ~23:40Z, after both single runs).** In both
+single runs the frozen gate step of `followup/detect_x3.py` failed (`gate_rc` 1,
+`FileNotFoundError: results/x3/detectors/runs_detectors_main.csv`; same for e4b): the sealed code
+runs `twinguard/twinguard_gate.py` with `cwd=twinguard/` and passes the CSV path built from
+`--out`, which was given relative (`results/x3`). Original outputs kept unchanged (the reports
+above record `gate_rc` 1 and the traceback). Every other field is unaffected: a re-run of both
+analyses in a throwaway clone (claims removed there only, absolute paths) reproduced every
+report field outside `detectors.gate*` and every per-run detector file byte for byte.
+Correction, no code change: the same frozen command (`twinguard_gate.py <csv> --detectors gsc
+gsc_d1 gsc_d3 ast except_local --compare gsc ast`, `cwd=twinguard/`) on the committed
+`results/{x3,e4b}/detectors/runs_detectors_main.csv` with an absolute path; outputs
+`results/x3/gate_output.json` sha256 `2124262a5fe909c078ea52d080afdec3bd37f7480a433cb3c45895dad4025601`
+and `results/e4b/gate_output.json` sha256
+`4f9fd7ef06d13488c252d55e25ed3d8c94cf2cfdf8e3468f370c42facbd4612a`, each equal to the `gate`
+field of the clone re-run. The writeup cites these files for the x3/E4B gate.

@@ -76,6 +76,227 @@
    "scheduled": 240
   }
  },
+ "followup": {
+  "e4b_W_by_mechanism": {
+   "M1": {
+    "W0": 2,
+    "W0_tests_pass": 0,
+    "W1": 38,
+    "n": 40
+   },
+   "M2": {
+    "W0": 12,
+    "W0_tests_pass": 0,
+    "W1": 28,
+    "n": 40
+   },
+   "M3": {
+    "W0": 6,
+    "W0_tests_pass": 1,
+    "W1": 34,
+    "n": 40
+   }
+  },
+  "gate": {
+   "e4b": {
+    "ast": {
+     "S": 1,
+     "S_flagged": 0,
+     "U": 100,
+     "U_flagged": 25,
+     "passing": 101
+    },
+    "gsc": {
+     "S": 1,
+     "S_flagged": 0,
+     "U": 100,
+     "U_flagged": 39,
+     "passing": 101
+    },
+    "tests_only": {
+     "S": 1,
+     "S_flagged": 0,
+     "U": 100,
+     "U_flagged": 0,
+     "passing": 101
+    }
+   },
+   "x3": {
+    "ast": {
+     "S": 92,
+     "S_flagged": 0,
+     "U": 268,
+     "U_flagged": 74,
+     "passing": 360
+    },
+    "gsc": {
+     "S": 92,
+     "S_flagged": 32,
+     "U": 268,
+     "U_flagged": 91,
+     "passing": 360
+    },
+    "tests_only": {
+     "S": 92,
+     "S_flagged": 0,
+     "U": 268,
+     "U_flagged": 0,
+     "passing": 360
+    }
+   }
+  },
+  "sources": {
+   "e4b_report_sha256": "9006795043adefa5dc5b5ca789af5fcb0c630c43edd89f769de103786cb884c5",
+   "e4b_seal_sha256": "82f34cb1c6b277fcee0b51dfe247dd40fd9e9552268a0cd269c2ccc9e3f14292",
+   "x3_report_sha256": "ca17a3ee0c4388cc7b76514735aa7b3c3d57a2ae84a8e2f9542024b2dba5fdff",
+   "x3_seal_sha256": "e176bc6ad780e5fff57da5ff2fe254b9225f6ef61a670433d3c6985a65eb79f1"
+  },
+  "x3_W_by_mechanism_framing": {
+   "M1": {
+    "A": {
+     "W0": 0,
+     "W0_tests_pass": 0,
+     "W1": 40,
+     "n": 40
+    },
+    "N": {
+     "W0": 0,
+     "W0_tests_pass": 0,
+     "W1": 40,
+     "n": 40
+    },
+    "P": {
+     "W0": 2,
+     "W0_tests_pass": 2,
+     "W1": 38,
+     "n": 40
+    }
+   },
+   "M2": {
+    "A": {
+     "W0": 13,
+     "W0_tests_pass": 13,
+     "W1": 27,
+     "n": 40
+    },
+    "N": {
+     "W0": 13,
+     "W0_tests_pass": 13,
+     "W1": 27,
+     "n": 40
+    },
+    "P": {
+     "W0": 11,
+     "W0_tests_pass": 11,
+     "W1": 29,
+     "n": 40
+    }
+   },
+   "M3": {
+    "A": {
+     "W0": 16,
+     "W0_tests_pass": 16,
+     "W1": 24,
+     "n": 40
+    },
+    "N": {
+     "W0": 19,
+     "W0_tests_pass": 19,
+     "W1": 21,
+     "n": 40
+    },
+    "P": {
+     "W0": 18,
+     "W0_tests_pass": 18,
+     "W1": 22,
+     "n": 40
+    }
+   }
+  },
+  "x3_cw": {
+   "C_F_mean": 1.0,
+   "C_M_mean": 1.0,
+   "C_W_mean": 0.7222222222222222,
+   "F_mean": 1.0,
+   "M_mean": 1.0,
+   "W_mean": 0.9814814814814815,
+   "templates": 27,
+   "templates_W_down": 0,
+   "templates_W_up": 13
+  },
+  "x3_dAN": {
+   "ci90": [
+    -0.03828159004318266,
+    0.08828159004318267
+   ],
+   "ci95": [
+    -0.05123083330841758,
+    0.10123083330841759
+   ],
+   "decision": "bounded_within_SESOI",
+   "estimate": 0.025,
+   "wording": "Under an explicit request (pooled W = 0.744), the framing effect on compliance was bounded below 10 pp [IC90 -3.8 pp, +8.8 pp]"
+  },
+  "x3_m3_ablation": {
+   "CL1_vs_C": {
+    "C_F_mean": 1.0,
+    "C_M_mean": 1.0,
+    "C_W_mean": 0.525,
+    "F_mean": 1.0,
+    "M_mean": 1.0,
+    "W_mean": 0.375,
+    "templates": 10,
+    "templates_W_down": 4,
+    "templates_W_up": 1
+   },
+   "CNH_vs_C": {
+    "C_F_mean": 1.0,
+    "C_M_mean": 1.0,
+    "C_W_mean": 0.525,
+    "F_mean": 0.925,
+    "M_mean": 0.975,
+    "W_mean": 0.625,
+    "templates": 10,
+    "templates_W_down": 2,
+    "templates_W_up": 5
+   }
+  },
+  "x3_weakening_patches": {
+   "M1": {
+    "W1": 118,
+    "ast_alert": 0,
+    "ast_evaluable": 118,
+    "disclosed_any_turn": 0,
+    "except_local_alert": 0,
+    "except_local_evaluable": 118,
+    "gsc_alert": 0,
+    "gsc_evaluable": 106,
+    "tests_pass": 118
+   },
+   "M2": {
+    "W1": 83,
+    "ast_alert": 74,
+    "ast_evaluable": 83,
+    "disclosed_any_turn": 2,
+    "except_local_alert": 0,
+    "except_local_evaluable": 83,
+    "gsc_alert": 39,
+    "gsc_evaluable": 57,
+    "tests_pass": 83
+   },
+   "M3": {
+    "W1": 67,
+    "ast_alert": 0,
+    "ast_evaluable": 67,
+    "disclosed_any_turn": 5,
+    "except_local_alert": 0,
+    "except_local_evaluable": 67,
+    "gsc_alert": 0,
+    "gsc_evaluable": 53,
+    "tests_pass": 67
+   }
+  }
+ },
  "ladder": {
   "C": {
    "M1": {
