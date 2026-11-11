@@ -47,7 +47,8 @@ COLAB_GPU_MEM = '0.90'   # colab: vLLM gpu_memory_utilization of the budget card
 # Smokes keep the 40 GB budget on either card.
 COLAB_BUDGET_MIB = 40960
 COLAB_X3_MIB = 81920
-COLAB_MODES = ('runner_smoke', 'x3')  # the only modes allowed on Colab (x3 = D15 follow-up)
+COLAB_MODES = ('runner_smoke', 'x3', 'ladder')  # the only modes allowed on Colab (D15, D17)
+COLAB_80GB_MODES = ('x3', 'ladder')   # x3's card and budget (D17 runs on x3's host)
 KERNEL_T0 = time.time()
 SESSION_LIMIT_S = 12 * 3600      # Kaggle GPU session limit
 STOP_MARGIN_S = 90 * 60          # no run starts later than this before the limit (60 min budget + eval)
@@ -73,8 +74,11 @@ X1_SESSION_S = ''                # x1 modes: absolute end of the whole session (
 X3_MANIFEST_SHA256 = ''          # SHA-256 of the mode's sealed manifest (x3: D15, e4b: D16)
 # D16 'e4b': the same sealed follow-up machinery (blocks, chained sessions, stop time, hang watch)
 # on Kaggle L4x4 with Gemma 4 E4B (same QAT w4a16 family) instead of the 31B; never pooled
-FOLLOWUP_MODES = ('x3', 'e4b')
-FOLLOWUP_MANIFEST = {'x3': 'followup/x3_manifest.json', 'e4b': 'followup/e4b_manifest.json'}
+# D17 'ladder': the same machinery on Colab (x3's A100 80 GB) with three models in sealed blocks,
+# one server at a time (26B-A4B, E2B, E4B from their pinned HF revisions; no overlay)
+FOLLOWUP_MODES = ('x3', 'e4b', 'ladder')
+FOLLOWUP_MANIFEST = {'x3': 'followup/x3_manifest.json', 'e4b': 'followup/e4b_manifest.json',
+                     'ladder': 'followup/ladder_manifest.json'}
 R = {'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'phases': {}}
 HF_EXPECTED = {  # google/gemma-4-31B-it-qat-w4a16-ct @ 52f3f65bc7a02d555763bc923bd1d9094898219d
     'model.safetensors': ('sha256', '1b9b1d622a93f02c0d33f98e502f233b5d707443af6ddc464ed0bf5498506c20'),
@@ -92,6 +96,25 @@ HF_EXPECTED_E4B = {  # google/gemma-4-E4B-it-qat-w4a16-ct @ 6cd26aaa2357fb2bad8c
     'generation_config.json': ('git', 'f6bc6f4146a610a3881015c90d36a78beb1333bb'),
     'tokenizer_config.json': ('git', 'b22e2c5c05597a7e8c0cb1cebdb7d45570772005'),
 }
+HF_EXPECTED_26B = {  # google/gemma-4-26B-A4B-it @ 4d7ae4984b7db7de8f8457170b3f1a419ee76d52 (bf16; no
+    # QAT w4a16 release exists for it; the 12B QAT uses Gemma4Unified, not in vLLM 0.19.1: D17)
+    'model-00001-of-00002.safetensors': ('sha256', '1127684971bbca40465435a5cad69d67ad603bf5e61c6dfd5561fae4a3bcfdb3'),
+    'model-00002-of-00002.safetensors': ('sha256', 'aab47033e1e8a492ef8e581efae1cf36478d0433567e7729b3c1728bc8970db7'),
+    'model.safetensors.index.json': ('git', '889ab10e12aca96c43c9804a041fb1780de1e5ca'),
+    'tokenizer.json': ('sha256', 'cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f'),
+    'config.json': ('git', 'f42adcca257bb0865c506947671e7d0af52ac9c4'),
+    'chat_template.jinja': ('git', '4741bf6e4132ba23a5537f9d6e74e9a6d613d7cd'),
+    'generation_config.json': ('git', 'e605bb4523b1462ea9d9a3810b9e3ecf7ab7b1f6'),
+    'tokenizer_config.json': ('git', '6068e357379d36f823c377e30efb101fa2c67fe4'),
+}
+HF_EXPECTED_E2B = {  # google/gemma-4-E2B-it-qat-w4a16-ct @ 971342c08f607aa7779983f6b5289778b5d271a7
+    'model.safetensors': ('sha256', '93177bfc1b53823f2e01c7cebc3b94f65d189e373a647d086112f614ba448ab9'),
+    'tokenizer.json': ('sha256', 'cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f'),
+    'config.json': ('git', 'c7120a8f546e2f99342716f13fd97e57f9abbad4'),
+    'chat_template.jinja': ('git', 'fbe3b59b625cd1b8850ea592d4203df6ec04684b'),
+    'generation_config.json': ('git', 'f6bc6f4146a610a3881015c90d36a78beb1333bb'),
+    'tokenizer_config.json': ('git', 'b22e2c5c05597a7e8c0cb1cebdb7d45570772005'),
+}
 MODEL_SPECS = {
     '31b': {'kaggle': 'gemma-4-31b-it-qat-w4a16-ct/2', 'dest': '/kaggle/working/model_52f3f65',
             'overlay': 'notebooks/model_overlay', 'hf': HF_EXPECTED,
@@ -99,7 +122,20 @@ MODEL_SPECS = {
     'e4b': {'kaggle': 'gemma-4-e4b-it-qat-w4a16-ct/2', 'dest': '/kaggle/working/model_e4b_6cd26aa',
             'overlay': 'notebooks/e4b_overlay', 'hf': HF_EXPECTED_E4B,
             'revision': '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'tag': 'model:e4b-6cd26aa-overlay'},
+    # D17 ladder: downloaded by the Colab bootstrap from HF at the pinned revision into
+    # /kaggle/input/hf/<hf_dir>; served as is (every file hash-checked, no overlay)
+    '26b_a4b': {'hf_repo': 'google/gemma-4-26B-A4B-it', 'hf_dir': 'gemma-4-26b-a4b@4d7ae49',
+                'dest': '/kaggle/working/model_26b_a4b_4d7ae49', 'hf': HF_EXPECTED_26B,
+                'revision': '4d7ae4984b7db7de8f8457170b3f1a419ee76d52', 'tag': 'model:26b-a4b-4d7ae49'},
+    'e2b': {'hf_repo': 'google/gemma-4-E2B-it-qat-w4a16-ct', 'hf_dir': 'gemma-4-e2b@971342c',
+            'dest': '/kaggle/working/model_e2b_971342c', 'hf': HF_EXPECTED_E2B,
+            'revision': '971342c08f607aa7779983f6b5289778b5d271a7', 'tag': 'model:e2b-971342c'},
+    'e4b_hf': {'hf_repo': 'google/gemma-4-E4B-it-qat-w4a16-ct', 'hf_dir': 'gemma-4-e4b@6cd26aa',
+               'dest': '/kaggle/working/model_e4b_6cd26aa_hf', 'hf': HF_EXPECTED_E4B,
+               'revision': '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'tag': 'model:e4b-6cd26aa'},
 }
+LADDER_KINDS = ('26b_a4b', 'e2b', 'e4b_hf')
+LADDER_KIND = ''         # D17: the model of the ladder block being served (set by ladder_switch)
 
 
 MODEL_KIND = ''          # build --define MODEL_KIND=e4b: a runner_smoke on Kaggle with E4B (D16
@@ -107,6 +143,10 @@ MODEL_KIND = ''          # build --define MODEL_KIND=e4b: a runner_smoke on Kagg
 
 
 def model_spec():
+    if MODE == 'ladder':
+        if LADDER_KIND not in LADDER_KINDS:
+            raise RuntimeError(f'ladder: no model selected ({LADDER_KIND!r})')
+        return MODEL_SPECS[LADDER_KIND]
     return MODEL_SPECS['e4b' if MODE == 'e4b' or MODEL_KIND == 'e4b' else '31b']
 
 
@@ -143,8 +183,8 @@ def gpu_guard():
     gpus = [l for l in smi.splitlines() if l.strip()]
     info = {'gpus': gpus, 'topo': sh('nvidia-smi topo -m'), 'python': sys.version,
             'cpus': os.cpu_count(), 'ram': sh('free -g | head -2')}
-    if PLATFORM != 'colab' and MODE == 'x3':
-        raise SystemExit('x3 runs on Colab only (its sealed environment)')
+    if PLATFORM != 'colab' and MODE in ('x3', 'ladder'):
+        raise SystemExit(f'{MODE} runs on Colab only (its sealed environment)')
     if PLATFORM == 'colab':
         if MODE not in COLAB_MODES:
             raise SystemExit(f'mode {MODE!r} never runs on Colab')
@@ -154,11 +194,11 @@ def gpu_guard():
             save()
             raise SystemExit(f'GPU mismatch (Colab needs one A100), aborting: {gpus}')
         R['colab_gpu'] = gpus[0]          # 40 or 80 GB: recorded, one environment id for both
-        if MODE == 'x3' and f', {COLAB_X3_MIB} MiB' not in gpus[0]:
+        if MODE in COLAB_80GB_MODES and f', {COLAB_X3_MIB} MiB' not in gpus[0]:
             info['abort'] = True
             R['phases']['0_gpu_guard'] = {'ok': False, **info}
             save()
-            raise SystemExit(f'x3 needs the 80 GB A100 (reconnect for another card): {gpus}')
+            raise SystemExit(f'{MODE} needs the 80 GB A100 (reconnect for another card): {gpus}')
         return info
     if len(gpus) != 4 or not all('L4' in g for g in gpus):
         info['abort'] = True
@@ -212,6 +252,17 @@ def model_path():
     older release revision ca9d525 for them; weights are identical, see phase 7)."""
     global KAGGLE_MODEL
     spec = model_spec()
+    if 'hf_dir' in spec:                      # D17: HF files at the pinned revision, no overlay
+        src = Path('/kaggle/input/hf') / spec['hf_dir']
+        if not src.is_dir():
+            raise FileNotFoundError(f"model input hf/{spec['hf_dir']} not downloaded")
+        KAGGLE_MODEL = src
+        dest = Path(spec['dest'])
+        dest.mkdir(parents=True, exist_ok=True)
+        for f in src.iterdir():
+            if f.is_file() and not (dest / f.name).exists():
+                os.symlink(f, dest / f.name)
+        return dest
     c = glob.glob(f"/kaggle/input/**/{spec['kaggle']}", recursive=True)
     if not c:
         raise FileNotFoundError(f"model input {spec['kaggle']} not attached")
@@ -253,9 +304,10 @@ def colab_gpu_util():
     """Smokes: COLAB_GPU_MEM of a 40 GB card as a fraction of this one (0.90 on 40 GB, 0.45 on
     80 GB). x3: 0.90 of the 80 GB card, the only card it runs on."""
     total = int(sh('nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits').split()[0])
-    if MODE == 'x3' and total != COLAB_X3_MIB:
-        raise RuntimeError(f'x3 needs the 80 GB A100, got {total} MiB')
-    util = round(float(COLAB_GPU_MEM) * (COLAB_X3_MIB if MODE == 'x3' else COLAB_BUDGET_MIB) / total, 4)
+    if MODE in COLAB_80GB_MODES and total != COLAB_X3_MIB:
+        raise RuntimeError(f'{MODE} needs the 80 GB A100, got {total} MiB')
+    util = round(float(COLAB_GPU_MEM) * (COLAB_X3_MIB if MODE in COLAB_80GB_MODES else COLAB_BUDGET_MIB)
+                 / total, 4)
     if not 0.3 <= util <= float(COLAB_GPU_MEM):
         raise RuntimeError(f'unexpected A100 memory {total} MiB')
     R['colab_vllm_budget'] = {'total_mib': total, 'gpu_memory_utilization': util,
@@ -488,8 +540,7 @@ def sha256(path):
     return h.hexdigest()
 
 
-@phase('7_model_hashes')
-def model_hashes():
+def model_hash_check():
     out = {'files': sorted(p.name for p in MODEL.iterdir()), 'served_dir': str(MODEL),
            'kaggle_dir': str(KAGGLE_MODEL)}
     expected_files = model_spec()['hf']
@@ -503,6 +554,9 @@ def model_hashes():
     out['all_match'] = all(isinstance(v, dict) and v['match'] for k, v in out.items()
                            if k in expected_files)
     return out
+
+
+model_hashes = phase('7_model_hashes')(model_hash_check)
 
 
 def stop(procs):
@@ -693,7 +747,9 @@ def served_model():
     raise RuntimeError('no served model id known')
 
 
-def environment_id():
+def environment_id(kind=None):
+    if PLATFORM == 'colab' and MODE == 'ladder':
+        return 'colab-A100|py3.12|vllm0.19.1|tp1|' + MODEL_SPECS[kind or LADDER_KIND]['tag']
     if PLATFORM == 'colab':
         # one id for the 40 and the 80 GB A100 (both GA100, sm_80); the card is in R['colab_gpu']
         return 'colab-A100|py3.12|vllm0.19.1|tp1|model:52f3f65-overlay'
@@ -702,17 +758,22 @@ def environment_id():
 
 
 def runner_cmd(code, mode, out_dir, extra):
-    env_id = environment_id()
+    kind = x3_spec(out_dir.name)['model'] if MODE == 'ladder' else None
+    env_id = environment_id(kind) if MODE == 'ladder' else environment_id()
+    if MODE == 'ladder' and env_id != x3_spec(out_dir.name)['environment_id']:
+        raise RuntimeError(f'environment {env_id!r} differs from the D17 block {out_dir.name}')
     if mode == 'confirmatory' and env_id != FREEZE['environment_id']:
         raise RuntimeError(f'environment {env_id!r} differs from the frozen {FREEZE["environment_id"]!r}')
     if mode.startswith('x1_') and env_id != X1['environment_id']:
         raise RuntimeError(f'environment {env_id!r} differs from the D12 {X1["environment_id"]!r}')
-    if mode == 'x3' and env_id != X3['environment_id']:
+    if mode == 'x3' and MODE != 'ladder' and env_id != X3['environment_id']:
         raise RuntimeError(f'environment {env_id!r} differs from the D15 {X3["environment_id"]!r}')
     split = 'confirmatory' if mode in ('confirmatory', 'x1_transfer', 'x3') else 'pilot'
     args = ['--split', split, '--out', str(out_dir), '--work', '/tmp/wk',
-            '--base-url', f'unix:{UDS}', '--model', served_model(),
-            '--model-revision', R['verified_revision'],
+            '--base-url', f'unix:{UDS}',
+            # D17: each block's model and revision from the sealed manifest (also in a close-out)
+            '--model', MODEL_SPECS[kind]['dest'] if kind else served_model(),
+            '--model-revision', MODEL_SPECS[kind]['revision'] if kind else R['verified_revision'],
             '--run-as', ','.join(AGENTS), '--eval-user', ','.join(EVALS),
             '--concurrency', str(len(AGENTS)), '--environment-id', env_id,
             '--code-commit', CODE_COMMIT,
@@ -761,7 +822,7 @@ SEALED = Path('/kaggle/working/results_sealed.tar.gz')
 # raw results (framings, logs): exported with the session for the frozen modes; for the x1
 # modes they live in a root-only directory OUTSIDE /kaggle/working, so a watchdog exit can
 # never leave them in the output (only the sealed archive and blind summaries are exported)
-RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith(('x1_', 'x3', 'e4b')) else Path('/kaggle/working/results')
+RESULTS_DIR = Path('/root/tgv/results') if MODE.startswith(('x1_', 'x3', 'e4b', 'ladder')) else Path('/kaggle/working/results')
 SEAL_LOCK = threading.Lock()     # one snapshot/seal at a time (periodic and final)
 TMP_LOCK = threading.Lock()      # short lock: creating, replacing or sweeping a .sealed_*.tmp
 CLOSING = threading.Event()      # x1 watchdog: no new temporary archive after this is set
@@ -843,7 +904,7 @@ def checkpoint():
 # /health; after HANG_FAILS consecutive failures the runner and every agent/evaluator process are
 # killed (no final row for the runs in flight: their started try stays counted, as for any crashed
 # session) and the session ends sealed, to be resumed by the next one.
-HANG_WATCH_MODES = ('x3',)
+HANG_WATCH_MODES = ('x3',)   # D17 blocks run through run_block(..., 'x3', ...): watched too
 HANG_PROBE_S = 60
 HANG_PROBE_TIMEOUT_S = 30
 HANG_FAILS = 5
@@ -1435,6 +1496,117 @@ def x3_block(code):
     return res
 
 
+# ------------------------------------------------------------------ D17 ladder (Colab)
+class IsolationBreach(RuntimeError):
+    """The model server is reachable by an agent/evaluator uid: the session must end."""
+
+
+def ladder_dests():
+    return [Path(MODEL_SPECS[k]['dest']) for k in LADDER_KINDS]
+
+
+def block_done(name):
+    """Every scheduled run of the block has a row (this session or a resumed one)."""
+    f = RESULTS_DIR / name / 'runs.csv'
+    if not f.exists():
+        return False
+    import csv as _csv
+    have = {r['run_id'] for r in _csv.DictReader(open(f, newline=''))}
+    return len(have) >= int(x3_spec(name)['runs'])
+
+
+def startup_failed(name):
+    return (RESULTS_DIR / name / 'startup_failed.json').exists()
+
+
+def ladder_may_start(i):
+    """Sealed order (time only, never results): block i may start only once every earlier block
+    has a row for each run or a recorded start-up failure, and before the stop time."""
+    bl = x3_blocks()
+    return time.time() < stop_at() and all(block_done(p['name']) or startup_failed(p['name'])
+                                           for p in bl[:i])
+
+
+def ladder_serve(kind, procs):
+    """Stop the previous server; serve `kind` from its pinned HF files (hash-checked) on the
+    root-only socket, with the study's two start attempts; re-check that no agent/evaluator uid
+    can reach it. A failed isolation check raises IsolationBreach (the session ends)."""
+    global LADDER_KIND, MODEL
+    stop(procs)
+    procs.clear()
+    LADDER_KIND = kind
+    MODEL = model_path()
+    R['model_path'] = str(MODEL)
+    h = model_hash_check()
+    if not h.get('all_match'):
+        raise RuntimeError(f"served files do not match HF {model_spec()['revision'][:7]}: {h}")
+    R['verified_revision'] = model_spec()['revision']
+    errs = []
+    for extra in ((), ('--max-num-seqs', '32')):
+        try:
+            p, secs, ex = start_server(1, '0', 8000, f'{kind}_8000', ('--uds', str(UDS), *extra))
+            procs.append(p)
+            break
+        except Exception as e:
+            errs.append({'extra': list(extra), 'error': f'{type(e).__name__}: {e}'[-1500:]})
+    else:
+        raise RuntimeError(json.dumps(errs)[-3000:])
+    R['served_model'] = SERVED[8000]
+    if SERVED[8000] != str(MODEL):
+        raise RuntimeError(f'served id {SERVED[8000]!r} is not the model path {str(MODEL)!r}')
+    u = server_unreachable()
+    if not u.get('ok'):
+        raise IsolationBreach(f'server reachable by an agent/evaluator uid: {u}')
+    return {'hashes': h, 'load_seconds': secs, 'extra_args': ex, 'start_errors': errs,
+            'unreachable': u}
+
+
+def ladder_block(code, procs):
+    """D17: the sealed blocks in order, one model server at a time. A model whose files or
+    server fail (never one already started in an earlier session) is recorded as
+    startup_failed in its block directory and the next block may start."""
+    res = {}
+    for i, b in enumerate(x3_blocks()):
+        name = b['name']
+        rule = {'may_start': ladder_may_start(i), 'started_before': block_started(name),
+                'now_epoch': time.time()}
+        res[name] = {'rule': rule}
+        if block_done(name) or startup_failed(name):
+            res[name]['skipped'] = 'done' if block_done(name) else 'startup_failed'
+            continue
+        if not rule['may_start']:
+            break
+        try:
+            res[name]['serve'] = ladder_serve(b['model'], procs)
+        except IsolationBreach:
+            raise
+        except Exception as exc:
+            if block_started(name):
+                raise                     # a started block is resumed, never declared failed
+            rec = {'block': name, 'model': b['model'], 'revision': b['revision'],
+                   'utc': time.time(), 'error': redact(f'{type(exc).__name__}: {exc}')[-3000:]}
+            (RESULTS_DIR / name).mkdir(parents=True, exist_ok=True)
+            (RESULTS_DIR / name / 'startup_failed.json').write_text(json.dumps(rec, indent=1))
+            res[name]['startup_failed'] = rec
+            continue
+        res[name]['run'] = run_block(code, 'x3', name, x3_args(code, name))
+        if not block_done(name):
+            break
+    stop(procs)
+    procs.clear()
+    return res
+
+
+def ladder_status(closed):
+    if not closed.get('ok'):
+        return 'close_out_failed'
+    if x3_deadline_reached() or closed.get('ran'):
+        return 'closed_at_deadline' if closed.get('ran') else 'requires_close_out'
+    if all(block_done(b['name']) or startup_failed(b['name']) for b in x3_blocks()):
+        return 'complete'
+    return 'requires_resume'
+
+
 def x3_deadline_reached():
     return MODE in FOLLOWUP_MODES and bool(X3) and time.time() >= float(X3['stop_at_epoch'])
 
@@ -1445,7 +1617,7 @@ def x3_close_out(code):
     A block that never started is not closed out (the main block always is)."""
     out = {}
     for i, b in enumerate(x3_blocks()):
-        if i == 0 or block_started(b['name']):
+        if (i == 0 and MODE != 'ladder') or block_started(b['name']):
             out[b['name']] = run_block(code, 'x3', b['name'],
                                        x3_args(code, b['name']) + ['--close-out'])
     return out
@@ -1456,6 +1628,8 @@ def x3_status(closed):
     without a successful close-out in this session: one more session closes out), or
     requires_resume (attach this session's sealed archive to session k + 1 with RESUME_SHA256).
     Read BEFORE the seal."""
+    if MODE == 'ladder':
+        return ladder_status(closed)
     if not closed.get('ok'):
         return 'close_out_failed'
     if x3_deadline_reached() or closed.get('ran'):
@@ -1932,14 +2106,15 @@ elif __name__ == '__main__':
         if MODE in FOLLOWUP_MODES:
             if not phase('6_verify_x3')(x3_verify)(code)['ok']:
                 raise SystemExit('bundle is not the sealed D15 package: refusing to run')
-        MODEL = model_path()
-        R['model_path'] = str(MODEL)
-        h = model_hashes()
-        if h['ok'] and h.get('all_match'):
-            R['verified_revision'] = model_spec()['revision']
-        else:
-            raise SystemExit(f"served model files do not match HF {model_spec()['revision'][:7]}: "
-                             'refusing to run')
+        if MODE != 'ladder':             # D17 checks each model's files before its own block
+            MODEL = model_path()
+            R['model_path'] = str(MODEL)
+            h = model_hashes()
+            if h['ok'] and h.get('all_match'):
+                R['verified_revision'] = model_spec()['revision']
+            else:
+                raise SystemExit(f"served model files do not match HF {model_spec()['revision'][:7]}: "
+                                 'refusing to run')
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         restored = phase('8a_restore')(restore_previous)()
         if not restored['ok']:
@@ -1962,7 +2137,9 @@ elif __name__ == '__main__':
             procs.append(p)
             R['served_model'] = SERVED[8000]
             return {'load_seconds': secs, 'served': dict(SERVED), 'extra_args': ex}
-        if up()['ok'] and server_unreachable()['ok']:
+        if MODE == 'ladder':
+            phase('9_ladder')(lambda: ladder_block(code, procs))()
+        elif up()['ok'] and server_unreachable()['ok']:
             if MODE == 'pilot':
                 main = phase('9_runner_pilot')(lambda: run_block(code, 'pilot', 'pilot', ['--replicates', '1']))()
                 if main['ok']:
@@ -1995,7 +2172,8 @@ elif __name__ == '__main__':
         seal = phase('10_seal')(seal_results)()
         sh('chmod 0755 /kaggle')
         shutil.rmtree('/kaggle/working/code', ignore_errors=True)
-        shutil.rmtree(model_spec()['dest'], ignore_errors=True)
+        for dest in (ladder_dests() if MODE == 'ladder' else [Path(model_spec()['dest'])]):
+            shutil.rmtree(dest, ignore_errors=True)
         R['finished'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         R['shard_status'] = shard_status(closed) if MODE == 'confirmatory' else None
         save()
@@ -2006,7 +2184,7 @@ elif __name__ == '__main__':
             failed = sorted(k for k, v in R['phases'].items() if not v.get('ok'))
             R['colab_failed_phases'] = failed
             save()
-            main_phase = '9_x3' if MODE == 'x3' else '9_runner_smoke'
+            main_phase = {'x3': '9_x3', 'ladder': '9_ladder'}.get(MODE, '9_runner_smoke')
             if failed or main_phase not in R['phases']:
                 print(f'COLAB RUN FAILED: {failed}', flush=True)
                 sys.exit(1)

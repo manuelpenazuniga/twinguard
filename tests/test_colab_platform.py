@@ -136,7 +136,7 @@ def test_notebook_embeds_the_bootstrap(tmp_path):
     assert boot in srcs
     assert any("drive.mount('/root/drive')" in s for s in srcs)    # never under /content
     # credentials only from Colab secrets, never written into the notebook
-    assert any("downloads(userdata.get('KAGGLE_USERNAME'), userdata.get('KAGGLE_KEY'))" in s
+    assert any("downloads(userdata.get('KAGGLE_USERNAME'), userdata.get('KAGGLE_KEY'), LADDER)" in s
                for s in srcs)
 
 

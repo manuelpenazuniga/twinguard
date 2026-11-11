@@ -71,8 +71,8 @@ def main(argv=None):
     meta = json.loads(at_commit('kernel-metadata.json'))
     if 'PLATFORM=colab' in a.define and COLAB_ENV_PATH not in a.extra_path:
         a.extra_path.append(COLAB_ENV_PATH)        # Colab builds carry the Kaggle environment lock
-    if ('MODE=x3' in a.define or 'MODE=e4b' in a.define) and 'followup' not in a.extra_path:
-        a.extra_path.append('followup')            # D15/D16: the derived bank and its manifest
+    if any(f'MODE={m}' in a.define for m in ('x3', 'e4b', 'ladder')) and 'followup' not in a.extra_path:
+        a.extra_path.append('followup')            # D15/D16/D17: the derived bank and its manifest
     e4b = 'MODE=e4b' in a.define or 'MODEL_KIND=e4b' in a.define
     if e4b and 'notebooks/e4b_overlay' not in a.extra_path:
         a.extra_path.append('notebooks/e4b_overlay')   # D16: E4B's two HF 6cd26aa files

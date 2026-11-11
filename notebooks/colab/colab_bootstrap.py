@@ -28,6 +28,11 @@ UV_PY = '/opt/uv-python'
 CACHE = '/kaggle/input/kagglehub'
 WHEELHOUSE = 'metric/gemma-4-developer-agent-wheelhouse'
 MODEL = 'google/gemma-4/other/gemma-4-31b-it-qat-w4a16-ct/2'
+# D17 ladder: Hugging Face repos at their pinned revisions (public, not gated), into
+# /kaggle/input/hf/<dir> (the kernel's MODEL_SPECS hf_dir; it hash-checks every served file)
+LADDER_HF = (('google/gemma-4-26B-A4B-it', '4d7ae4984b7db7de8f8457170b3f1a419ee76d52', 'gemma-4-26b-a4b@4d7ae49'),
+             ('google/gemma-4-E2B-it-qat-w4a16-ct', '971342c08f607aa7779983f6b5289778b5d271a7', 'gemma-4-e2b@971342c'),
+             ('google/gemma-4-E4B-it-qat-w4a16-ct', '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'gemma-4-e4b@6cd26aa'))
 SYNC = ('pilot_results.json', 'results_sealed.tar.gz', 'x2_selection.json', 'pip_freeze.txt')
 
 
@@ -57,18 +62,28 @@ def venv():
             'uv': sh('uv --version', check=False)}
 
 
-def downloads(user, key):
+def downloads(user, key, ladder=False):
+    """The wheelhouse (Kaggle), then either the 31B Kaggle model or, for D17, the three HF models."""
     os.environ.update(KAGGLE_USERNAME=user, KAGGLE_KEY=key, KAGGLEHUB_CACHE=CACHE)
     try:
         import kagglehub
         whl = kagglehub.dataset_download(WHEELHOUSE)
-        mdl = kagglehub.model_download(MODEL)
+        mdl = None if ladder else kagglehub.model_download(MODEL)
     finally:
         for k in ('KAGGLE_USERNAME', 'KAGGLE_KEY'):
             os.environ.pop(k, None)
         for p in ('/root/.kaggle', '/root/.config/kaggle'):
             shutil.rmtree(p, ignore_errors=True)
-    if '/gemma-4-developer-agent-wheelhouse/' not in whl + '/' or not mdl.rstrip('/').endswith(
+    if ladder:
+        from huggingface_hub import snapshot_download
+        mdl = []
+        for repo, rev, d in LADDER_HF:
+            dest = Path('/kaggle/input/hf') / d
+            snapshot_download(repo_id=repo, revision=rev, local_dir=str(dest), token=False)
+            shutil.rmtree(dest / '.cache', ignore_errors=True)
+            mdl.append(str(dest))
+        sh('chmod -R a+rX /kaggle/input/hf')
+    if '/gemma-4-developer-agent-wheelhouse/' not in whl + '/' or not ladder and not mdl.rstrip('/').endswith(
             'gemma-4-31b-it-qat-w4a16-ct/2'):
         raise RuntimeError(f'unexpected download layout: {whl} {mdl}')
     return whl, mdl
