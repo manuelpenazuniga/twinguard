@@ -1454,11 +1454,22 @@ manifest, kernel script (`5d93238c…`) and analysis are unchanged.
 D17 session 1 and its sealed records stay as they are (E2B and 26B-A4B are reported there as
 `startup_failed` with the cause). D17b re-runs exactly those two blocks with D17's design, rules,
 host path and analysis, after one kernel fix: before every server start (and after a failed
-attempt) the kernel kills any process still holding the socket path and removes the socket file
-(`ladder_free_socket`; a socket that cannot be removed ends the session). Its own seal
+attempt) the kernel kills the root processes that really hold the socket (found via
+`/proc/net/unix` inodes and their fd links; if a root process's fd table is unreadable, a command
+line with `--uds <socket>`), waits until none holds it, and removes the socket file
+(`ladder_free_socket`). The session ends sealed (`requires_resume`, never `startup_failed`) if
+the socket is still held 30 s after SIGKILL, if `/proc/net/unix` cannot be read, or if the file
+cannot be removed. (Root cause, checked by Fable on the session-1 records: vLLM 0.19.1 binds the
+socket path and never removes the file, so the stale file alone raises `EADDRINUSE`.) Its own seal
 (`followup/ladder2_seal.py` → `followup/ladder2_manifest.json` + OTS), blocks
 `ladder2_e2b_main`, `ladder2_26b` (same models, revisions, environment ids, order), global cut
 2026-11-11 21:00Z, single analysis `followup/analyze_ladder2.py` (D17's `analyze_ladder.py`
-unchanged, on D17b's seal; once, O_EXCL claim). D17's sealed files are not modified (its seal
-still verifies). E4B's D17 block is analysed by D17's single analysis; the D17 and D17b reports
+unchanged, on D17b's seal; once, O_EXCL claim). No file checked by the D15/D16/D17 analyses is
+modified (their seals still verify); the kernel script, which D17's manifest lists, changes, as
+any kernel fix does, and D17b's manifest seals the new one. The D17b report is written by D17's
+unchanged analysis, so it is still labelled `TwinGuard D17 … (ladder)` and named
+`ladder_report.json`; its D17b seal hash, block names and `results/ladder2` identify it. E4B's D17 block is analysed by D17's single analysis; the D17 and D17b reports
 are read together, each with its own seal; nothing is pooled. No other change, model or setting.
+Reviews of D17b: Sol rounds 1–5 ("listo para sellar" in round 5); Fable 5.2 (high) independent
+audit "listo para sellar", low findings applied before the seal (fallback holder match narrowed to
+`--uds <socket>`, unlink test, wording above).

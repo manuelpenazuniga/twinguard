@@ -653,7 +653,8 @@ def test_ladder_socket_that_cannot_be_removed_ends_the_session(monkeypatch, tmp_
     empty = tmp_path / 'proc'
     empty.mkdir()
     monkeypatch.setattr(k, 'Path', lambda p, *a: real(str(empty)) if str(p) == '/proc' else real(p, *a))
-    with pytest.raises(k.SessionFatal):
+    monkeypatch.setattr(k, 'socket_holders', lambda p: [])          # Fable: reach the unlink branch
+    with pytest.raises(k.SessionFatal, match='could not be removed'):
         k.ladder_free_socket()
 
 

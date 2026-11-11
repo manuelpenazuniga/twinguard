@@ -1625,7 +1625,8 @@ def ladder_toy(code, kind):
 
 def socket_holders(path):
     """PIDs of root processes holding an open unix socket bound to `path` (Sol: the real owner,
-    via /proc/net/unix inodes and each process's fd links, never a command-line match)."""
+    via /proc/net/unix inodes and each process's fd links; only if a root process's fd table is
+    unreadable, a command line with `--uds <path>` (vLLM's API server) counts as a holder)."""
     inodes = set()
     try:
         table = Path('/proc/net/unix').read_text()
@@ -1665,8 +1666,8 @@ def socket_holders(path):
                 cmd = (d / 'cmdline').read_bytes().replace(b'\0', b' ').decode(errors='replace')
             except OSError:
                 cmd = ''
-            if 'vllm' in cmd and str(path) in cmd:
-                pids.append(int(d.name))      # conservative: vLLM's API server for this socket
+            if f'--uds {path}' in cmd:      # Fable: only the API server is started with it
+                pids.append(int(d.name))
         elif any(f'socket:[{i}]' in links for i in inodes):
             pids.append(int(d.name))
     return pids
