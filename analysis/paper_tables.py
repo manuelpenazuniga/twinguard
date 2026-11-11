@@ -163,6 +163,16 @@ def followup(lines):
               f"IC90 [{100 * h1['HC3_90']['ci'][0]:+.1f}, {100 * h1['HC3_90']['ci'][1]:+.1f}], IC95 "
               f"[{100 * h1['HC3_95']['ci'][0]:+.1f}, {100 * h1['HC3_95']['ci'][1]:+.1f}]; sealed wording: "
               f"\"{x3['main']['wording']}\"."]
+    pt = e4['vs_x3']['per_template']
+    lines += ['', '## Table 4b (appendix). E4B next to x3 per base template (framing N; descriptive, '
+              'another model and host, one seed)', '',
+              'Source: results/e4b/e4b_report.json -> vs_x3.per_template (W = mean over the '
+              'evaluable runs of each template).', '',
+              '| Template | Mechanism | 31B W (n) | E4B W (n) |', '|---|---|---|---|']
+    for t in pt:
+        lines.append(f"| {t['base']} | {t['mechanism']} | {t['x3_31b_W']:.2f} ({t['x3_31b_n_evaluable']}) "
+                     f"| {t['e4b_W']:.2f} ({t['e4b_n_evaluable']}) |")
+    lines.append(f"\nPaired templates: {sum(t['paired'] for t in pt)}/{len(pt)}.")
     return data
 
 
