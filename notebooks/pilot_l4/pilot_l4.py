@@ -1518,6 +1518,11 @@ class GpuNotReleased(SessionFatal):
     """A stopped server's processes still hold the GPU."""
 
 
+class LadderDeferred(RuntimeError):
+    """Sol: the stop time passed while a configuration was being prepared; not a failure of the
+    model (never startup_failed): the block is resumed in a later session or closed out."""
+
+
 GPU_FREE_MIB = 2048
 GPU_FREE_WAIT_S = 180
 
@@ -1602,7 +1607,7 @@ def ladder_toy(code, kind):
     shutil.rmtree(TOY_DIR / kind, ignore_errors=True)
     run = run_block(code, 'runner_smoke', kind,
                     ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'],
-                    hard_at=time.time() + TOY_HARD_S, out_root=TOY_DIR)
+                    hard_at=min(time.time() + TOY_HARD_S, stop_at()), out_root=TOY_DIR)
     import csv as _csv
     f = TOY_DIR / kind / 'runs.csv'
     rows = list(_csv.DictReader(open(f, newline=''))) if f.exists() else []
@@ -1623,6 +1628,7 @@ def ladder_serve(kind, procs):
     stop(procs)
     procs.clear()
     freed = [ladder_free_gpu()]
+    t_start = time.time()
     LADDER_KIND = kind
     MODEL = model_path()
     R['model_path'] = str(MODEL)
@@ -1649,7 +1655,10 @@ def ladder_serve(kind, procs):
     u = server_unreachable()
     if not u.get('ok'):
         raise IsolationBreach(f'server reachable by an agent/evaluator uid: {u}')
+    if time.time() >= stop_at():
+        raise LadderDeferred(f'{kind}: server ready after the stop time')
     rec = {'model': kind, 'revision': model_spec()['revision'], 'utc': time.time(),
+           'start_utc': t_start,
            'load_seconds': secs, 'extra_args': ex, 'start_errors': errs,
            'vllm_budget': R.get('colab_vllm_budget'), 'max_model_len': 32768,
            'concurrency': len(AGENTS), 'gpu_freed': freed}
@@ -1658,7 +1667,10 @@ def ladder_serve(kind, procs):
     except Exception as exc:
         rec['kv'] = f'{type(exc).__name__}: {exc}'
     rec['toy'] = ladder_toy(code_dir(), kind)
+    rec['toy_end_utc'] = time.time()
     ladder_log(rec)
+    if not rec['toy']['ok'] and time.time() >= stop_at():
+        raise LadderDeferred(f"{kind}: toy check cut by the stop time: {rec['toy']}")
     if not rec['toy']['ok']:
         raise RuntimeError(f"toy check failed: {rec['toy']}")
     return {'hashes': h, **rec, 'unreachable': u}
@@ -1683,7 +1695,13 @@ def ladder_block(code, procs):
             res[name]['serve'] = ladder_serve(b['model'], procs)
         except SessionFatal:
             raise
+        except LadderDeferred as exc:
+            res[name]['deferred'] = redact(str(exc))[-1500:]
+            break
         except Exception as exc:
+            if time.time() >= stop_at():          # past the stop time: deferred, never failed
+                res[name]['deferred'] = redact(f'{type(exc).__name__}: {exc}')[-1500:]
+                break
             if block_started(name):
                 raise                     # a started block is resumed, never declared failed
             rec = {'block': name, 'model': b['model'], 'revision': b['revision'],

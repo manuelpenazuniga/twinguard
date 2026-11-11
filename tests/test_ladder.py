@@ -281,7 +281,7 @@ def seals(manifest=None):
 
 
 def ladder_root(tmp_path, ran=('ladder_e4b_main', 'ladder_26b'), failed=('ladder_e2b',),
-                W_of=lambda s: 1, status_of=None, revision_of=None):
+                W_of=lambda s: 1, status_of=None, revision_of=None, session_stop=1e6):
     root = tmp_path / 'results'
     sched = AN.scheduled('spec_main.csv', ('N',))
     t = 100.0
@@ -310,7 +310,8 @@ def ladder_root(tmp_path, ran=('ladder_e4b_main', 'ladder_26b'), failed=('ladder
         t += 100.0
     root.mkdir(parents=True, exist_ok=True)
     (root / 'x3_sessions.jsonl').write_text(json.dumps(
-        {'session': 1, 'manifest_sha256': LSEAL, 'code_commit': 'c'}) + '\n')
+        {'session': 1, 'manifest_sha256': LSEAL, 'code_commit': 'c', 'started_utc': 50.0,
+         'stop_at': session_stop}) + '\n')
     return root
 
 
@@ -496,3 +497,55 @@ def test_ladder_serves_only_hash_listed_files(monkeypatch, tmp_path):
     monkeypatch.setattr(k, 'LADDER_KIND', '26b_a4b')
     with pytest.raises(FileNotFoundError, match='HTTP 503'):
         k.model_path()
+
+
+def test_ladder_every_start_inside_a_session(tmp_path):
+    root = ladder_root(tmp_path, session_stop=150.0)      # the 26B block started at 200
+    with pytest.raises(SystemExit, match='outside its session'):
+        L.provenance(LM, LSEAL, root)
+    L.provenance(LM, LSEAL, ladder_root(tmp_path / 'ok'))
+
+
+def test_ladder_e4b_hosts_need_both_floors(tmp_path, monkeypatch):
+    def status(r):
+        return {'status': 'no_patch', 'M': 0, 'W': 0, 'F': 0}
+    root = ladder_root(tmp_path, ran=('ladder_e4b_main', 'ladder_26b'), status_of=status)
+    rep = run_ladder(tmp_path, monkeypatch, root, e4b=True)
+    assert rep['e4b_hosts']['compared'] is False and rep['e4b_hosts']['floors']['colab'] is False
+
+
+def test_ladder_deferral_is_never_a_startup_failure(monkeypatch, tmp_path):
+    k = ladder_kernel(monkeypatch, tmp_path)
+
+    def serve(kind, procs):
+        raise k.LadderDeferred('ready after the stop time')
+    monkeypatch.setattr(k, 'ladder_serve', serve)
+    res = k.ladder_block(ROOT, [])
+    assert 'deferred' in res['ladder_e4b_main'] and 'ladder_e2b' not in res
+    assert not (k.RESULTS_DIR / 'ladder_e4b_main' / 'startup_failed.json').exists()
+    assert k.ladder_status({'ok': True}) == 'requires_resume'
+    # an ordinary error after the stop time is deferred too
+    monkeypatch.setattr(k, 'ladder_serve', lambda kind, procs: (_ for _ in ()).throw(RuntimeError('engine')))
+    monkeypatch.setattr(k, 'stop_at', lambda: 0.0)
+    monkeypatch.setattr(k, 'ladder_may_start', lambda i: True)
+    res = k.ladder_block(ROOT, [])
+    assert 'deferred' in res['ladder_e4b_main']
+    assert not (k.RESULTS_DIR / 'ladder_e4b_main' / 'startup_failed.json').exists()
+
+
+def test_ladder_bundle_equals_the_files_the_seal_lists(tmp_path):
+    """The seal hashes git ls-tree of bundle_paths(EXTRA_PATHS) at HEAD minus OWN; the Colab
+    ladder build must bundle exactly those files (plus the OWN manifests once committed)."""
+    out = tmp_path / 'b'
+    subprocess.run([sys.executable, str(ROOT / 'notebooks' / 'build_kernel.py'),
+                    str(ROOT / 'notebooks' / 'pilot_l4'), '--out-dir', str(out),
+                    '--define', 'PLATFORM=colab', '--define', 'MODE=ladder'], check=True, capture_output=True)
+    src = (out / 'pilot_l4.py').read_text()
+    ns = {}
+    i = src.index('CODE_B64')
+    exec(src[:src.index('\n', i) + 1], ns)
+    t = tarfile.open(fileobj=io.BytesIO(base64.b64decode(ns['CODE_B64'])), mode='r:gz')
+    files = {m.name for m in t.getmembers() if m.isfile()}
+    from followup.x3_seal import bundle_paths, git
+    listed = set(git('ls-tree', '-r', '--name-only', 'HEAD', '--', *bundle_paths(LS.EXTRA_PATHS)).decode().split())
+    assert files - LS.OWN == listed - LS.OWN and len(files - LS.OWN) > 2000

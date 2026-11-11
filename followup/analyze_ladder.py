@@ -53,6 +53,16 @@ def provenance(m, seal_hash, root):
     """Every started block from its own sealed model and environment; blocks in the sealed order;
     one code commit; the session chain of this seal."""
     root = Path(root)
+    log = root / 'x3_sessions.jsonl'
+    if not log.exists():
+        raise SystemExit('no x3_sessions.jsonl in the results')
+    sess = [json.loads(x) for x in log.read_text().splitlines() if x.strip()]
+    windows = []
+    for e in sess:                            # Sol: every start inside a session and before the cut
+        a, z = e.get('started_utc'), e.get('stop_at')
+        if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (a, z)):
+            raise SystemExit(f"session {e.get('session')}: no finite start/stop time")
+        windows.append((float(a), min(float(z), float(m['stop_at_epoch']))))
     names = [b['name'] for b in m['blocks']]
     unknown = sorted(d.name for d in root.iterdir() if d.is_dir() and d.name not in names)
     if unknown:
@@ -80,8 +90,17 @@ def provenance(m, seal_hash, root):
                 st['startup_failed'] = rec
                 st['failed_utc'] = float(utc)
             continue
-        if t0 > float(m['stop_at_epoch']) + A.STARTBY_TOL_S:
-            raise SystemExit(f"{b['name']}: first started after the global cut")
+        for line in (d / 'attempts.jsonl').read_text(errors='replace').splitlines():
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if ev.get('event') != 'start':
+                continue
+            u = ev.get('utc')
+            if not isinstance(u, (int, float)) or not math.isfinite(u) or not any(
+                    a - A.ORDER_TOL_S <= u <= z + A.ORDER_TOL_S for a, z in windows):
+                raise SystemExit(f"{b['name']}: a run started outside its session or after the cut")
         st['outcome'] = 'ran'
         if not (d / 'runs.csv').exists():
             raise SystemExit(f"{b['name']} started (start event) but has no runs.csv")
@@ -126,10 +145,6 @@ def provenance(m, seal_hash, root):
             late = sorted(r for r, e in A.run_ends(pd_).items() if e > t0 + A.ORDER_TOL_S)
             if late:
                 raise SystemExit(f"{b['name']} first started before {prev['name']} ended: sealed order")
-    log = root / 'x3_sessions.jsonl'
-    if not log.exists():
-        raise SystemExit('no x3_sessions.jsonl in the results')
-    sess = [json.loads(x) for x in log.read_text().splitlines() if x.strip()]
     if [e['session'] for e in sess] != list(range(1, len(sess) + 1)) \
             or {e['manifest_sha256'] for e in sess} != {seal_hash} \
             or (commits and {e['code_commit'] for e in sess} != commits):
@@ -251,7 +266,11 @@ def main(argv=None):
         A.guarded(r, 'detectors', lambda: DX.run(drows, [d], out_dir / 'detectors' / kind, a.workers))
         A.write_report(out_dir, rep, 'ladder_report.json')
     e4_block = next((b['name'] for b in m['blocks'] if b['model'] == 'e4b_hf'), None)
-    if e4 is not None and e4_block in rows:
+    floors = {'colab': rep['models'].get('e4b_hf', {}).get('floor', {}).get('met'),
+              'kaggle': E.floor(e4_rows)['met'] if e4 is not None else None}
+    if e4 is not None and e4_block in rows and not all(floors.values()):
+        rep['e4b_hosts'] = {'compared': False, 'reason': 'capability floor not met', 'floors': floors}
+    elif e4 is not None and e4_block in rows:
         A.guarded(rep, 'e4b_hosts', lambda: side_by_side(rows[e4_block][1], e4_rows, 'colab', 'kaggle'))
     rep['report_complete'] = True
     digest = A.write_report(out_dir, rep, 'ladder_report.json')

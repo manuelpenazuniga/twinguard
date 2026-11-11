@@ -1412,3 +1412,9 @@ safe", "size causes", "intermediate rung", or a rate difference read as a test.
   has a finite time before the global cut and before the next block's first start, and the block
   has no run records; a block's first start must precede the global cut; the 31B comparator keeps
   only x3 templates with their four N rows.
+- After Sol's second round: a configuration whose server or toy check is still being prepared
+  when the stop time passes is *deferred* (resumed in a later session or closed out), never
+  `startup_failed`; the toy check never runs past the stop time; `ladder_serve.jsonl` records
+  the start and end of every preparation. The analysis checks every start event (not only the
+  first) against its session window and the global cut (5 s tolerance), and compares E4B across
+  hosts only if both its D16 and D17 runs meet the capability floor.
