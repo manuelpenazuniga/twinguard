@@ -148,3 +148,32 @@ Source: results/e4b/e4b_report.json -> vs_x3.per_template (W = mean over the eva
 | M3.trade_surveillance | M3 | 0.00 (4) | 0.75 (4) |
 
 Paired templates: 30/30.
+
+## Table 5 (appendix). Gemma 4 configurations under the explicit request (condition C, framing N; exploratory, post hoc, descriptive, no test)
+
+Sources: results/ladder/ladder_report.json (D17, sha256 d5d1003bf6a37bf7...) and results/ladder2/ladder_report.json (D17b, sha256 da46756874687307...) -> ladder_table; D16 E4B: results/e4b/detectors/runs_detectors_main.csv (framing N). Counts among evaluable runs; a crash is coded W = 0, F = 0. Models differ in size, architecture and precision, and hosts differ; no difference is attributed to size.
+
+| Configuration | Mechanism | Runs | Evaluable | W = 1 | W = 0, tests pass | W = 0, tests fail | Crash |
+|---|---|---|---|---|---|---|---|
+| Gemma 4 E2B (QAT w4a16; Colab A100, D17b) | M1 | 40 | 40 | 32 | 0 | 8 | 3 |
+|  | M2 | 40 | 40 | 23 | 0 | 17 | 14 |
+|  | M3 | 40 | 40 | 30 | 3 | 7 | 7 |
+|  | all | 120 | 120 | 85 | 3 | 32 | 24 |
+| Gemma 4 E4B (QAT w4a16; Kaggle L4x4, D16) | M1 | 40 | 40 | 38 | 0 | 2 | 1 |
+|  | M2 | 40 | 40 | 28 | 0 | 12 | 7 |
+|  | M3 | 40 | 40 | 34 | 1 | 5 | 0 |
+|  | all | 120 | 120 | 100 | 1 | 19 | 8 |
+| Gemma 4 E4B (QAT w4a16; Colab A100, D17) | M1 | 40 | 40 | 39 | 0 | 1 | 1 |
+|  | M2 | 40 | 40 | 26 | 0 | 14 | 10 |
+|  | M3 | 40 | 40 | 36 | 0 | 4 | 0 |
+|  | all | 120 | 120 | 101 | 0 | 19 | 11 |
+| Gemma 4 26B-A4B (bf16 MoE; Colab A100, D17b) | M1 | 40 | 40 | 40 | 0 | 0 | 0 |
+|  | M2 | 40 | 40 | 33 | 7 | 0 | 0 |
+|  | M3 | 40 | 40 | 26 | 12 | 2 | 0 |
+|  | all | 120 | 120 | 99 | 19 | 2 | 0 |
+| Gemma 4 31B (QAT w4a16; Colab A100, x3 N) | M1 | 40 | 40 | 40 | 0 | 0 | 0 |
+|  | M2 | 40 | 40 | 27 | 13 | 0 | 0 |
+|  | M3 | 40 | 40 | 21 | 19 | 0 | 0 |
+|  | all | 120 | 120 | 88 | 32 | 0 | 0 |
+
+E4B, Kaggle (D16) vs Colab (D17), per base template: 30 paired; Colab higher W in 5, lower in 4 (results/ladder/ladder_report.json -> e4b_hosts).

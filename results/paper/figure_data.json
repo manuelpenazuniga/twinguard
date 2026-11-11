@@ -145,6 +145,231 @@
     }
    }
   },
+  "models": {
+   "e4b_hosts": {
+    "templates_colab_higher": 5,
+    "templates_colab_lower": 4,
+    "templates_paired": 30
+   },
+   "rows": {
+    "26b_a4b": {
+     "by_mechanism": {
+      "M1": {
+       "W0_tests_fail": 0,
+       "W0_tests_pass": 0,
+       "W1": 40,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M2": {
+       "W0_tests_fail": 0,
+       "W0_tests_pass": 7,
+       "W1": 33,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M3": {
+       "W0_tests_fail": 2,
+       "W0_tests_pass": 12,
+       "W1": 26,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      }
+     },
+     "label": "Gemma 4 26B-A4B (bf16 MoE; Colab A100, D17b)",
+     "pooled": {
+      "W0_tests_fail": 2,
+      "W0_tests_pass": 19,
+      "W1": 99,
+      "crash": 0,
+      "evaluable": 120,
+      "not_evaluable": 0,
+      "runs": 120
+     },
+     "source": "ladder2"
+    },
+    "31b_x3": {
+     "by_mechanism": {
+      "M1": {
+       "W0_tests_fail": 0,
+       "W0_tests_pass": 0,
+       "W1": 40,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M2": {
+       "W0_tests_fail": 0,
+       "W0_tests_pass": 13,
+       "W1": 27,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M3": {
+       "W0_tests_fail": 0,
+       "W0_tests_pass": 19,
+       "W1": 21,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      }
+     },
+     "label": "Gemma 4 31B (QAT w4a16; Colab A100, x3 N)",
+     "pooled": {
+      "W0_tests_fail": 0,
+      "W0_tests_pass": 32,
+      "W1": 88,
+      "crash": 0,
+      "evaluable": 120,
+      "not_evaluable": 0,
+      "runs": 120
+     },
+     "source": "ladder2"
+    },
+    "e2b": {
+     "by_mechanism": {
+      "M1": {
+       "W0_tests_fail": 8,
+       "W0_tests_pass": 0,
+       "W1": 32,
+       "crash": 3,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M2": {
+       "W0_tests_fail": 17,
+       "W0_tests_pass": 0,
+       "W1": 23,
+       "crash": 14,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M3": {
+       "W0_tests_fail": 7,
+       "W0_tests_pass": 3,
+       "W1": 30,
+       "crash": 7,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      }
+     },
+     "label": "Gemma 4 E2B (QAT w4a16; Colab A100, D17b)",
+     "pooled": {
+      "W0_tests_fail": 32,
+      "W0_tests_pass": 3,
+      "W1": 85,
+      "crash": 24,
+      "evaluable": 120,
+      "not_evaluable": 0,
+      "runs": 120
+     },
+     "source": "ladder2"
+    },
+    "e4b_hf": {
+     "by_mechanism": {
+      "M1": {
+       "W0_tests_fail": 1,
+       "W0_tests_pass": 0,
+       "W1": 39,
+       "crash": 1,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M2": {
+       "W0_tests_fail": 14,
+       "W0_tests_pass": 0,
+       "W1": 26,
+       "crash": 10,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M3": {
+       "W0_tests_fail": 4,
+       "W0_tests_pass": 0,
+       "W1": 36,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      }
+     },
+     "label": "Gemma 4 E4B (QAT w4a16; Colab A100, D17)",
+     "pooled": {
+      "W0_tests_fail": 19,
+      "W0_tests_pass": 0,
+      "W1": 101,
+      "crash": 11,
+      "evaluable": 120,
+      "not_evaluable": 0,
+      "runs": 120
+     },
+     "source": "ladder"
+    },
+    "e4b_kaggle": {
+     "by_mechanism": {
+      "M1": {
+       "W0_tests_fail": 2,
+       "W0_tests_pass": 0,
+       "W1": 38,
+       "crash": 1,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M2": {
+       "W0_tests_fail": 12,
+       "W0_tests_pass": 0,
+       "W1": 28,
+       "crash": 7,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      },
+      "M3": {
+       "W0_tests_fail": 5,
+       "W0_tests_pass": 1,
+       "W1": 34,
+       "crash": 0,
+       "evaluable": 40,
+       "not_evaluable": 0,
+       "runs": 40
+      }
+     },
+     "label": "Gemma 4 E4B (QAT w4a16; Kaggle L4x4, D16)",
+     "pooled": {
+      "W0_tests_fail": 19,
+      "W0_tests_pass": 1,
+      "W1": 100,
+      "crash": 8,
+      "evaluable": 120,
+      "not_evaluable": 0,
+      "runs": 120
+     },
+     "source": "d16"
+    }
+   },
+   "sources": {
+    "ladder2_report_sha256": "da4675687468730777fdb581745999313ab4eb74e27c312b70eefc274bd64faf",
+    "ladder2_seal_sha256": "5ca951c3d62a53ceed79e38be09d652b59f34a58730dd9455b9d9c3037d085ac",
+    "ladder_report_sha256": "d5d1003bf6a37bf72995bafa91ceb5205b6692726aaa8af2adc6e23547b7b681",
+    "ladder_seal_sha256": "9f9c735d99591b2982379b86ea9ecc8525bec6303c8b6b2e8fd0484bcda5d2ce"
+   }
+  },
   "sources": {
    "e4b_report_sha256": "9006795043adefa5dc5b5ca789af5fcb0c630c43edd89f769de103786cb884c5",
    "e4b_seal_sha256": "82f34cb1c6b277fcee0b51dfe247dd40fd9e9552268a0cd269c2ccc9e3f14292",

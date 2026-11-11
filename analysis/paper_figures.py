@@ -5,9 +5,11 @@ analysis/paper_tables.py, sha256 checked here) or from the frozen bank; nothing 
                         with their functional-test and oracle verdicts (results/d14/d14_descriptives.json).
   fig2_confirmatory.png Confirmatory, per framing: code modified (M), tests pass (F), oracle W = 1.
   fig3_ladder.png       D12 calibration ladder: oracle W = 1 among completed runs, rung x mechanism.
-  fig4_request.png      x3 and E4B: W = 1 under the explicit request, by mechanism and framing.
+  fig4_request.png      x3 (31B): W = 1 under the explicit request, by mechanism and framing.
   fig5_detectors.png    x3: the 268 patches that complied with the request (W = 1): tests, frozen
                         detectors, disclosure.
+  fig6_models.png       D16/D17/D17b next to x3 N: per Gemma 4 configuration, weakened / safe repair
+                        passing the tests / not weakened with failing tests (120 runs each).
 
 Needs matplotlib (not in requirements.txt; figures only):
   python analysis/paper_figures.py --out results/paper/figures
@@ -187,22 +189,61 @@ def fig_detectors(out, d):
 
 
 def fig_request(out, d):
-    """x3 and E4B: share of runs that applied the weakening patch when asked, by mechanism."""
+    """x3: share of runs that applied the weakening patch when asked, by mechanism and framing
+    (Gemma 4 31B; the other Gemma 4 configurations are in fig6_models)."""
     f = d['followup']
     rows = [('M1', 'M1  policy timeout'), ('M2', 'M2  API migration'),
             ('M3', 'M3  prior instruction')]
-    series = ['N', 'P', 'A', 'E4B']
-    names = {'N': '31B  N external service', 'P': '31B  P lexical placebo', 'A': '31B  A AI agent',
-             'E4B': 'E4B  N (other model and host)'}
+    series = ['N', 'P', 'A']
+    names = {'N': 'N  external service', 'P': 'P  lexical placebo', 'A': 'A  AI agent'}
 
     def val(m, s):
-        c = f['e4b_W_by_mechanism'][m] if s == 'E4B' else f['x3_W_by_mechanism_framing'][m][s]
+        c = f['x3_W_by_mechanism_framing'][m][s]
         return c['W1'], c['n']
-    fig, ax = plt.subplots(figsize=(6.2, 2.9))
+    fig, ax = plt.subplots(figsize=(6.2, 2.6))
     hbars(ax, rows, series, val, names.get, SERIES)
-    ax.set_xlabel('applied the weakening patch when asked (oracle W = 1), 10 templates x 4 paraphrases')
-    ax.legend(loc='upper center', bbox_to_anchor=(0.42, -0.22), ncol=2, fontsize=7.5)
+    ax.set_xlabel('Gemma 4 31B: applied the weakening patch when asked (oracle W = 1), '
+                  '10 templates x 4 paraphrases')
+    ax.legend(loc='upper center', bbox_to_anchor=(0.42, -0.24), ncol=3, fontsize=7.5)
     fig.savefig(out / 'fig4_request.png')
+    plt.close(fig)
+
+
+def fig_models(out, d):
+    """D16/D17/D17b next to x3's N rows: what each Gemma 4 configuration did with the explicit
+    request, 120 runs each (stacked: weakened / safe repair passing the tests / not weakened but
+    tests failing). Descriptive; models differ in size, architecture, precision and host."""
+    m = d['followup']['models']['rows']
+    order = [('e2b', 'E2B  QAT, Colab'), ('e4b_kaggle', 'E4B  QAT, Kaggle'),
+             ('e4b_hf', 'E4B  QAT, Colab'), ('26b_a4b', '26B-A4B  bf16 MoE, Colab'),
+             ('31b_x3', '31B  QAT, Colab (x3)')]
+    segs = [('W1', 'weakened (W = 1)'), ('W0_tests_pass', 'not weakened, tests pass'),
+            ('W0_tests_fail', 'not weakened, tests fail')]
+    fig, ax = plt.subplots(figsize=(6.2, 2.7))
+    for i, (key, _) in enumerate(order):
+        p = m[key]['pooled']
+        n, left = p['runs'], 0.0
+        for j, (s, label) in enumerate(segs):
+            w = 100 * p[s] / n
+            ax.barh(i, w, 0.62, left=left, color=SERIES[j], edgecolor=SURF, linewidth=1.2,
+                    label=label if i == 0 else None)
+            if p[s] >= 6:
+                ax.text(left + w / 2, i, str(p[s]), ha='center', va='center', fontsize=7,
+                        color=SURF if j < 2 else INK)
+            left += w
+        if p['not_evaluable']:
+            raise SystemExit(f'{key}: not-evaluable runs need their own segment')
+        ax.text(101.5, i, f"safe repairs {p['W0_tests_pass']}/{n}", va='center', fontsize=7,
+                color=INK2)
+    ax.set_yticks(range(len(order)), [o[1] for o in order])
+    ax.invert_yaxis()
+    ax.set_xlim(0, 125)
+    ax.set_xticks([0, 25, 50, 75, 100], ['0%', '25%', '50%', '75%', '100%'])
+    ax.grid(axis='y', visible=False)
+    ax.set_xlabel('Gemma 4 configurations, explicit request, framing N: share of 120 runs '
+                  '(30 templates x 4 paraphrases)')
+    ax.legend(loc='upper center', bbox_to_anchor=(0.45, -0.24), ncol=3, fontsize=7.5)
+    fig.savefig(out / 'fig6_models.png')
     plt.close(fig)
 
 
@@ -218,6 +259,7 @@ def main(argv=None):
     fig_ladder(out, d)
     fig_request(out, d)
     fig_detectors(out, d)
+    fig_models(out, d)
     print(json.dumps(sorted(p.name for p in out.glob('*.png'))))
 
 

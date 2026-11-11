@@ -7,6 +7,9 @@ Every number is counted from a results file and printed with its source; nothing
   Table 3b The agent's own weakening patches (oracle W = 1): calibration C and confirmatory, per
            mechanism: runs, distinct templates, tests passing, and alerts of the frozen detectors.
   Figure   The M1 example: the S+ and U+ witness diffs of the first pilot M1 template.
+  Table 4  D15 (x3) and D16 (E4B): the explicit request, by mechanism and framing (4b per template).
+  Table 5  D17/D17b: Gemma 4 configurations under the explicit request (W = 1, safe repairs that
+           pass or fail the tests, crashes), next to D16's E4B and x3's 31B N rows.
 
   python analysis/paper_tables.py --calibration-archive x1_cal_out/results_sealed.tar.gz \
       --out results/paper/tables_2_3b.md
@@ -173,7 +176,80 @@ def followup(lines):
         lines.append(f"| {t['base']} | {t['mechanism']} | {t['x3_31b_W']:.2f} ({t['x3_31b_n_evaluable']}) "
                      f"| {t['e4b_W']:.2f} ({t['e4b_n_evaluable']}) |")
     lines.append(f"\nPaired templates: {sum(t['paired'] for t in pt)}/{len(pt)}.")
+    data['models'] = models(lines, er)
     return data
+
+
+MODEL_ROWS = (   # (key, label, source): D17/D17b report key, or the D16 per-run file
+    ('e2b', 'Gemma 4 E2B (QAT w4a16; Colab A100, D17b)', 'ladder2'),
+    ('e4b_kaggle', 'Gemma 4 E4B (QAT w4a16; Kaggle L4x4, D16)', 'd16'),
+    ('e4b_hf', 'Gemma 4 E4B (QAT w4a16; Colab A100, D17)', 'ladder'),
+    ('26b_a4b', 'Gemma 4 26B-A4B (bf16 MoE; Colab A100, D17b)', 'ladder2'),
+    ('31b_x3', 'Gemma 4 31B (QAT w4a16; Colab A100, x3 N)', 'ladder2'))
+
+
+def outcome_counts(rows):
+    """D17's ladder categories (followup/analyze_ladder.py outcomes) for D16's per-run rows."""
+    ev = [r for r in rows if r['status'] in EV]
+    w0 = [r for r in ev if r['W'] == '0']
+    return {'runs': len(rows), 'evaluable': len(ev), 'W1': sum(r['W'] == '1' for r in ev),
+            'W0_tests_pass': sum(r['F'] == '1' for r in w0),
+            'W0_tests_fail': sum(r['F'] != '1' for r in w0),
+            'not_evaluable': len(rows) - len(ev), 'crash': sum(r['crash'] == '1' for r in rows)}
+
+
+def models(lines, e4b_rows):
+    """D17 and D17b (Gemma 4 configurations under x3's condition C, framing N): the committed single
+    analysis reports, next to D16's E4B rows; descriptive, post hoc, nothing pooled."""
+    rep = {k: hashed_json(ROOT / 'results' / k / 'ladder_report.json') for k in ('ladder', 'ladder2')}
+    if rep['ladder']['ladder_table']['31b_x3'] != rep['ladder2']['ladder_table']['31b_x3']:
+        raise SystemExit('the 31B comparator rows differ between the D17 and D17b reports')
+    keep = ('runs', 'evaluable', 'W1', 'W0_tests_pass', 'W0_tests_fail', 'not_evaluable', 'crash')
+    mechs = ('M1', 'M2', 'M3')
+    out = {'sources': {f'{k}_report_sha256': hashlib.sha256(
+                           (ROOT / 'results' / k / 'ladder_report.json').read_bytes()).hexdigest()
+                       for k in rep}
+           | {f'{k}_seal_sha256': rep[k]['seal_sha256'] for k in rep},
+           'rows': {}}
+    for key, label, src in MODEL_ROWS:
+        if src == 'd16':
+            n = [r for r in e4b_rows if r['framing'] == 'N']
+            c = {'pooled': outcome_counts(n),
+                 'by_mechanism': {m: outcome_counts([r for r in n if r['mechanism'] == m]) for m in mechs}}
+        else:
+            t = rep[src]['ladder_table'][key]
+            mr = rep[src]['models'].get(key)
+            if mr is not None and not mr['floor']['met']:
+                raise SystemExit(f'{key}: capability floor not met; counts only, not tabled here')
+            c = {'pooled': t['pooled'], 'by_mechanism': t['by_mechanism']}
+        out['rows'][key] = {'label': label, 'source': src,
+                            'pooled': {k: c['pooled'][k] for k in keep},
+                            'by_mechanism': {m: {k: c['by_mechanism'][m][k] for k in keep} for m in mechs}}
+    h = rep['ladder']['e4b_hosts']
+    out['e4b_hosts'] = {k: h[k] for k in ('templates_paired', 'templates_colab_higher',
+                                          'templates_colab_lower')}
+    lines += ['', '## Table 5 (appendix). Gemma 4 configurations under the explicit request '
+              '(condition C, framing N; exploratory, post hoc, descriptive, no test)', '',
+              'Sources: results/ladder/ladder_report.json (D17, sha256 '
+              + out['sources']['ladder_report_sha256'][:16] + '...) and results/ladder2/'
+              'ladder_report.json (D17b, sha256 ' + out['sources']['ladder2_report_sha256'][:16]
+              + '...) -> ladder_table; D16 E4B: results/e4b/detectors/runs_detectors_main.csv '
+              '(framing N). Counts among evaluable runs; a crash is coded W = 0, F = 0. Models '
+              'differ in size, architecture and precision, and hosts differ; no difference is '
+              'attributed to size.', '',
+              '| Configuration | Mechanism | Runs | Evaluable | W = 1 | W = 0, tests pass | '
+              'W = 0, tests fail | Crash |', '|---|---|---|---|---|---|---|---|']
+    for key, label, _ in MODEL_ROWS:
+        r = out['rows'][key]
+        for i, m in enumerate((*mechs, 'all')):
+            x = r['pooled'] if m == 'all' else r['by_mechanism'][m]
+            lines.append(f"| {label if i == 0 else ''} | {m} | {x['runs']} | {x['evaluable']} "
+                         f"| {x['W1']} | {x['W0_tests_pass']} | {x['W0_tests_fail']} | {x['crash']} |")
+    e = out['e4b_hosts']
+    lines.append(f"\nE4B, Kaggle (D16) vs Colab (D17), per base template: {e['templates_paired']} "
+                 f"paired; Colab higher W in {e['templates_colab_higher']}, lower in "
+                 f"{e['templates_colab_lower']} (results/ladder/ladder_report.json -> e4b_hosts).")
+    return out
 
 
 def main(argv=None):

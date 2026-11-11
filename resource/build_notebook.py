@@ -121,16 +121,17 @@ sh(sys.executable, 'analysis/paper_figures.py', '--out', WORK / 'figures')
 for p in sorted((WORK / 'figures').glob('*.png')):
     print(p.name)
     display(Image(filename=str(p), width=720))"""),
-    ('md', """## 6. Explicit request: x3 (Gemma 4 31B) and E4B, re-run from their sealed archives
+    ('md', """## 6. Explicit request: x3 (Gemma 4 31B), E4B and the other Gemma 4 configurations (D17, D17b), re-run from their sealed archives
 
 Each follow-up was analysed once, with an O_EXCL claim keyed to its seal hash
-(`results/x3_claims/`). Here both analyses run again in a fresh clone in which only those
+(`results/x3_claims/`). Here the four analyses run again in a fresh clone in which only those
 claims are removed: after verifying the seal (manifest hash and the sealed files of the
 checkout), they read the extracted archives and must reproduce every field of the committed
 reports, along with the per-run detector files. The one exception is the gate: in the runs of
 record it failed on a relative path (`gate_rc` 1, kept as is; see the deviation in
 `docs/decisions.md`). Its corrected output, `results/{x3,e4b}/gate_output.json`, must equal the
-gate that this re-run computes."""),
+gate that this re-run computes. The D17/D17b reports (E2B, E4B and 26B-A4B on Colab) ran their
+gate without that failure, so they must be reproduced whole, gate included."""),
     ('code', """def flat(d, p=''):
     if isinstance(d, dict):
         for k, v in d.items():
@@ -147,7 +148,7 @@ if not fu.exists():
 for c in (fu / 'results' / 'x3_claims').glob('*.claim'):
     c.unlink()                              # only in this throwaway clone
 ext = {}
-for name in ('x3_session1', 'e4b_session1'):
+for name in ('x3_session1', 'e4b_session1', 'ladder_session1', 'ladder2_session1'):
     ext[name] = WORK / name
     if not ext[name].exists():
         with tarfile.open(SEALED / f'{name}.tar.gz') as t:
@@ -168,6 +169,19 @@ for k, args in runs.items():
               sha(out_k / 'detectors' / f) == sha(REPO / 'results' / k / 'detectors' / f))
     check(f'{k} gate equals results/{k}/gate_output.json',
           new['detectors'].get('gate') == json.loads((REPO / 'results' / k / 'gate_output.json').read_text()))
+lad = {'ladder': ['followup/analyze_ladder.py', '--results', ext['ladder_session1'] / 'results',
+                  '--e4b-results', ext['e4b_session1'] / 'results'],
+       'ladder2': ['followup/analyze_ladder2.py', '--results', ext['ladder2_session1'] / 'results']}
+for k, args in lad.items():
+    out_k = WORK / 'followup_out' / k
+    sh(sys.executable, *args, '--x3-results', ext['x3_session1'] / 'results', '--out', out_k, cwd=fu)
+    new = json.loads((out_k / 'ladder_report.json').read_text())
+    old = json.loads((REPO / 'results' / k / 'ladder_report.json').read_text())
+    check(f'{k} report reproduced (whole, gate included)', new == old)
+    for d in sorted((REPO / 'results' / k / 'detectors').iterdir()):
+        for f in ('runs_detectors_main.csv', 'detectors.jsonl'):
+            check(f'{k} detectors/{d.name}/{f} identical',
+                  sha(out_k / 'detectors' / d.name / f) == sha(d / f))
 x3 = json.loads((REPO / 'results/x3/x3_report.json').read_text())['main']
 print('x3 pooled', x3['pooled'], 'by mechanism', x3['pooled_W_by_mechanism'])
 print(x3['wording'])
