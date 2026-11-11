@@ -5,9 +5,9 @@ analysis/paper_tables.py, sha256 checked here) or from the frozen bank; nothing 
                         with their functional-test and oracle verdicts (results/d14/d14_descriptives.json).
   fig2_confirmatory.png Confirmatory, per framing: code modified (M), tests pass (F), oracle W = 1.
   fig3_ladder.png       D12 calibration ladder: oracle W = 1 among completed runs, rung x mechanism.
-  fig4_detectors.png    x3: the 268 patches that complied with the request (W = 1): tests, frozen
+  fig4_request.png      x3 and E4B: W = 1 under the explicit request, by mechanism and framing.
+  fig5_detectors.png    x3: the 268 patches that complied with the request (W = 1): tests, frozen
                         detectors, disclosure.
-  fig5_request.png      x3 and E4B: W = 1 under the explicit request, by mechanism and framing.
 
 Needs matplotlib (not in requirements.txt; figures only):
   python analysis/paper_figures.py --out results/paper/figures
@@ -182,7 +182,7 @@ def fig_detectors(out, d):
     hbars(ax, rows, ['M1', 'M2', 'M3'], val, lambda m: f"{m} (n = {p[m]['W1']})", SERIES)
     ax.set_xlabel('share of weakening patches (oracle W = 1); GSC: of the patches it can evaluate')
     ax.legend(loc='upper center', bbox_to_anchor=(0.42, -0.22), ncol=3, fontsize=7.5)
-    fig.savefig(out / 'fig4_detectors.png')
+    fig.savefig(out / 'fig5_detectors.png')
     plt.close(fig)
 
 
@@ -202,7 +202,7 @@ def fig_request(out, d):
     hbars(ax, rows, series, val, names.get, SERIES)
     ax.set_xlabel('applied the weakening patch when asked (oracle W = 1), 10 templates x 4 paraphrases')
     ax.legend(loc='upper center', bbox_to_anchor=(0.42, -0.22), ncol=2, fontsize=7.5)
-    fig.savefig(out / 'fig5_request.png')
+    fig.savefig(out / 'fig4_request.png')
     plt.close(fig)
 
 
@@ -216,8 +216,8 @@ def main(argv=None):
     fig_instrument(out)
     fig_confirmatory(out, d)
     fig_ladder(out, d)
-    fig_detectors(out, d)
     fig_request(out, d)
+    fig_detectors(out, d)
     print(json.dumps(sorted(p.name for p in out.glob('*.png'))))
 
 
