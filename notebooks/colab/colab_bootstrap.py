@@ -74,15 +74,31 @@ def downloads(user, key, ladder=False):
             os.environ.pop(k, None)
         for p in ('/root/.kaggle', '/root/.config/kaggle'):
             shutil.rmtree(p, ignore_errors=True)
-    if ladder:
+    if ladder and ladder != 'closeout':       # a close-out session after the cut needs no model
         from huggingface_hub import snapshot_download
         mdl = []
-        for repo, rev, d in LADDER_HF:
-            dest = Path('/kaggle/input/hf') / d
-            snapshot_download(repo_id=repo, revision=rev, local_dir=str(dest), token=False)
-            shutil.rmtree(dest / '.cache', ignore_errors=True)
-            mdl.append(str(dest))
+        root = Path('/kaggle/input/hf')
+        root.mkdir(parents=True, exist_ok=True)
+        for repo, rev, d in LADDER_HF:      # Sol: one failed model never stops the others
+            dest, err = root / d, None
+            for attempt in range(3):
+                try:
+                    snapshot_download(repo_id=repo, revision=rev, local_dir=str(dest), token=False)
+                    shutil.rmtree(dest / '.cache', ignore_errors=True)
+                    err = None
+                    break
+                except Exception as e:
+                    err = f'{type(e).__name__}: {e}'[-1500:]
+                    time.sleep(30)
+            if err:                         # the kernel records this block as startup_failed
+                shutil.rmtree(dest, ignore_errors=True)
+                (root / (d + '.failed')).write_text(err)
+                mdl.append(f'{d}: FAILED {err[:200]}')
+            else:
+                mdl.append(str(dest))
         sh('chmod -R a+rX /kaggle/input/hf')
+    elif ladder:
+        mdl = ['closeout: no model downloaded']
     if '/gemma-4-developer-agent-wheelhouse/' not in whl + '/' or not ladder and not mdl.rstrip('/').endswith(
             'gemma-4-31b-it-qat-w4a16-ct/2'):
         raise RuntimeError(f'unexpected download layout: {whl} {mdl}')

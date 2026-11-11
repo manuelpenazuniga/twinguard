@@ -106,6 +106,7 @@ HF_EXPECTED_26B = {  # google/gemma-4-26B-A4B-it @ 4d7ae4984b7db7de8f8457170b3f1
     'chat_template.jinja': ('git', '4741bf6e4132ba23a5537f9d6e74e9a6d613d7cd'),
     'generation_config.json': ('git', 'e605bb4523b1462ea9d9a3810b9e3ecf7ab7b1f6'),
     'tokenizer_config.json': ('git', '6068e357379d36f823c377e30efb101fa2c67fe4'),
+    'processor_config.json': ('git', '5465974d23e1eca2c46c2809b26c997946ce0d90'),
 }
 HF_EXPECTED_E2B = {  # google/gemma-4-E2B-it-qat-w4a16-ct @ 971342c08f607aa7779983f6b5289778b5d271a7
     'model.safetensors': ('sha256', '93177bfc1b53823f2e01c7cebc3b94f65d189e373a647d086112f614ba448ab9'),
@@ -114,7 +115,11 @@ HF_EXPECTED_E2B = {  # google/gemma-4-E2B-it-qat-w4a16-ct @ 971342c08f607aa77799
     'chat_template.jinja': ('git', 'fbe3b59b625cd1b8850ea592d4203df6ec04684b'),
     'generation_config.json': ('git', 'f6bc6f4146a610a3881015c90d36a78beb1333bb'),
     'tokenizer_config.json': ('git', 'b22e2c5c05597a7e8c0cb1cebdb7d45570772005'),
+    'processor_config.json': ('git', '5465974d23e1eca2c46c2809b26c997946ce0d90'),
 }
+# D17: E4B from HF 6cd26aa with its processor_config.json too (D16's Kaggle check is unchanged)
+HF_EXPECTED_E4B_HF = {**HF_EXPECTED_E4B,
+                      'processor_config.json': ('git', '5465974d23e1eca2c46c2809b26c997946ce0d90')}
 MODEL_SPECS = {
     '31b': {'kaggle': 'gemma-4-31b-it-qat-w4a16-ct/2', 'dest': '/kaggle/working/model_52f3f65',
             'overlay': 'notebooks/model_overlay', 'hf': HF_EXPECTED,
@@ -131,7 +136,7 @@ MODEL_SPECS = {
             'dest': '/kaggle/working/model_e2b_971342c', 'hf': HF_EXPECTED_E2B,
             'revision': '971342c08f607aa7779983f6b5289778b5d271a7', 'tag': 'model:e2b-971342c'},
     'e4b_hf': {'hf_repo': 'google/gemma-4-E4B-it-qat-w4a16-ct', 'hf_dir': 'gemma-4-e4b@6cd26aa',
-               'dest': '/kaggle/working/model_e4b_6cd26aa_hf', 'hf': HF_EXPECTED_E4B,
+               'dest': '/kaggle/working/model_e4b_6cd26aa_hf', 'hf': HF_EXPECTED_E4B_HF,
                'revision': '6cd26aaa2357fb2bad8c51699a7558a4d1a965bb', 'tag': 'model:e4b-6cd26aa'},
 }
 LADDER_KINDS = ('e4b_hf', 'e2b', '26b_a4b')
@@ -255,13 +260,16 @@ def model_path():
     if 'hf_dir' in spec:                      # D17: HF files at the pinned revision, no overlay
         src = Path('/kaggle/input/hf') / spec['hf_dir']
         if not src.is_dir():
-            raise FileNotFoundError(f"model input hf/{spec['hf_dir']} not downloaded")
+            failed = Path('/kaggle/input/hf') / (spec['hf_dir'] + '.failed')
+            why = failed.read_text()[-1500:] if failed.exists() else ''
+            raise FileNotFoundError(f"model input hf/{spec['hf_dir']} not downloaded {why}")
         KAGGLE_MODEL = src
         dest = Path(spec['dest'])
+        shutil.rmtree(dest, ignore_errors=True)
         dest.mkdir(parents=True, exist_ok=True)
-        for f in src.iterdir():
-            if f.is_file() and not (dest / f.name).exists():
-                os.symlink(f, dest / f.name)
+        for name in spec['hf']:          # Sol: only the hash-listed files are served (no extras)
+            if (src / name).is_file():
+                os.symlink(src / name, dest / name)
         return dest
     c = glob.glob(f"/kaggle/input/**/{spec['kaggle']}", recursive=True)
     if not c:
@@ -1498,8 +1506,42 @@ def x3_block(code):
 
 
 # ------------------------------------------------------------------ D17 ladder (Colab)
-class IsolationBreach(RuntimeError):
-    """The model server is reachable by an agent/evaluator uid: the session must end."""
+class SessionFatal(RuntimeError):
+    """The session must end (sealed; requires_resume), never a block's start-up failure."""
+
+
+class IsolationBreach(SessionFatal):
+    """The model server is reachable by an agent/evaluator uid."""
+
+
+class GpuNotReleased(SessionFatal):
+    """A stopped server's processes still hold the GPU."""
+
+
+GPU_FREE_MIB = 2048
+GPU_FREE_WAIT_S = 180
+
+
+def ladder_free_gpu():
+    """Sol: after stop(), kill any process still on the GPU (only vLLM uses it) and wait until
+    the card is free; otherwise the session ends instead of failing every later model."""
+    t0 = time.time()
+    killed = []
+    while True:
+        pids = [x.strip() for x in sh('nvidia-smi --query-compute-apps=pid --format=csv,noheader')
+                .splitlines() if x.strip().isdigit()]
+        for pid in pids:
+            try:
+                os.kill(int(pid), 9)
+                killed.append(int(pid))
+            except (ProcessLookupError, PermissionError):
+                pass
+        used = int(sh('nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits').split()[0])
+        if used <= GPU_FREE_MIB and not pids:
+            return {'used_mib': used, 'killed': killed, 'seconds': round(time.time() - t0, 1)}
+        if time.time() - t0 > GPU_FREE_WAIT_S:
+            raise GpuNotReleased(f'GPU still holds {used} MiB after stopping the server: {pids}')
+        time.sleep(5)
 
 
 def ladder_dests():
@@ -1530,8 +1572,10 @@ def ladder_may_start(i):
 
 LADDER_LOG = 'ladder_serve.jsonl'    # sealed in results/: every start, its arguments, toy check
 TOY_DIR = UDS_DIR / 'toy'           # root-only, outside the sealed results (never analysed)
-TOY_RULE = ('6 toy episodes (tests/fixtures/tpl_m1, never the bank): all 6 with a row that is not '
-            'infra_failed, and at least one with tool_calls >= 1; repair quality is never judged')
+TOY_HARD_S = 20 * 60                # Sol: the toy check is stopped (runner and agents killed) here
+TOY_RULE = ('6 toy episodes (tests/fixtures/tpl_m1, never the bank), stopped after 20 minutes: all '
+            '6 with a row that is not infra_failed, and at least one with tool_calls >= 1; repair '
+            'quality is never judged')
 
 
 def ladder_log(rec):
@@ -1558,7 +1602,7 @@ def ladder_toy(code, kind):
     shutil.rmtree(TOY_DIR / kind, ignore_errors=True)
     run = run_block(code, 'runner_smoke', kind,
                     ['--bank', str(fb), '--spec', str(spec), '--limit', '6', '--replicates', '1'],
-                    out_root=TOY_DIR)
+                    hard_at=time.time() + TOY_HARD_S, out_root=TOY_DIR)
     import csv as _csv
     f = TOY_DIR / kind / 'runs.csv'
     rows = list(_csv.DictReader(open(f, newline=''))) if f.exists() else []
@@ -1578,6 +1622,7 @@ def ladder_serve(kind, procs):
     global LADDER_KIND, MODEL
     stop(procs)
     procs.clear()
+    freed = [ladder_free_gpu()]
     LADDER_KIND = kind
     MODEL = model_path()
     R['model_path'] = str(MODEL)
@@ -1593,6 +1638,9 @@ def ladder_serve(kind, procs):
             break
         except Exception as e:
             errs.append({'extra': list(extra), 'error': f'{type(e).__name__}: {e}'[-1500:]})
+            stop(procs)
+            procs.clear()
+            freed.append(ladder_free_gpu())       # a failed attempt may leave engine workers
     else:
         raise RuntimeError(json.dumps(errs)[-3000:])
     R['served_model'] = SERVED[8000]
@@ -1604,7 +1652,7 @@ def ladder_serve(kind, procs):
     rec = {'model': kind, 'revision': model_spec()['revision'], 'utc': time.time(),
            'load_seconds': secs, 'extra_args': ex, 'start_errors': errs,
            'vllm_budget': R.get('colab_vllm_budget'), 'max_model_len': 32768,
-           'concurrency': len(AGENTS)}
+           'concurrency': len(AGENTS), 'gpu_freed': freed}
     try:
         rec['kv'] = kv_info(f'{kind}_8000')
     except Exception as exc:
@@ -1633,7 +1681,7 @@ def ladder_block(code, procs):
             break
         try:
             res[name]['serve'] = ladder_serve(b['model'], procs)
-        except IsolationBreach:
+        except SessionFatal:
             raise
         except Exception as exc:
             if block_started(name):

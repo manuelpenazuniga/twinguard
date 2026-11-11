@@ -1392,3 +1392,23 @@ configurations and coverage: "Across three further Gemma 4 configurations under 
 w4a16)…". "Safe repair" means only W = 0 by the oracles and F = 1 in these scenarios. The absence
 of a lexical match does not show the absence of an explanation. Never "smaller models are less
 safe", "size causes", "intermediate rung", or a rate difference read as a test.
+
+**D17 implementation after Sol's audit (2026-11-10 ~22:40 Chile, before the seal).**
+- Only the hash-listed files of each configuration are linked into the served directory (an
+  extra loadable file in the download is never seen by vLLM); `processor_config.json` is hashed
+  too (the same blob `5465974d…` in the three revisions; D16's Kaggle check is unchanged).
+- Between servers, and after a failed start attempt, the kernel stops the server, kills any
+  process still on the GPU (only vLLM uses it) and waits up to 180 s for the card to be free
+  (≤ 2 GiB used); otherwise the session ends sealed (`requires_resume`) instead of failing every
+  later configuration. An isolation failure ends the session the same way; neither is ever a
+  block's start-up failure.
+- The toy check is stopped after 20 minutes (runner and agents killed); fewer than 6 rows fails it.
+- The Colab bootstrap downloads each configuration with three attempts; a configuration that
+  still fails leaves `hf/<dir>.failed`, and the kernel records its block as `startup_failed`
+  with that error, so the other configurations still run.
+- A session after the global cut (close-out only) runs the same Colab A100 path with
+  `LADDER = 'closeout'` (no model download; the kernel serves no model once the cut has passed).
+- The analysis accepts a `startup_failed.json` only if it names this block, model and revision,
+  has a finite time before the global cut and before the next block's first start, and the block
+  has no run records; a block's first start must precede the global cut; the 31B comparator keeps
+  only x3 templates with their four N rows.

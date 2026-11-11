@@ -57,7 +57,7 @@ def test_seal_blocks_agree_with_kernel_and_bootstrap():
         assert spec['revision'] == b['revision'] and spec['hf_repo'] == b['hf_repo']
         assert b['environment_id'] == 'colab-A100|py3.12|vllm0.19.1|tp1|' + spec['tag']
     assert k.MODEL_SPECS['e4b_hf']['revision'] == E.REVISION      # the same E4B as D16
-    assert k.MODEL_SPECS['e4b_hf']['hf'] is k.HF_EXPECTED_E4B
+    assert k.MODEL_SPECS['e4b_hf']['hf'] is k.HF_EXPECTED_E4B_HF
     # the 26B-A4B uses the 31B's chat template, E2B the E4B's (no overlay is needed); both
     # weight shards of the 26B-A4B and its index are hash-checked
     assert k.HF_EXPECTED_26B['chat_template.jinja'] == k.HF_EXPECTED['chat_template.jinja']
@@ -194,6 +194,8 @@ def test_ladder_serve_checks_hashes_starts_twice_and_rechecks_isolation(monkeypa
     dest.mkdir()
     monkeypatch.setattr(k, 'model_path', lambda: dest)
     monkeypatch.setattr(k, 'model_hash_check', lambda: {'all_match': True})
+    frees = []
+    monkeypatch.setattr(k, 'ladder_free_gpu', lambda: frees.append(1) or {'used_mib': 0})
     tries = []
 
     def start(tp, gpus, port, tag, extra=()):
@@ -211,6 +213,7 @@ def test_ladder_serve_checks_hashes_starts_twice_and_rechecks_isolation(monkeypa
     log = [json.loads(x) for x in (k.RESULTS_DIR / k.LADDER_LOG).read_text().splitlines()]
     assert log[0]['model'] == '26b_a4b' and log[0]['toy']['ok'] and log[0]['extra_args'][-2:] == ['--max-num-seqs', '32']
     assert out['start_errors'][0]['error'].startswith('RuntimeError: CUDA out of memory')
+    assert len(frees) == 2 and len(out['gpu_freed']) == 2      # before the start and after the failed try
     toy['ok'] = False
     with pytest.raises(RuntimeError, match='toy check failed'):
         k.ladder_serve('26b_a4b', [])
@@ -257,13 +260,13 @@ def test_ladder_build_bundles_followup(tmp_path):
     i = src.index('CODE_B64')
     exec(src[:src.index('\n', i) + 1], ns)
     names = set(tarfile.open(fileobj=io.BytesIO(base64.b64decode(ns['CODE_B64'])), mode='r:gz').getnames())
-    assert 'followup/analyze_ladder.py' in names and 'notebooks/colab/kaggle_env/pip_freeze.txt' in names \
-        or any(n.startswith('notebooks/colab/kaggle_env') for n in names)
+    assert 'followup/analyze_ladder.py' in names and 'followup/ladder_seal.py' in names
+    assert any(n.startswith('notebooks/colab/kaggle_env/') for n in names)
     assert "MODE = 'ladder'" in src and "PLATFORM = 'colab'" in src
 
 
 # ------------------------------------------------------------------ analysis (synthetic)
-LM = {'environment_id': 'colab-A100|py3.12|vllm0.19.1|tp1|model:<block model tag>',
+LM = {'environment_id': 'colab-A100|py3.12|vllm0.19.1|tp1|model:<block model tag>', 'stop_at_epoch': LS.STOP_AT_EPOCH,
       'blocks': [dict(b) for b in LS.BLOCKS]}
 E4M = {'environment_id': 'e4', 'blocks': [{'name': 'e4b_main', 'spec': 'followup/bank_x3/spec_main.csv',
                                            'framings': ['N'], 'start_by_epoch': None}]}
@@ -286,7 +289,9 @@ def ladder_root(tmp_path, ran=('ladder_e4b_main', 'ladder_26b'), failed=('ladder
         d = root / b['name']
         if b['name'] in failed:
             d.mkdir(parents=True, exist_ok=True)
-            (d / 'startup_failed.json').write_text(json.dumps({'model': b['model'], 'error': 'x'}))
+            (d / 'startup_failed.json').write_text(json.dumps(
+                {'block': b['name'], 'model': b['model'], 'revision': b['revision'], 'utc': 150.0,
+                 'error': 'x'}))
             continue
         if b['name'] not in ran:
             continue
@@ -349,8 +354,8 @@ def test_ladder_end_to_end(tmp_path, monkeypatch):
         return {}
     rep = run_ladder(tmp_path, monkeypatch, ladder_root(tmp_path, status_of=status))
     assert rep['report_complete'] and rep['seal_sha256'] == LSEAL
-    assert rep['models']['e2b'] == {'block': 'ladder_e2b', 'outcome': 'startup_failed',
-                                    'startup_failed': {'model': 'e2b', 'error': 'x'}}
+    assert rep['models']['e2b']['outcome'] == 'startup_failed'
+    assert rep['models']['e2b']['startup_failed']['error'] == 'x'
     m12 = rep['models']['26b_a4b']
     assert m12['floor']['met'] and m12['complete_templates'] == 30 and m12['vs_x3']['templates_paired'] == 30
     t = rep['ladder_table']['26b_a4b']['by_mechanism']['M3']
@@ -398,7 +403,9 @@ def test_ladder_toy_criteria(monkeypatch, tmp_path):
     monkeypatch.setattr(k, 'TOY_DIR', tmp_path / 'uds' / 'toy')
     seen = {}
 
-    def run(code, mode, name, extra, out_root=None):
+    def run(code, mode, name, extra, hard_at=None, out_root=None):
+        import time as _t
+        assert hard_at is not None and hard_at - _t.time() <= k.TOY_HARD_S
         seen.update(mode=mode, name=name, out_root=out_root)
         d = out_root / name
         d.mkdir(parents=True, exist_ok=True)
@@ -437,3 +444,55 @@ def test_seal_records_model_files_and_server():
     assert "'models': models" in src and "'toy_check': k.TOY_RULE" in src and "'startup_timeout_s': 1200" in src
     k = load_kernel()
     assert all(len(k.MODEL_SPECS[b['model']]['hf']) >= 6 for b in LS.BLOCKS)
+
+
+def test_ladder_startup_failed_record_is_validated(tmp_path):
+    root = ladder_root(tmp_path)
+    f = root / 'ladder_e2b' / 'startup_failed.json'
+    good = json.loads(f.read_text())
+    L.provenance(LM | {'stop_at_epoch': LS.STOP_AT_EPOCH}, LSEAL, root)
+    for bad in ({'model': '26b_a4b'}, {'revision': 'x' * 40}, {'utc': float('inf')}, {'utc': 4e9},
+                {'utc': 250.0}):         # 250: after the next block's first start (200)
+        f.write_text(json.dumps(good | bad))
+        with pytest.raises(SystemExit):
+            L.provenance(LM | {'stop_at_epoch': LS.STOP_AT_EPOCH}, LSEAL, root)
+
+
+def test_ladder_gpu_must_be_released(monkeypatch, tmp_path):
+    k = ladder_kernel(monkeypatch, tmp_path)
+    killed = []
+    state = {'used': 30000, 'pids': ['4242']}
+
+    def sh(cmd):
+        if 'compute-apps' in cmd:
+            return '\n'.join(state['pids'])
+        return str(state['used'])
+    monkeypatch.setattr(k, 'sh', sh)
+    monkeypatch.setattr(k.os, 'kill', lambda pid, sig: killed.append(pid) or state.update(used=10, pids=[]))
+    monkeypatch.setattr(k.time, 'sleep', lambda s: None)
+    out = k.ladder_free_gpu()
+    assert killed == [4242] and out['used_mib'] == 10
+    state.update(used=30000, pids=[])
+    monkeypatch.setattr(k, 'GPU_FREE_WAIT_S', -1)
+    with pytest.raises(k.GpuNotReleased):
+        k.ladder_free_gpu()
+    assert issubclass(k.GpuNotReleased, k.SessionFatal) and issubclass(k.IsolationBreach, k.SessionFatal)
+
+
+def test_ladder_serves_only_hash_listed_files(monkeypatch, tmp_path):
+    k = kernel(monkeypatch, tmp_path, MODE='ladder', LADDER_KIND='e2b')
+    src = tmp_path / 'hf' / 'gemma-4-e2b@971342c'
+    src.mkdir(parents=True)
+    for n in list(k.HF_EXPECTED_E2B) + ['README.md', 'extra_model.safetensors', 'preprocessor_config.json']:
+        (src / n).write_text(n)
+    real = k.Path
+    monkeypatch.setattr(k, 'Path', lambda p, *a: real(str(p).replace('/kaggle/input/hf', str(tmp_path / 'hf')), *a))
+    monkeypatch.setitem(k.MODEL_SPECS['e2b'], 'dest', str(tmp_path / 'dest'))
+    out = k.model_path()
+    assert sorted(x.name for x in out.iterdir()) == sorted(k.HF_EXPECTED_E2B)
+    assert 'processor_config.json' in k.HF_EXPECTED_E2B and 'processor_config.json' in k.HF_EXPECTED_E4B_HF
+    assert 'processor_config.json' not in k.HF_EXPECTED_E4B          # D16's Kaggle check unchanged
+    (tmp_path / 'hf' / 'gemma-4-26b-a4b@4d7ae49.failed').write_text('HTTP 503')
+    monkeypatch.setattr(k, 'LADDER_KIND', '26b_a4b')
+    with pytest.raises(FileNotFoundError, match='HTTP 503'):
+        k.model_path()

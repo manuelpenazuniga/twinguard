@@ -23,6 +23,7 @@ per base template (same model, two hosts; descriptive).
 """
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -67,11 +68,20 @@ def provenance(m, seal_hash, root):
         if t0 is None:
             f = d / 'startup_failed.json'
             st['outcome'] = 'startup_failed' if f.exists() else 'not_run'
-            if f.exists():
-                st['startup_failed'] = json.loads(f.read_text())
-            if (d / 'runs.csv').exists():
-                raise SystemExit(f"{b['name']}: rows but no start event")
+            if (d / 'runs.csv').exists() or (d / 'attempts.jsonl').exists():
+                raise SystemExit(f"{b['name']}: run records but no start event")
+            if f.exists():                    # Sol: the failure record is this block's own
+                rec = json.loads(f.read_text())
+                utc = rec.get('utc')
+                if (rec.get('block'), rec.get('model'), rec.get('revision')) != \
+                        (b['name'], b['model'], b['revision']) or not isinstance(utc, (int, float)) \
+                        or not math.isfinite(utc) or utc > float(m['stop_at_epoch']) + A.STARTBY_TOL_S:
+                    raise SystemExit(f"{b['name']}: startup_failed.json is not this block's record")
+                st['startup_failed'] = rec
+                st['failed_utc'] = float(utc)
             continue
+        if t0 > float(m['stop_at_epoch']) + A.STARTBY_TOL_S:
+            raise SystemExit(f"{b['name']}: first started after the global cut")
         st['outcome'] = 'ran'
         if not (d / 'runs.csv').exists():
             raise SystemExit(f"{b['name']} started (start event) but has no runs.csv")
@@ -104,6 +114,8 @@ def provenance(m, seal_hash, root):
         t0 = blocks[b['name']]['first_start_utc']
         for prev in m['blocks'][:i]:
             if blocks[prev['name']]['outcome'] == 'startup_failed':
+                if blocks[prev['name']]['failed_utc'] > t0 + A.ORDER_TOL_S:
+                    raise SystemExit(f"{b['name']} started before {prev['name']} failed: sealed order")
                 continue
             if not blocks[prev['name']]['started']:
                 raise SystemExit(f"{b['name']} started although {prev['name']} never did")
@@ -201,6 +213,8 @@ def main(argv=None):
     out_dir = Path(a.out).resolve()           # absolute: the frozen gate runs in another cwd
     out_dir.mkdir(parents=True, exist_ok=True)
     c31 = A.c_twins(Path(a.x3_results) / 'x3_main')
+    full = c31.groupby('template_id').run_id.count()       # Sol: complete comparator templates only
+    c31 = c31.loc[c31.template_id.isin(full[full == 4].index)]
     rep = {'package': 'TwinGuard D17 Gemma 4 size ladder (ladder)', 'seal_sha256': seal_hash,
            'status': 'EXPLORATORY, descriptive, chosen post hoc after the x3 and E4B reports; '
                      'no test; no claim about size as a cause',

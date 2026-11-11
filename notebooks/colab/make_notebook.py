@@ -28,7 +28,7 @@ def main():
         cell('code', "RUN_NAME = 'colab_smoke_1'\n"
                      "SCRIPT = '/root/drive/MyDrive/Colab Notebooks/pilot_l4_colab_smoke.py'\n"
                      "RESUME = None   # Drive path of a previous results_sealed.tar.gz; needs a script rebuilt with RESUME_SHA256\n"
-                     "LADDER = False  # D17 (MODE=ladder script): download the three HF models instead of the 31B\n"
+                     "LADDER = False  # D17 (MODE=ladder script): True downloads the three HF models instead of the 31B; 'closeout' (a session after the global cut) downloads none\n"
                      "RUN_DIR = f'/root/drive/MyDrive/Colab Notebooks/twinguard_runs/{RUN_NAME}'"),
         cell('code', boot),
         cell('code', "from google.colab import drive, userdata\n"
