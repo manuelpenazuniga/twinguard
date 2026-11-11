@@ -1,0 +1,871 @@
+{
+ "runs": 120,
+ "by_condition": {
+  "C": {
+   "gsc": {
+    "alert_rate_W1": 0.2125,
+    "n_W1": 80,
+    "alert_rate_W0": 0.0,
+    "n_W0": 12,
+    "not_evaluable": 28
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.024096385542168676,
+    "n_W1": 83,
+    "alert_rate_W0": 0.0,
+    "n_W0": 13,
+    "not_evaluable": 24
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.2125,
+    "n_W1": 80,
+    "alert_rate_W0": 0.0,
+    "n_W0": 12,
+    "not_evaluable": 28
+   },
+   "ast": {
+    "alert_rate_W1": 0.29292929292929293,
+    "n_W1": 99,
+    "alert_rate_W0": 0.0,
+    "n_W0": 21,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 99,
+    "alert_rate_W0": 0.0,
+    "n_W0": 21,
+    "not_evaluable": 0
+   }
+  }
+ },
+ "by_condition_mechanism": {
+  "C.M1": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 36,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 4
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 36,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 4
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 36,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 4
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 40,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 40,
+    "alert_rate_W0": null,
+    "n_W0": 0,
+    "not_evaluable": 0
+   }
+  },
+  "C.M2": {
+   "gsc": {
+    "alert_rate_W1": 0.68,
+    "n_W1": 25,
+    "alert_rate_W0": 0.0,
+    "n_W0": 3,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.07142857142857142,
+    "n_W1": 28,
+    "alert_rate_W0": 0.0,
+    "n_W0": 4,
+    "not_evaluable": 8
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.68,
+    "n_W1": 25,
+    "alert_rate_W0": 0.0,
+    "n_W0": 3,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.8787878787878788,
+    "n_W1": 33,
+    "alert_rate_W0": 0.0,
+    "n_W0": 7,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 33,
+    "alert_rate_W0": 0.0,
+    "n_W0": 7,
+    "not_evaluable": 0
+   }
+  },
+  "C.M3": {
+   "gsc": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 19,
+    "alert_rate_W0": 0.0,
+    "n_W0": 9,
+    "not_evaluable": 12
+   },
+   "gsc_d1": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 19,
+    "alert_rate_W0": 0.0,
+    "n_W0": 9,
+    "not_evaluable": 12
+   },
+   "gsc_d3": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 19,
+    "alert_rate_W0": 0.0,
+    "n_W0": 9,
+    "not_evaluable": 12
+   },
+   "ast": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 26,
+    "alert_rate_W0": 0.0,
+    "n_W0": 14,
+    "not_evaluable": 0
+   },
+   "except_local": {
+    "alert_rate_W1": 0.0,
+    "n_W1": 26,
+    "alert_rate_W0": 0.0,
+    "n_W0": 14,
+    "not_evaluable": 0
+   }
+  }
+ },
+ "gate_rc": 0,
+ "gate": {
+  "n_rows_evaluable": 120,
+  "n_rows_missing_excluded": 0,
+  "policies": {
+   "estimand_note": "Weights rebuilt on observed evaluable cells; missing rows by framing: {}",
+   "tests_only": {
+    "E_U": 0.825,
+    "E_S": 0.15833333333333338,
+    "U_accepted": 0.825,
+    "S_retained": 0.15833333333333338,
+    "S_sacrificed": 0.0,
+    "S_retention_rate": 1.0,
+    "published_fraction": 0.9833333333333332,
+    "review_mass_joint": 0.0,
+    "review_load_among_passing": 0.0,
+    "detection_of_U": 0.0,
+    "unsafe_share_among_accepted": 0.8389830508474577,
+    "review_precision": null,
+    "counts": {
+     "U": 99,
+     "U_flagged": 0,
+     "S": 19,
+     "S_flagged": 0,
+     "passing": 118
+    }
+   },
+   "gsc": {
+    "E_U": 0.825,
+    "E_S": 0.15833333333333338,
+    "U_accepted": 0.5249999999999999,
+    "S_retained": 0.08333333333333334,
+    "S_sacrificed": 0.07500000000000001,
+    "S_retention_rate": 0.5263157894736841,
+    "published_fraction": 0.6083333333333334,
+    "review_mass_joint": 0.375,
+    "review_load_among_passing": 0.38135593220338987,
+    "detection_of_U": 0.3636363636363637,
+    "unsafe_share_among_accepted": 0.8630136986301368,
+    "review_precision": 0.8000000000000002,
+    "counts": {
+     "U": 99,
+     "U_flagged": 36,
+     "S": 19,
+     "S_flagged": 9,
+     "passing": 118
+    },
+    "not_evaluable_rate_among_passing": 0.23728813559322043,
+    "sensitivity_not_evaluable_as_accept": {
+     "E_U": 0.825,
+     "E_S": 0.15833333333333338,
+     "U_accepted": 0.6833333333333333,
+     "S_retained": 0.15833333333333338,
+     "S_sacrificed": 0.0,
+     "S_retention_rate": 1.0,
+     "published_fraction": 0.8416666666666666,
+     "review_mass_joint": 0.1416666666666667,
+     "review_load_among_passing": 0.14406779661016955,
+     "detection_of_U": 0.17171717171717177,
+     "unsafe_share_among_accepted": 0.811881188118812,
+     "review_precision": 1.0,
+     "counts": {
+      "U": 99,
+      "U_flagged": 17,
+      "S": 19,
+      "S_flagged": 0,
+      "passing": 118
+     }
+    },
+    "by_mechanism": {
+     "M1": {
+      "E_U": 1.0,
+      "E_S": 0.0,
+      "U_accepted": 0.9,
+      "S_retained": 0.0,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": null,
+      "published_fraction": 0.9,
+      "review_mass_joint": 0.1,
+      "review_load_among_passing": 0.1,
+      "detection_of_U": 0.1,
+      "unsafe_share_among_accepted": 1.0,
+      "review_precision": 1.0,
+      "counts": {
+       "U": 40,
+       "U_flagged": 4,
+       "S": 0,
+       "S_flagged": 0,
+       "passing": 40
+      }
+     },
+     "M2": {
+      "E_U": 0.8250000000000001,
+      "E_S": 0.17500000000000002,
+      "U_accepted": 0.2,
+      "S_retained": 0.07500000000000001,
+      "S_sacrificed": 0.1,
+      "S_retention_rate": 0.4285714285714286,
+      "published_fraction": 0.275,
+      "review_mass_joint": 0.7250000000000001,
+      "review_load_among_passing": 0.7250000000000001,
+      "detection_of_U": 0.7575757575757576,
+      "unsafe_share_among_accepted": 0.7272727272727273,
+      "review_precision": 0.8620689655172413,
+      "counts": {
+       "U": 33,
+       "U_flagged": 25,
+       "S": 7,
+       "S_flagged": 4,
+       "passing": 40
+      }
+     },
+     "M3": {
+      "E_U": 0.65,
+      "E_S": 0.30000000000000004,
+      "U_accepted": 0.475,
+      "S_retained": 0.17500000000000002,
+      "S_sacrificed": 0.125,
+      "S_retention_rate": 0.5833333333333333,
+      "published_fraction": 0.65,
+      "review_mass_joint": 0.30000000000000004,
+      "review_load_among_passing": 0.31578947368421056,
+      "detection_of_U": 0.2692307692307693,
+      "unsafe_share_among_accepted": 0.7307692307692307,
+      "review_precision": 0.5833333333333333,
+      "counts": {
+       "U": 26,
+       "U_flagged": 7,
+       "S": 12,
+       "S_flagged": 5,
+       "passing": 38
+      }
+     }
+    },
+    "review_prioritization_at_budget": {
+     "note": "Descriptive; no interval; unreviewed patches not modelled.",
+     "0.1": {
+      "quota_nominal": 12,
+      "quota_effective": 12,
+      "U_caught": 0.12121212121212124,
+      "S_reviewed": 0.0,
+      "review_precision": 1.0
+     },
+     "0.2": {
+      "quota_nominal": 24,
+      "quota_effective": 24,
+      "U_caught": 0.21212121212121218,
+      "S_reviewed": 0.025000000000000005,
+      "review_precision": 0.875
+     }
+    }
+   },
+   "gsc_d1": {
+    "E_U": 0.825,
+    "E_S": 0.15833333333333338,
+    "U_accepted": 0.675,
+    "S_retained": 0.09166666666666669,
+    "S_sacrificed": 0.06666666666666668,
+    "S_retention_rate": 0.5789473684210525,
+    "published_fraction": 0.7666666666666666,
+    "review_mass_joint": 0.2166666666666667,
+    "review_load_among_passing": 0.22033898305084754,
+    "detection_of_U": 0.18181818181818185,
+    "unsafe_share_among_accepted": 0.8804347826086958,
+    "review_precision": 0.6923076923076923,
+    "counts": {
+     "U": 99,
+     "U_flagged": 18,
+     "S": 19,
+     "S_flagged": 8,
+     "passing": 118
+    },
+    "not_evaluable_rate_among_passing": 0.20338983050847464,
+    "sensitivity_not_evaluable_as_accept": {
+     "E_U": 0.825,
+     "E_S": 0.15833333333333338,
+     "U_accepted": 0.8083333333333333,
+     "S_retained": 0.15833333333333338,
+     "S_sacrificed": 0.0,
+     "S_retention_rate": 1.0,
+     "published_fraction": 0.9666666666666666,
+     "review_mass_joint": 0.01666666666666667,
+     "review_load_among_passing": 0.016949152542372888,
+     "detection_of_U": 0.020202020202020207,
+     "unsafe_share_among_accepted": 0.8362068965517242,
+     "review_precision": 1.0,
+     "counts": {
+      "U": 99,
+      "U_flagged": 2,
+      "S": 19,
+      "S_flagged": 0,
+      "passing": 118
+     }
+    },
+    "by_mechanism": {
+     "M1": {
+      "E_U": 1.0,
+      "E_S": 0.0,
+      "U_accepted": 0.9,
+      "S_retained": 0.0,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": null,
+      "published_fraction": 0.9,
+      "review_mass_joint": 0.1,
+      "review_load_among_passing": 0.1,
+      "detection_of_U": 0.1,
+      "unsafe_share_among_accepted": 1.0,
+      "review_precision": 1.0,
+      "counts": {
+       "U": 40,
+       "U_flagged": 4,
+       "S": 0,
+       "S_flagged": 0,
+       "passing": 40
+      }
+     },
+     "M2": {
+      "E_U": 0.8250000000000001,
+      "E_S": 0.17500000000000002,
+      "U_accepted": 0.65,
+      "S_retained": 0.1,
+      "S_sacrificed": 0.07500000000000001,
+      "S_retention_rate": 0.5714285714285714,
+      "published_fraction": 0.75,
+      "review_mass_joint": 0.25,
+      "review_load_among_passing": 0.25,
+      "detection_of_U": 0.21212121212121213,
+      "unsafe_share_among_accepted": 0.8666666666666667,
+      "review_precision": 0.7000000000000001,
+      "counts": {
+       "U": 33,
+       "U_flagged": 7,
+       "S": 7,
+       "S_flagged": 3,
+       "passing": 40
+      }
+     },
+     "M3": {
+      "E_U": 0.65,
+      "E_S": 0.30000000000000004,
+      "U_accepted": 0.475,
+      "S_retained": 0.17500000000000002,
+      "S_sacrificed": 0.125,
+      "S_retention_rate": 0.5833333333333333,
+      "published_fraction": 0.65,
+      "review_mass_joint": 0.30000000000000004,
+      "review_load_among_passing": 0.31578947368421056,
+      "detection_of_U": 0.2692307692307693,
+      "unsafe_share_among_accepted": 0.7307692307692307,
+      "review_precision": 0.5833333333333333,
+      "counts": {
+       "U": 26,
+       "U_flagged": 7,
+       "S": 12,
+       "S_flagged": 5,
+       "passing": 38
+      }
+     }
+    },
+    "review_prioritization_at_budget": {
+     "note": "Descriptive; no interval; unreviewed patches not modelled.",
+     "0.1": {
+      "quota_nominal": 12,
+      "quota_effective": 12,
+      "U_caught": 0.07070707070707072,
+      "S_reviewed": 0.04166666666666667,
+      "review_precision": 0.5833333333333333
+     },
+     "0.2": {
+      "quota_nominal": 24,
+      "quota_effective": 24,
+      "U_caught": 0.17171717171717177,
+      "S_reviewed": 0.05833333333333335,
+      "review_precision": 0.7083333333333334
+     }
+    }
+   },
+   "gsc_d3": {
+    "E_U": 0.825,
+    "E_S": 0.15833333333333338,
+    "U_accepted": 0.5249999999999999,
+    "S_retained": 0.08333333333333334,
+    "S_sacrificed": 0.07500000000000001,
+    "S_retention_rate": 0.5263157894736841,
+    "published_fraction": 0.6083333333333334,
+    "review_mass_joint": 0.375,
+    "review_load_among_passing": 0.38135593220338987,
+    "detection_of_U": 0.3636363636363637,
+    "unsafe_share_among_accepted": 0.8630136986301368,
+    "review_precision": 0.8000000000000002,
+    "counts": {
+     "U": 99,
+     "U_flagged": 36,
+     "S": 19,
+     "S_flagged": 9,
+     "passing": 118
+    },
+    "not_evaluable_rate_among_passing": 0.23728813559322043,
+    "sensitivity_not_evaluable_as_accept": {
+     "E_U": 0.825,
+     "E_S": 0.15833333333333338,
+     "U_accepted": 0.6833333333333333,
+     "S_retained": 0.15833333333333338,
+     "S_sacrificed": 0.0,
+     "S_retention_rate": 1.0,
+     "published_fraction": 0.8416666666666666,
+     "review_mass_joint": 0.1416666666666667,
+     "review_load_among_passing": 0.14406779661016955,
+     "detection_of_U": 0.17171717171717177,
+     "unsafe_share_among_accepted": 0.811881188118812,
+     "review_precision": 1.0,
+     "counts": {
+      "U": 99,
+      "U_flagged": 17,
+      "S": 19,
+      "S_flagged": 0,
+      "passing": 118
+     }
+    },
+    "by_mechanism": {
+     "M1": {
+      "E_U": 1.0,
+      "E_S": 0.0,
+      "U_accepted": 0.9,
+      "S_retained": 0.0,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": null,
+      "published_fraction": 0.9,
+      "review_mass_joint": 0.1,
+      "review_load_among_passing": 0.1,
+      "detection_of_U": 0.1,
+      "unsafe_share_among_accepted": 1.0,
+      "review_precision": 1.0,
+      "counts": {
+       "U": 40,
+       "U_flagged": 4,
+       "S": 0,
+       "S_flagged": 0,
+       "passing": 40
+      }
+     },
+     "M2": {
+      "E_U": 0.8250000000000001,
+      "E_S": 0.17500000000000002,
+      "U_accepted": 0.2,
+      "S_retained": 0.07500000000000001,
+      "S_sacrificed": 0.1,
+      "S_retention_rate": 0.4285714285714286,
+      "published_fraction": 0.275,
+      "review_mass_joint": 0.7250000000000001,
+      "review_load_among_passing": 0.7250000000000001,
+      "detection_of_U": 0.7575757575757576,
+      "unsafe_share_among_accepted": 0.7272727272727273,
+      "review_precision": 0.8620689655172413,
+      "counts": {
+       "U": 33,
+       "U_flagged": 25,
+       "S": 7,
+       "S_flagged": 4,
+       "passing": 40
+      }
+     },
+     "M3": {
+      "E_U": 0.65,
+      "E_S": 0.30000000000000004,
+      "U_accepted": 0.475,
+      "S_retained": 0.17500000000000002,
+      "S_sacrificed": 0.125,
+      "S_retention_rate": 0.5833333333333333,
+      "published_fraction": 0.65,
+      "review_mass_joint": 0.30000000000000004,
+      "review_load_among_passing": 0.31578947368421056,
+      "detection_of_U": 0.2692307692307693,
+      "unsafe_share_among_accepted": 0.7307692307692307,
+      "review_precision": 0.5833333333333333,
+      "counts": {
+       "U": 26,
+       "U_flagged": 7,
+       "S": 12,
+       "S_flagged": 5,
+       "passing": 38
+      }
+     }
+    },
+    "review_prioritization_at_budget": {
+     "note": "Descriptive; no interval; unreviewed patches not modelled.",
+     "0.1": {
+      "quota_nominal": 12,
+      "quota_effective": 12,
+      "U_caught": 0.12121212121212124,
+      "S_reviewed": 0.0,
+      "review_precision": 1.0
+     },
+     "0.2": {
+      "quota_nominal": 24,
+      "quota_effective": 24,
+      "U_caught": 0.21212121212121218,
+      "S_reviewed": 0.025000000000000005,
+      "review_precision": 0.875
+     }
+    }
+   },
+   "ast": {
+    "E_U": 0.825,
+    "E_S": 0.15833333333333338,
+    "U_accepted": 0.5833333333333333,
+    "S_retained": 0.15833333333333338,
+    "S_sacrificed": 0.0,
+    "S_retention_rate": 1.0,
+    "published_fraction": 0.7416666666666666,
+    "review_mass_joint": 0.24166666666666672,
+    "review_load_among_passing": 0.24576271186440687,
+    "detection_of_U": 0.29292929292929304,
+    "unsafe_share_among_accepted": 0.7865168539325843,
+    "review_precision": 1.0,
+    "counts": {
+     "U": 99,
+     "U_flagged": 29,
+     "S": 19,
+     "S_flagged": 0,
+     "passing": 118
+    },
+    "not_evaluable_rate_among_passing": 0.0,
+    "sensitivity_not_evaluable_as_accept": {
+     "E_U": 0.825,
+     "E_S": 0.15833333333333338,
+     "U_accepted": 0.5833333333333333,
+     "S_retained": 0.15833333333333338,
+     "S_sacrificed": 0.0,
+     "S_retention_rate": 1.0,
+     "published_fraction": 0.7416666666666666,
+     "review_mass_joint": 0.24166666666666672,
+     "review_load_among_passing": 0.24576271186440687,
+     "detection_of_U": 0.29292929292929304,
+     "unsafe_share_among_accepted": 0.7865168539325843,
+     "review_precision": 1.0,
+     "counts": {
+      "U": 99,
+      "U_flagged": 29,
+      "S": 19,
+      "S_flagged": 0,
+      "passing": 118
+     }
+    },
+    "by_mechanism": {
+     "M1": {
+      "E_U": 1.0,
+      "E_S": 0.0,
+      "U_accepted": 1.0,
+      "S_retained": 0.0,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": null,
+      "published_fraction": 1.0,
+      "review_mass_joint": 0.0,
+      "review_load_among_passing": 0.0,
+      "detection_of_U": 0.0,
+      "unsafe_share_among_accepted": 1.0,
+      "review_precision": null,
+      "counts": {
+       "U": 40,
+       "U_flagged": 0,
+       "S": 0,
+       "S_flagged": 0,
+       "passing": 40
+      }
+     },
+     "M2": {
+      "E_U": 0.8250000000000001,
+      "E_S": 0.17500000000000002,
+      "U_accepted": 0.1,
+      "S_retained": 0.17500000000000002,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": 1.0,
+      "published_fraction": 0.275,
+      "review_mass_joint": 0.7250000000000001,
+      "review_load_among_passing": 0.7250000000000001,
+      "detection_of_U": 0.8787878787878788,
+      "unsafe_share_among_accepted": 0.36363636363636365,
+      "review_precision": 1.0,
+      "counts": {
+       "U": 33,
+       "U_flagged": 29,
+       "S": 7,
+       "S_flagged": 0,
+       "passing": 40
+      }
+     },
+     "M3": {
+      "E_U": 0.65,
+      "E_S": 0.30000000000000004,
+      "U_accepted": 0.65,
+      "S_retained": 0.30000000000000004,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": 1.0,
+      "published_fraction": 0.95,
+      "review_mass_joint": 0.0,
+      "review_load_among_passing": 0.0,
+      "detection_of_U": 0.0,
+      "unsafe_share_among_accepted": 0.6842105263157895,
+      "review_precision": null,
+      "counts": {
+       "U": 26,
+       "U_flagged": 0,
+       "S": 12,
+       "S_flagged": 0,
+       "passing": 38
+      }
+     }
+    },
+    "review_prioritization_at_budget": {
+     "note": "Descriptive; no interval; unreviewed patches not modelled.",
+     "0.1": {
+      "quota_nominal": 12,
+      "quota_effective": 12,
+      "U_caught": 0.12121212121212123,
+      "S_reviewed": 0.0,
+      "review_precision": 1.0
+     },
+     "0.2": {
+      "quota_nominal": 24,
+      "quota_effective": 24,
+      "U_caught": 0.2424242424242425,
+      "S_reviewed": 0.0,
+      "review_precision": 1.0
+     }
+    }
+   },
+   "except_local": {
+    "E_U": 0.825,
+    "E_S": 0.15833333333333338,
+    "U_accepted": 0.825,
+    "S_retained": 0.15833333333333338,
+    "S_sacrificed": 0.0,
+    "S_retention_rate": 1.0,
+    "published_fraction": 0.9833333333333332,
+    "review_mass_joint": 0.0,
+    "review_load_among_passing": 0.0,
+    "detection_of_U": 0.0,
+    "unsafe_share_among_accepted": 0.8389830508474577,
+    "review_precision": null,
+    "counts": {
+     "U": 99,
+     "U_flagged": 0,
+     "S": 19,
+     "S_flagged": 0,
+     "passing": 118
+    },
+    "not_evaluable_rate_among_passing": 0.0,
+    "sensitivity_not_evaluable_as_accept": {
+     "E_U": 0.825,
+     "E_S": 0.15833333333333338,
+     "U_accepted": 0.825,
+     "S_retained": 0.15833333333333338,
+     "S_sacrificed": 0.0,
+     "S_retention_rate": 1.0,
+     "published_fraction": 0.9833333333333332,
+     "review_mass_joint": 0.0,
+     "review_load_among_passing": 0.0,
+     "detection_of_U": 0.0,
+     "unsafe_share_among_accepted": 0.8389830508474577,
+     "review_precision": null,
+     "counts": {
+      "U": 99,
+      "U_flagged": 0,
+      "S": 19,
+      "S_flagged": 0,
+      "passing": 118
+     }
+    },
+    "by_mechanism": {
+     "M1": {
+      "E_U": 1.0,
+      "E_S": 0.0,
+      "U_accepted": 1.0,
+      "S_retained": 0.0,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": null,
+      "published_fraction": 1.0,
+      "review_mass_joint": 0.0,
+      "review_load_among_passing": 0.0,
+      "detection_of_U": 0.0,
+      "unsafe_share_among_accepted": 1.0,
+      "review_precision": null,
+      "counts": {
+       "U": 40,
+       "U_flagged": 0,
+       "S": 0,
+       "S_flagged": 0,
+       "passing": 40
+      }
+     },
+     "M2": {
+      "E_U": 0.8250000000000001,
+      "E_S": 0.17500000000000002,
+      "U_accepted": 0.8250000000000001,
+      "S_retained": 0.17500000000000002,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": 1.0,
+      "published_fraction": 1.0,
+      "review_mass_joint": 0.0,
+      "review_load_among_passing": 0.0,
+      "detection_of_U": 0.0,
+      "unsafe_share_among_accepted": 0.8250000000000001,
+      "review_precision": null,
+      "counts": {
+       "U": 33,
+       "U_flagged": 0,
+       "S": 7,
+       "S_flagged": 0,
+       "passing": 40
+      }
+     },
+     "M3": {
+      "E_U": 0.65,
+      "E_S": 0.30000000000000004,
+      "U_accepted": 0.65,
+      "S_retained": 0.30000000000000004,
+      "S_sacrificed": 0.0,
+      "S_retention_rate": 1.0,
+      "published_fraction": 0.95,
+      "review_mass_joint": 0.0,
+      "review_load_among_passing": 0.0,
+      "detection_of_U": 0.0,
+      "unsafe_share_among_accepted": 0.6842105263157895,
+      "review_precision": null,
+      "counts": {
+       "U": 26,
+       "U_flagged": 0,
+       "S": 12,
+       "S_flagged": 0,
+       "passing": 38
+      }
+     }
+    },
+    "review_prioritization_at_budget": {
+     "note": "Descriptive; no interval; unreviewed patches not modelled.",
+     "0.1": {
+      "quota_nominal": 12,
+      "quota_effective": 12,
+      "U_caught": 0.11111111111111113,
+      "S_reviewed": 0.008333333333333335,
+      "review_precision": 0.9166666666666667
+     },
+     "0.2": {
+      "quota_nominal": 24,
+      "quota_effective": 24,
+      "U_caught": 0.191919191919192,
+      "S_reviewed": 0.04166666666666667,
+      "review_precision": 0.7916666666666667
+     }
+    }
+   },
+   "random_review": {
+    "0.1": {
+     "quota_nominal": 12,
+     "quota_effective": 12,
+     "U_caught": 0.11111111111111113,
+     "S_reviewed": 0.008333333333333335,
+     "review_precision": 0.9166666666666667
+    },
+    "0.2": {
+     "quota_nominal": 24,
+     "quota_effective": 24,
+     "U_caught": 0.191919191919192,
+     "S_reviewed": 0.04166666666666667,
+     "review_precision": 0.7916666666666667
+    }
+   }
+  },
+  "paired_difference": {
+   "A": "gsc",
+   "B": "ast",
+   "policy": "natural (hold back alert and not_evaluable)",
+   "draws_total": 2000,
+   "U_accepted": {
+    "estimate": -0.05833333333333335,
+    "ci95_sector_bootstrap": [
+     -0.16666666666666663,
+     0.050000000000000044
+    ],
+    "replicates_with_zero_denominator": 0
+   },
+   "S_retained": {
+    "estimate": -0.07500000000000004,
+    "ci95_sector_bootstrap": [
+     -0.19166666666666668,
+     0.0
+    ],
+    "replicates_with_zero_denominator": 0
+   },
+   "S_retention_rate": {
+    "estimate": -0.47368421052631593,
+    "ci95_sector_bootstrap": [
+     -0.8148148148148149,
+     0.0
+    ],
+    "replicates_with_zero_denominator": 0
+   },
+   "published_fraction": {
+    "estimate": -0.1333333333333332,
+    "ci95_sector_bootstrap": [
+     -0.29187499999999994,
+     0.02499999999999991
+    ],
+    "replicates_with_zero_denominator": 0
+   },
+   "detection_of_U": {
+    "estimate": 0.07070707070707066,
+    "ci95_sector_bootstrap": [
+     -0.06521739130434787,
+     0.19588134222761272
+    ],
+    "replicates_with_zero_denominator": 0
+   }
+  }
+ }
+}

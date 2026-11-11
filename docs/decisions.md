@@ -1481,3 +1481,18 @@ blocks `ladder2_e2b_main`, `ladder2_26b`; cut 2026-11-11 21:00Z), OpenTimestamps
 `21873d5` (PLATFORM=colab, MODE=ladder, LADDER_SEAL=ladder2, SESSION=1), script sha256
 `45d4fddf8eb1668c2e08d019be4d4c00f0c75c739e2515b5256797c1f2858eba`; its bundle passes the kernel's
 own `x3_verify` offline.
+
+**D17b session 1 done; D17 and D17b single analyses (2026-11-11).** Session 1 (Colab A100 80 GB,
+12:07–14:46Z) ended `x3_status=complete`, sealed archive sha256
+`522e1f9344ef9b822d445a043eda4f83a9aea687343d91ff8513733a0d3a2fc1`, kept as
+`results/sealed/ladder2_session1.tar.gz`. Both blocks started on the first attempt (default
+arguments; E2B load 230 s, 26B-A4B load 196 s), both toy checks passed (6/6 rows, 6 with tool
+calls), 120/120 rows each, none closed out. Before the 26B-A4B start, `ladder_free_socket` removed
+the stale socket file left by the E2B server (no holder to kill), i.e. the D17 session-1 failure
+did not recur. vLLM reported a KV cache of 89,872 tokens for the 26B-A4B (maximum concurrency
+16.9× at 32,768 tokens; E2B 286.7×); the 26B-A4B block took 7,127 s. Then, once each (O_EXCL
+claims by seal hash): `followup/analyze_ladder.py` on D17 session 1 (with x3 and D16 as
+comparators) → `results/ladder/ladder_report.json` sha256 `d5d1003b…`; `followup/analyze_ladder2.py`
+on D17b session 1 → `results/ladder2/ladder_report.json` sha256 `da467568…`. Both exit 0,
+`report_complete` true. All three D17/D17b models meet the capability floor. Descriptive only, post
+hoc, no test; 26B-A4B is bf16, the others QAT w4a16.
