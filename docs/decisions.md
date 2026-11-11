@@ -1473,3 +1473,11 @@ are read together, each with its own seal; nothing is pooled. No other change, m
 Reviews of D17b: Sol rounds 1–5 ("listo para sellar" in round 5); Fable 5.2 (high) independent
 audit "listo para sellar", low findings applied before the seal (fallback holder match narrowed to
 `--uds <socket>`, unlink test, wording above).
+
+**D17b sealed (2026-11-11 ~08:45 Chile).** Manifest `followup/ladder2_manifest.json` of commit
+`f7370d7`, sha256 `5ca951c3d62a53ceed79e38be09d652b59f34a58730dd9455b9d9c3037d085ac` (2082 files;
+blocks `ladder2_e2b_main`, `ladder2_26b`; cut 2026-11-11 21:00Z), OpenTimestamps proof
+`followup/ladder2_manifest.json.ots`, committed in `21873d5`. Session 1 kernel: built from
+`21873d5` (PLATFORM=colab, MODE=ladder, LADDER_SEAL=ladder2, SESSION=1), script sha256
+`45d4fddf8eb1668c2e08d019be4d4c00f0c75c739e2515b5256797c1f2858eba`; its bundle passes the kernel's
+own `x3_verify` offline.
