@@ -1656,6 +1656,9 @@ def ladder_serve(kind, procs):
     if not u.get('ok'):
         raise IsolationBreach(f'server reachable by an agent/evaluator uid: {u}')
     if time.time() >= stop_at():
+        ladder_log({'model': kind, 'revision': model_spec()['revision'], 'start_utc': t_start,
+                    'ready_utc': time.time(), 'deferred': 'server ready after the stop time',
+                    'start_errors': errs})
         raise LadderDeferred(f'{kind}: server ready after the stop time')
     rec = {'model': kind, 'revision': model_spec()['revision'], 'utc': time.time(),
            'start_utc': t_start,
