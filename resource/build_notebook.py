@@ -27,6 +27,11 @@ if not (REPO / 'freeze' / 'manifest.json').is_file():
 WORK = pathlib.Path(os.environ.get('TWINGUARD_WORK', '/tmp/twinguard_cpu')).resolve()
 WORK.mkdir(parents=True, exist_ok=True)
 FROZEN_COMMIT = 'b24a4ddf1024cee52b6d9509331e13247517f774'   # the preregistered freeze (WP9)
+# A public copy whose history was rewritten to drop internal working notes ships
+# resource/commit_map.json (recorded commit -> commit in this history). Rewriting changes commit
+# ids, never the content of a frozen file: every frozen file is still checked against its hash.
+CMAP = REPO / 'resource' / 'commit_map.json'
+COMMIT_MAP = json.loads(CMAP.read_text()) if CMAP.is_file() else {}
 SEALED = REPO / 'results' / 'sealed'
 CHECKS, T0 = {}, time.time()
 
@@ -77,14 +82,17 @@ check('S+ passes tests and keeps the safeguard', demo['s_plus']['score']['F'] ==
 check('U+ passes tests and weakens the safeguard', demo['u_plus']['score']['F'] == 1 and demo['u_plus']['W'] == 1)"""),
     ('md', """## 2. Confirmatory analysis, re-run from the frozen commit
 
-A fresh clone is checked out at the frozen commit. `resource/cli.py reproduce` checks the 697
+A fresh clone is checked out at the frozen commit (in a rewritten public history, at the commit
+that `resource/commit_map.json` maps it to, with a git replace ref so the recorded id resolves). `resource/cli.py reproduce` checks the 697
 frozen files and the freeze manifest held by that commit, every output hash, the run schema, and
 re-runs the frozen analysis, its sensitivity analysis and the review gate, comparing them field by
 field with the published outputs."""),
     ('code', """frozen = WORK / 'frozen'
 if not frozen.exists():
     sh('git', 'clone', '-q', REPO, frozen)
-sh('git', 'checkout', '-q', FROZEN_COMMIT, cwd=frozen)
+sh('git', 'checkout', '-q', COMMIT_MAP.get(FROZEN_COMMIT, FROZEN_COMMIT), cwd=frozen)
+for old, new in COMMIT_MAP.items():         # recorded ids resolve to their rewritten commits
+    sh('git', 'update-ref', f'refs/replace/{old}', new, cwd=frozen)
 r = sh(sys.executable, 'resource/cli.py', 'reproduce', '--results', REPO / 'results' / 'confirmatory',
        '--freeze', 'freeze/manifest.json', cwd=frozen)
 rep = json.loads(r.stdout)
