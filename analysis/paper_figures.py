@@ -17,8 +17,8 @@ Appendix
   figA1_models        D16/D17/D17b next to x3 N: per Gemma 4 configuration, weakened / safe repair /
                       not weakened with failing tests (120 runs each; descriptive, no intervals).
 
-Style: Source Sans 3 and Source Code Pro (SIL OFL, bundled in analysis/fonts so the figures render
-the same on any machine); framings in Paul Tol's high-contrast scheme plus marker shape; every other
+Style: Tinos (the Times-metric serif of the paper body) and Source Code Pro for code (SIL OFL,
+bundled in analysis/fonts so the figures render the same on any machine); framings in Paul Tol's high-contrast scheme plus marker shape; every other
 category in greys and hatching; 6.75 in wide; PNG (300 dpi) and PDF with embedded fonts.
 
 Needs matplotlib (not in requirements.txt; figures only):
@@ -61,12 +61,12 @@ def setup():
     for f in sorted(FONTS.glob('*.ttf')):
         font_manager.fontManager.addfont(str(f))
     plt.rcParams.update({
-        'font.family': 'sans-serif', 'font.sans-serif': ['Source Sans 3', 'DejaVu Sans'],
+        'font.family': 'serif', 'font.serif': ['Tinos', 'DejaVu Serif'],
         'font.monospace': ['Source Code Pro', 'DejaVu Sans Mono'],
-        'mathtext.fontset': 'custom', 'mathtext.it': 'Source Sans 3:italic',
-        'mathtext.rm': 'Source Sans 3', 'mathtext.bf': 'Source Sans 3:semibold',
-        'mathtext.cal': 'Source Sans 3', 'mathtext.sf': 'Source Sans 3',
-        'mathtext.tt': 'Source Code Pro', 'mathtext.bfit': 'Source Sans 3:italic',
+        'mathtext.fontset': 'custom', 'mathtext.it': 'Tinos:italic',
+        'mathtext.rm': 'Tinos', 'mathtext.bf': 'Tinos:bold',
+        'mathtext.cal': 'Tinos', 'mathtext.sf': 'Tinos',
+        'mathtext.tt': 'Source Code Pro', 'mathtext.bfit': 'Tinos:bold:italic',
         'font.size': 8.5, 'axes.titlesize': 9, 'axes.labelsize': 8.5, 'xtick.labelsize': 8,
         'ytick.labelsize': 8.5, 'legend.fontsize': 8, 'axes.linewidth': 0.6, 'axes.edgecolor': INK2,
         'xtick.major.width': 0.6, 'ytick.major.width': 0, 'xtick.major.size': 2.5,
@@ -118,7 +118,7 @@ def frac(ax, v):
 
 
 def title(ax, letter, text):
-    ax.set_title(f'{letter}   {text}', loc='left', fontweight='semibold', pad=7)
+    ax.set_title(f'{letter}   {text}', loc='left', fontweight='bold', pad=7)
 
 
 def dots(ax, y, values, styles, dodge=0.24, size=30):
@@ -136,7 +136,7 @@ def dots(ax, y, values, styles, dodge=0.24, size=30):
 def counts(ax, y, values, xs, bold=False):
     for (k, _), x in zip(values, xs):
         ax.text(x, y, f'{k}', ha='center', va='center', fontsize=8,
-                fontweight='semibold' if bold else 'normal')
+                fontweight='bold' if bold else 'normal')
     ax.text(xs[-1] + (xs[1] - xs[0]) * 0.55, y, f'/{values[-1][1]}', ha='left', va='center',
             fontsize=8, color=MUTED)
 
@@ -209,7 +209,7 @@ def fig_instrument(out):
     ax.set_ylim(n - 0.35, -2.1)
     X_CODE, X_T, X_O, X_D = 0.045, 0.615, 0.765, 0.925
     ax.text(0, -1.75, f'{DEMO_ID}: two reference repairs (template witnesses, not agent output)',
-            fontsize=8.5, fontweight='semibold', va='center')
+            fontsize=8.5, fontweight='bold', va='center')
     hy = -0.85
     for x, lab in ((X_T, 'visible tests'), (X_O, 'oracle'), (X_D, 'frozen detectors')):
         ax.text(x, hy, lab, ha='center', va='center', fontsize=7.5, color=INK2)
@@ -229,7 +229,7 @@ def fig_instrument(out):
             passed, summ, w = verdict[wit]
             ax.text(X_T, y, summ if passed else 'fail', ha='center', va='center', fontsize=8)
             ax.text(X_O, y, f"$W$ = {w}   " + ('kept' if w == 0 else 'fails open'), ha='center',
-                    va='center', fontsize=8, fontweight='normal' if w == 0 else 'semibold')
+                    va='center', fontsize=8, fontweight='normal' if w == 0 else 'bold')
             alerts = sum(st != 'no_alert' for st in det[wit])
             ax.text(X_D, y, 'no alert (0 of 3)' if alerts == 0 else f'{alerts} of 3 alert',
                     ha='center', va='center', fontsize=8)
@@ -257,14 +257,14 @@ def fig_confirmatory(out, d):
         dots(ax, y, vals, st)
         for (c, _), x in zip(vals, XC):
             ax.text(x, y, f'{c}', ha='center', va='center', fontsize=8,
-                    fontweight='semibold' if k == 'W' else 'normal')
+                    fontweight='bold' if k == 'W' else 'normal')
     headers(ax, -0.95, XC, st, ['N', 'P', 'A'])
     ax.text(XC[1], -0.5, f'of {ns.pop()} each', ha='center', va='center', fontsize=7,
             color=MUTED)
-    ax.text(0, -0.95, 'H1 ($A$ ' + MINUS + ' $N$): non-informative (floor)\nH2 ($A$ ' + MINUS
+    ax.text(0, -0.95, 'H1 ($A$ ' + MINUS + ' $N$): non-informative\nH2 ($A$ ' + MINUS
             + ' $P$): not tested', fontsize=7.5, color=INK2, va='center', linespacing=1.5)
     ax.set_yticks(range(3), [r[1] for r in rows])
-    ax.get_yticklabels()[-1].set_fontweight('semibold')
+    ax.get_yticklabels()[-1].set_fontweight('bold')
     ax.set_ylim(2.5, -1.3)
     pct_axis(ax, 158, 'runs per framing (30 templates × 4 paraphrases × 2)')
     title(ax, 'a', 'Confirmatory (preregistered, 720 runs)')
@@ -277,7 +277,7 @@ def fig_confirmatory(out, d):
         a = lad[r]['all']
         dots(bx, y, [(a['W1'], a['completed'])], [(DARK, 'o', 'white')], size=34)
         bx.text(118, y, f"{a['W1']}", ha='right', va='center', fontsize=8,
-                fontweight='semibold' if r == 'C' else 'normal')
+                fontweight='bold' if r == 'C' else 'normal')
         bx.text(118.5, y, f"/{a['completed']}", ha='left', va='center', fontsize=8, color=MUTED)
     sched = {lad[r]['all']['scheduled'] for r, _ in rungs}
     assert len(sched) == 1
@@ -286,7 +286,7 @@ def fig_confirmatory(out, d):
     bx.text(119, -0.6, f'of {sched.pop()} scheduled', ha='center', va='center', fontsize=7,
             color=MUTED)
     bx.set_yticks(range(4), [r[1] for r in rungs])
-    bx.get_yticklabels()[-1].set_fontweight('semibold')
+    bx.get_yticklabels()[-1].set_fontweight('bold')
     bx.set_ylim(3.45, -1.4)
     pct_axis(bx, 135, 'completed runs, framings pooled')
     title(bx, 'b', 'Calibration (exploratory, 6 pilot templates)')
@@ -316,7 +316,7 @@ def fig_request(out, d):
         dots(ax, y, vals, st)
         for (k, _), x in zip(vals, XC):
             ax.text(x, y, f'{k}', ha='center', va='center', fontsize=8,
-                    fontweight='semibold' if m == 'all' else 'normal')
+                    fontweight='bold' if m == 'all' else 'normal')
         ax.text(XC[-1] + 6.5, y, f'of {vals[0][1]}', ha='left', va='center', fontsize=8,
                 color=MUTED)
     # count table: how many runs applied the patch, per framing, out of the runs in that row
@@ -326,7 +326,7 @@ def fig_request(out, d):
     ax.text(XC[-1] + 6.5, -0.65, 'runs', ha='left', va='center', fontsize=7.5, color=MUTED)
     ax.axhline(2.675, color=RULE, lw=0.6)
     ax.set_yticks(ys, [r[1] for r in rows])
-    ax.get_yticklabels()[-1].set_fontweight('semibold')
+    ax.get_yticklabels()[-1].set_fontweight('bold')
     ax.set_ylim(3.85, -1.55)
     pct_axis(ax, 152, 'runs that applied the weakening patch (oracle $W$ = 1)')
     title(ax, 'a', 'Asked to apply the weakening patch (Gemma 4 31B)')
@@ -339,7 +339,7 @@ def fig_request(out, d):
     bx.plot(c95, [0, 0], color=INK, lw=0.9, zorder=2, solid_capstyle='butt')
     bx.plot(c90, [0, 0], color=INK, lw=3.2, zorder=3, solid_capstyle='butt')
     bx.scatter([e], [0], s=34, color='white', edgecolor=INK, linewidth=1.1, zorder=4)
-    bx.text(e, 0.2, f'{mn(e)} pp', ha='center', va='bottom', fontsize=8, fontweight='semibold',
+    bx.text(e, 0.2, f'{mn(e)} pp', ha='center', va='bottom', fontsize=8, fontweight='bold',
             bbox=dict(boxstyle='square,pad=0.15', fc=BAND, ec='none'), zorder=5)
     bx.text(-9.4, 0.86, 'SESOI ±10 pp', ha='left', va='center', fontsize=7.5, color=INK2)
     bx.text(0, -0.48, f'90% CI [{mn(c90[0])}, {mn(c90[1])}]', ha='center', va='center', fontsize=7.5)
@@ -404,7 +404,7 @@ def fig_detectors(out, d):
                 bx.barh(y, 100 * abst / n, 0.62, left=100 * alarm / n, facecolor='white',
                         edgecolor=MID, hatch='//////', lw=0.5, zorder=2)
             bx.text(100 * held / n + 2, y, f'{held}', ha='left', va='center', fontsize=8,
-                    fontweight='semibold' if kind == 'U' else 'normal')
+                    fontweight='bold' if kind == 'U' else 'normal')
             bx.text(100 * held / n + 2 + 4.2 * len(str(held)), y, f'/{n}', ha='left',
                     va='center', fontsize=8, color=MUTED)
             ticks.append(y)
@@ -414,7 +414,7 @@ def fig_detectors(out, d):
     bx.set_yticks(ticks, labels)
     for t, lab in zip(bx.get_yticklabels(), labels):
         if '·' in lab:
-            t.set_fontweight('semibold')
+            t.set_fontweight('bold')
     bx.set_ylim(y - 0.6, -0.65)
     pct_axis(bx, 100, 'held back for review (% of each kind)', left=0)
     bx.spines['bottom'].set_bounds(0, 100)
@@ -454,7 +454,7 @@ def fig_models(out, d):
                                                      ec='none'))
             left += w
         ax.text(103, i, f"{p['W0_tests_pass']}", ha='right', va='center', fontsize=8,
-                fontweight='semibold', transform=ax.transData)
+                fontweight='bold', transform=ax.transData)
         ax.text(103.3, i, f'/{n}', ha='left', va='center', fontsize=8, color=MUTED)
     ax.text(103, -0.75, 'safe repairs', ha='center', va='center', fontsize=7.5, color=INK2)
     ax.set_yticks(range(len(order)), [o[1] for o in order])
