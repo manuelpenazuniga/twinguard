@@ -9,7 +9,7 @@ Body
   fig2_confirmatory   a: confirmatory M/F/W per framing; b: D12 calibration, W among completed runs
                       per rung (framings pooled).
   fig3_request        x3 (31B): a: W under the explicit request by mechanism x framing;
-                      b: the sealed A - N estimate with its 90% and 95% CIs against the SESOI.
+                      b: the sealed A - N estimate with its 90% and 95% CIs against the +-10 pp margin (SESOI).
   fig4_detectors      x3: a: the 268 weakening patches against tests, frozen detectors and the
                       lexical disclosure pattern, by mechanism; b: what each frozen gate policy holds
                       back among weakening patches and safe repairs (GSC alarms vs abstentions).
@@ -207,14 +207,14 @@ def fig_instrument(out):
     n = len(rows)
     ax.set_xlim(0, 1)
     ax.set_ylim(n - 0.35, -2.1)
-    X_CODE, X_T, X_O, X_D = 0.045, 0.615, 0.765, 0.925
-    ax.text(0, -1.75, f'{DEMO_ID}: two reference repairs (template witnesses, not agent output)',
+    X_CODE, X_T, X_O, X_D = 0.045, 0.598, 0.748, 0.926
+    ax.text(0, -1.75, 'Policy timeout (M1): two reference repairs from the benchmark, not agent output',
             fontsize=8.5, fontweight='bold', va='center')
     hy = -0.85
-    for x, lab in ((X_T, 'visible tests'), (X_O, 'oracle'), (X_D, 'frozen detectors')):
+    for x, lab in ((X_T, 'visible tests'), (X_O, 'oracle'), (X_D, 'fixed code checks')):
         ax.text(x, hy, lab, ha='center', va='center', fontsize=7.5, color=INK2)
     ax.plot([0, 1], [hy + 0.42] * 2, color=RULE, lw=0.6)
-    names = {'s_plus': 'S+', 'u_plus': 'U+'}
+    names = {'s_plus': 'Safe', 'u_plus': 'Weakening'}
     for y, (wit, line) in enumerate(rows):
         if wit:
             ax.add_patch(Rectangle((0, y - 0.45), 1, 0.9, color=BAND, lw=0, zorder=0))
@@ -228,7 +228,7 @@ def fig_instrument(out):
                         va='center', ha='left', fontweight='semibold')
             passed, summ, w = verdict[wit]
             ax.text(X_T, y, summ if passed else 'fail', ha='center', va='center', fontsize=8)
-            ax.text(X_O, y, f"$W$ = {w}   " + ('kept' if w == 0 else 'fails open'), ha='center',
+            ax.text(X_O, y, ('safeguard kept' if w == 0 else 'fails open') + f" ($W$ = {w})", ha='center',
                     va='center', fontsize=8, fontweight='normal' if w == 0 else 'bold')
             alerts = sum(st != 'no_alert' for st in det[wit])
             ax.text(X_D, y, 'no alert (0 of 3)' if alerts == 0 else f'{alerts} of 3 alert',
@@ -341,7 +341,7 @@ def fig_request(out, d):
     bx.scatter([e], [0], s=34, color='white', edgecolor=INK, linewidth=1.1, zorder=4)
     bx.text(e, 0.2, f'{mn(e)} pp', ha='center', va='bottom', fontsize=8, fontweight='bold',
             bbox=dict(boxstyle='square,pad=0.15', fc=BAND, ec='none'), zorder=5)
-    bx.text(-9.4, 0.86, 'SESOI ±10 pp', ha='left', va='center', fontsize=7.5, color=INK2)
+    bx.text(-9.4, 0.86, '±10 pp margin', ha='left', va='center', fontsize=7.5, color=INK2)
     bx.text(0, -0.48, f'90% CI [{mn(c90[0])}, {mn(c90[1])}]', ha='center', va='center', fontsize=7.5)
     bx.text(0, -0.74, f'95% CI [{mn(c95[0])}, {mn(c95[1])}]', ha='center', va='center',
             fontsize=7.5, color=INK2)
@@ -349,7 +349,7 @@ def fig_request(out, d):
     bx.set_yticks([])
     bx.set_xlim(-14, 14)
     bx.set_xticks([-10, -5, 0, 5, 10], [f'{MINUS}10', f'{MINUS}5', '0', '+5', '+10'])
-    bx.set_xlabel(f'$A$ {MINUS} $N$ in $W$ (pp); frozen estimator, $K$ = 30')
+    bx.set_xlabel(f'$A$ {MINUS} $N$ in $W$ (pp), 30 templates')
     title(bx, 'b', f'Framing contrast $A$ {MINUS} $N$')
     save(fig, out, 'fig3_request')
 
@@ -366,7 +366,7 @@ def fig_detectors(out, d):
 
     ax = fig.add_subplot(gs[0])
     rows = [('tests', 'Visible tests pass'), ('ast', 'AST baseline: alert'),
-            ('gsc', 'GSC (call graph): alert'), ('gsc_ne', 'GSC: not evaluable'),
+            ('gsc', 'Call-graph check: alert'), ('gsc_ne', 'Call-graph check: not evaluable'),
             ('except_local', 'except-local: alert'), ('disc', 'Lexical disclosure pattern')]
 
     def val(r, m):
@@ -391,7 +391,7 @@ def fig_detectors(out, d):
     title(ax, 'a', 'What flags a weakening patch')
 
     bx = fig.add_subplot(gs[1])
-    pols = [('tests_only', 'Tests only'), ('ast', 'AST'), ('gsc', 'GSC')]
+    pols = [('tests_only', 'Tests only'), ('ast', 'AST'), ('gsc', 'Call graph')]
     y, ticks, labels = 0, [], []
     for pk, pl in pols:
         for kind, lab in (('U', 'weakening'), ('S', 'safe repair')):
