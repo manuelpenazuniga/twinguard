@@ -656,7 +656,11 @@ def test_oversized_bundle_travels_xz_and_decodes_to_the_same_tar(tmp_path):
     import subprocess
     import sys
     import tarfile
-    commit = subprocess.run(['git', 'rev-parse', '39c733f'], cwd=ROOT, capture_output=True,
+    ref = '39c733f'
+    cmap = ROOT / 'resource' / 'commit_map.json'      # public copy: rewritten history
+    if cmap.is_file():
+        ref = next(n for o, n in json.loads(cmap.read_text()).items() if o.startswith(ref))
+    commit = subprocess.run(['git', 'rev-parse', ref], cwd=ROOT, capture_output=True,
                             text=True, check=True).stdout.strip()
     subprocess.run([sys.executable, str(ROOT / 'notebooks' / 'build_kernel.py'),
                     str(ROOT / 'notebooks' / 'pilot_l4'), '--commit', commit, '--out-dir',

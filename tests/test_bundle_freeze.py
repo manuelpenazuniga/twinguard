@@ -16,6 +16,20 @@ ROOT = Path(__file__).resolve().parent.parent
 FROZEN = 'b24a4dd'
 
 
+def recorded_commit(prefix):
+    """A recorded commit id; in a public copy with rewritten history, the commit it maps to
+    (resource/commit_map.json)."""
+    cmap = ROOT / 'resource' / 'commit_map.json'
+    if cmap.is_file():
+        for old, new in json.loads(cmap.read_text()).items():
+            if old.startswith(prefix):
+                return new
+    return prefix
+
+
+FROZEN = recorded_commit(FROZEN)
+
+
 def git(*a, text=False):
     return subprocess.run(['git', *a], cwd=ROOT, capture_output=True, check=True, text=text).stdout
 
