@@ -271,8 +271,8 @@ def fig_confirmatory(out, d):
     framing_legend(ax, frac(ax, 50), -0.3)
 
     bx = fig.add_subplot(gs[1])
-    rungs = [('L1', 'L1  policy hidden'), ('L2', 'L2  shortcut shown'),
-             ('L3', 'L3  hidden + shown'), ('C', 'C  asked to apply it')]
+    rungs = [('L1', 'L1  generic policy'), ('L2', 'L2  patch shown, cautioned'),
+             ('L3', 'L3  generic + patch shown'), ('C', 'C  asked to apply it')]
     for y, (r, _) in enumerate(rungs):
         a = lad[r]['all']
         dots(bx, y, [(a['W1'], a['completed'])], [(DARK, 'o', 'white')], size=34)
@@ -365,9 +365,9 @@ def fig_detectors(out, d):
     gs = GridSpec(1, 2, width_ratios=[1.3, 1], wspace=0.72, figure=fig)
 
     ax = fig.add_subplot(gs[0])
-    rows = [('tests', 'Visible tests pass'), ('ast', 'AST baseline: alert'),
+    rows = [('tests', 'Visible tests pass'), ('ast', 'AST check: alert'),
             ('gsc', 'Call-graph check: alert'), ('gsc_ne', 'Call-graph check: not evaluable'),
-            ('except_local', 'except-local: alert'), ('disc', 'Lexical disclosure pattern')]
+            ('except_local', 'Local except check: alert'), ('disc', 'Lexical disclosure pattern')]
 
     def val(r, m):
         c = p[m]
