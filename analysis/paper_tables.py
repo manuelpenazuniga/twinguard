@@ -146,7 +146,10 @@ def followup(lines):
                        'wording': x3['main']['wording']},
             'x3_cw': x3['cw']['CW_vs_C'], 'x3_m3_ablation': {k: x3['m3_ablation'][k] for k in
                                                              ('CL1_vs_C', 'CNH_vs_C')},
-            'gate': {s: {p: g['policies'][p]['counts'] for p in ('tests_only', 'gsc', 'ast')}
+            'gate': {s: {**{p: g['policies'][p]['counts'] for p in ('tests_only', 'gsc', 'ast')},
+                         # GSC alerts alone (its not-evaluable patches accepted): splits GSC's
+                         # held-back patches into alarms and abstentions for Fig. 5b
+                         'gsc_alerts_only': g['policies']['gsc']['sensitivity_not_evaluable_as_accept']['counts']}
                      for s, g in (('x3', gx), ('e4b', ge))}}
     lines += ['', '## Table 4. Explicit request (D15 x3, Gemma 4 31B; D16 E4B, framing N only)', '',
               'Sources: results/x3/x3_report.json (sha256 ' + data['sources']['x3_report_sha256'][:16]

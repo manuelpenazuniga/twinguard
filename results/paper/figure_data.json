@@ -113,6 +113,13 @@
      "U_flagged": 39,
      "passing": 101
     },
+    "gsc_alerts_only": {
+     "S": 1,
+     "S_flagged": 0,
+     "U": 100,
+     "U_flagged": 14,
+     "passing": 101
+    },
     "tests_only": {
      "S": 1,
      "S_flagged": 0,
@@ -134,6 +141,13 @@
      "S_flagged": 32,
      "U": 268,
      "U_flagged": 91,
+     "passing": 360
+    },
+    "gsc_alerts_only": {
+     "S": 92,
+     "S_flagged": 0,
+     "U": 268,
+     "U_flagged": 39,
      "passing": 360
     },
     "tests_only": {
