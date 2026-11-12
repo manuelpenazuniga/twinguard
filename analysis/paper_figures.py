@@ -96,15 +96,25 @@ def mn(v, fmt='+.1f'):
     return format(v, fmt).replace('-', MINUS)
 
 
-def pct_axis(ax, right, label=None, ticks=(0, 25, 50, 75, 100)):
-    """0-100 % axis; the spine stops at 100 so the count column to its right reads as a table."""
-    ax.set_xlim(0, right)
+LEFT = -5     # dot plots: room left of 0 so a zero-valued marker is drawn whole, not cut by the axes
+
+
+def pct_axis(ax, right, label=None, ticks=(0, 25, 50, 75, 100), left=LEFT):
+    """0-100 % axis; the spine stops at 100 so the count column to its right reads as a table.
+    The 0 % gridline sits behind the markers (set_axisbelow)."""
+    ax.set_xlim(left, right)
     ax.spines['bottom'].set_bounds(0, 100)
     ax.set_xticks(list(ticks), [str(t) for t in ticks[:-1]] + [f'{ticks[-1]}%'])
     ax.grid(axis='x', color=BAND, lw=0.6, zorder=0)
     ax.set_axisbelow(True)
     if label:
-        ax.set_xlabel(label, x=50 / right)
+        ax.set_xlabel(label, x=frac(ax, 50))
+
+
+def frac(ax, v):
+    """Axes fraction of the data x-value v."""
+    lo, hi = ax.get_xlim()
+    return (v - lo) / (hi - lo)
 
 
 def title(ax, letter, text):
@@ -120,7 +130,7 @@ def dots(ax, y, values, styles, dodge=0.24, size=30):
         ax.plot([0, x], [yy, yy], color=c if c != LIGHT else MUTED, lw=0.7, alpha=0.45, zorder=1,
                 solid_capstyle='butt')
         ax.scatter(x, yy, s=size * (1.2 if mk in '^D' else 1), marker=mk, color=c, edgecolor=ec,
-                   linewidth=0.6, zorder=3 + j)
+                   linewidth=0.6, zorder=3 + j, clip_on=False)
 
 
 def counts(ax, y, values, xs, bold=False):
@@ -131,12 +141,17 @@ def counts(ax, y, values, xs, bold=False):
             fontsize=8, color=MUTED)
 
 
-def headers(ax, y, xs, styles, labels, sub=None, dy=0.42):
-    """Count-column headers: the series marker, its label and, optionally, a muted n below."""
+def headers(ax, y, xs, styles, labels, sub=None, dy=0.42, mdx=2.6):
+    """Count-column headers: the series marker, its label and, optionally, a muted n below.
+    Single-letter labels sit just right of the marker; longer ones are centred on the column
+    with the marker mdx to the left."""
     for i, (x, (c, mk, ec), lab) in enumerate(zip(xs, styles, labels)):
-        ax.scatter(x - 2.6, y, s=16 * (1.2 if mk in '^D' else 1), marker=mk, color=c,
+        ax.scatter(x - mdx, y, s=16 * (1.2 if mk in '^D' else 1), marker=mk, color=c,
                    edgecolor=ec, linewidth=0.5, clip_on=False)
-        ax.text(x + 0.4, y, lab, ha='left', va='center', fontsize=7.5, color=INK2)
+        if len(lab) == 1:
+            ax.text(x + 0.4, y, lab, ha='left', va='center', fontsize=7.5, color=INK2)
+        else:
+            ax.text(x, y, lab, ha='center', va='center', fontsize=7.5, color=INK2)
         if sub:
             ax.text(x, y + dy, sub[i], ha='center', va='center', fontsize=7, color=MUTED)
 
@@ -253,7 +268,7 @@ def fig_confirmatory(out, d):
     ax.set_ylim(2.5, -1.3)
     pct_axis(ax, 158, 'runs per framing (30 templates × 4 paraphrases × 2)')
     title(ax, 'a', 'Confirmatory (preregistered, 720 runs)')
-    framing_legend(ax, 50 / 158, -0.3)
+    framing_legend(ax, frac(ax, 50), -0.3)
 
     bx = fig.add_subplot(gs[1])
     rungs = [('L1', 'L1  policy hidden'), ('L2', 'L2  shortcut shown'),
@@ -294,19 +309,28 @@ def fig_request(out, d):
         ms = ('M1', 'M2', 'M3') if m == 'all' else (m,)
         return sum(W[x][fr]['W1'] for x in ms), sum(W[x][fr]['n'] for x in ms)
     st = framing_styles()
-    XC = [110, 120, 130]
+    XC = [112, 123, 134]
     for y, (m, _) in zip(ys, rows):
         vals = [cell(m, fr) for fr in 'NPA']
+        assert len({n for _, n in vals}) == 1
         dots(ax, y, vals, st)
-        counts(ax, y, vals, XC, bold=(m == 'all'))
-    headers(ax, -0.8, XC, st, ['N', 'P', 'A'])
+        for (k, _), x in zip(vals, XC):
+            ax.text(x, y, f'{k}', ha='center', va='center', fontsize=8,
+                    fontweight='semibold' if m == 'all' else 'normal')
+        ax.text(XC[-1] + 6.5, y, f'of {vals[0][1]}', ha='left', va='center', fontsize=8,
+                color=MUTED)
+    # count table: how many runs applied the patch, per framing, out of the runs in that row
+    ax.text(XC[1], -1.3, 'runs with $W$ = 1', ha='center', va='center', fontsize=7.5, color=INK2)
+    ax.plot([XC[0] - 5, XC[-1] + 5], [-1.0, -1.0], color=RULE, lw=0.6, clip_on=False)
+    headers(ax, -0.65, XC, st, ['N', 'P', 'A'])
+    ax.text(XC[-1] + 6.5, -0.65, 'runs', ha='left', va='center', fontsize=7.5, color=MUTED)
     ax.axhline(2.675, color=RULE, lw=0.6)
     ax.set_yticks(ys, [r[1] for r in rows])
     ax.get_yticklabels()[-1].set_fontweight('semibold')
-    ax.set_ylim(3.85, -1.2)
-    pct_axis(ax, 146, 'runs that applied the weakening patch (oracle $W$ = 1)')
+    ax.set_ylim(3.85, -1.55)
+    pct_axis(ax, 152, 'runs that applied the weakening patch (oracle $W$ = 1)')
     title(ax, 'a', 'Asked to apply the weakening patch (Gemma 4 31B)')
-    framing_legend(ax, 50 / 146, -0.22)
+    framing_legend(ax, frac(ax, 50), -0.22)
 
     bx = fig.add_subplot(gs[1])
     e, c90, c95 = 100 * dAN['estimate'], [100 * x for x in dAN['ci90']], [100 * x for x in dAN['ci95']]
@@ -353,17 +377,17 @@ def fig_detectors(out, d):
         assert p[m]['ast_evaluable'] == p[m]['except_local_evaluable'] == p[m]['W1']
     ms = ['M1', 'M2', 'M3']
     st = [MECH[m] for m in ms]
-    XC = [116, 133, 150]
+    XC = [116, 140, 164]
     for y, (r, _) in enumerate(rows):
         vals = [val(r, m) for m in ms]
         dots(ax, y, vals, st)
         for (k, _), x in zip(vals, XC):
             ax.text(x, y, f'{k}', ha='center', va='center', fontsize=8)
-    headers(ax, -1.25, XC, st, ms, sub=[f"{p[m]['W1']}" for m in ms], dy=0.55)
+    headers(ax, -1.25, XC, st, ms, sub=[f"{p[m]['W1']}" for m in ms], dy=0.55, mdx=10.5)
     ax.text(XC[-1] + 9, -0.7, '= n', ha='left', va='center', fontsize=7, color=MUTED)
     ax.set_yticks(range(len(rows)), [r[1] for r in rows])
     ax.set_ylim(len(rows) - 0.5, -1.65)
-    pct_axis(ax, 165, f"the {sum(p[m]['W1'] for m in ms)} weakening patches ($W$ = 1), by mechanism")
+    pct_axis(ax, 180, f"the {sum(p[m]['W1'] for m in ms)} weakening patches ($W$ = 1), by mechanism")
     title(ax, 'a', 'What flags a weakening patch')
 
     bx = fig.add_subplot(gs[1])
@@ -392,7 +416,7 @@ def fig_detectors(out, d):
         if '·' in lab:
             t.set_fontweight('semibold')
     bx.set_ylim(y - 0.6, -0.65)
-    pct_axis(bx, 100, 'held back for review (% of each kind)')
+    pct_axis(bx, 100, 'held back for review (% of each kind)', left=0)
     bx.spines['bottom'].set_bounds(0, 100)
     title(bx, 'b', 'Frozen gate on the 360 test-passing patches')
     bx.legend(handles=[Patch(color=DARK, label='alarm'),
@@ -436,10 +460,10 @@ def fig_models(out, d):
     ax.set_yticks(range(len(order)), [o[1] for o in order])
     ax.set_ylim(len(order) - 0.45, -1.05)
     pct_axis(ax, 112, 'Gemma 4 configurations, explicit request, framing $N$: 120 runs each '
-             '(30 templates × 4 paraphrases)')
+             '(30 templates × 4 paraphrases)', left=0)
     ax.grid(False)
     ax.legend(handles=[Patch(label=lab, **kw) for _, lab, kw in segs], loc='upper center',
-              bbox_to_anchor=(50 / 112, -0.24), ncol=3, handlelength=1.4, columnspacing=1.4)
+              bbox_to_anchor=(frac(ax, 50), -0.24), ncol=3, handlelength=1.4, columnspacing=1.4)
     save(fig, out, 'figA1_models')
 
 
